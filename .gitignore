@@ -1,0 +1,69 @@
+# Rust
+/target/
+**/target/
+**/*.rs.bk
+**/Cargo.lock
+
+# Node
+node_modules/
+.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri
+**/tauri.conf.json.bak
+**/icons/*.icns
+**/icons/*.ico
+**/icons/*.png
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+sqlx-data.json
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Documentation builds
+*.pdf
+*.epub
+*.mobi

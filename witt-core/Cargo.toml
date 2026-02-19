@@ -1,0 +1,56 @@
+[package]
+name = "witt-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Eka"]
+description = "Core library for Witt - Personal Language Asset Engine"
+license = "MIT"
+repository = "https://github.com/eka/witt"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# UUID generation
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Database
+sqlx = { version = "0.5.9", features = ["sqlite", "runtime-tokio-native-tls", "offline"] }
+
+# Logging
+fern = { version = "0.6", features = ["colored"] }
+log = "0.4"
+
+# File system
+walkdir = "2.4"
+
+# Anki integration
+genanki-rs = "0.4"
+anki_bridge = { version = "0.4", features = ["reqwest_async"] }
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# Configuration
+config = { version = "0.14", features = ["toml"] }
+
+# Path handling
+path-slash = "0.2"
+
+# Directories
+dirs = "5.0"
+
+[dev-dependencies]
+tempfile = "3.8"
+env_logger = "0.10"

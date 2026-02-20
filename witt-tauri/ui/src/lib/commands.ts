@@ -3,54 +3,91 @@
  */
 import { invoke } from '@tauri-apps/api/core';
 import type {
-  Card,
-  CaptureRequest,
-  LibraryFilter,
+  Note,
+  Context,
+  NoteRequest,
+  NoteUpdate,
+  NoteFilter,
   Definition,
   LemmaRequest,
   DefinitionRequest,
 } from '@/types';
 
 /**
- * Get all library cards with optional filtering
+ * Initialize WittCore
  */
-export async function getLibraryCards(filter?: LibraryFilter): Promise<Card[]> {
-  return invoke<Card[]>('get_library_cards', { filter });
+export async function initCore(): Promise<void> {
+  return invoke<void>('init_core');
 }
 
 /**
- * Get a single card by ID
+ * Get all notes with optional filtering
  */
-export async function getCard(id: string): Promise<Card> {
-  return invoke<Card>('get_card', { id });
+export async function getNotes(filter?: NoteFilter): Promise<Note[]> {
+  return invoke<Note[]>('get_notes', { filter });
 }
 
 /**
- * Save a new capture
+ * Get a single note by lemma
  */
-export async function saveCapture(request: CaptureRequest): Promise<string> {
-  return invoke<string>('save_capture', { request });
+export async function getNote(lemma: string): Promise<Note> {
+  return invoke<Note>('get_note', { lemma });
 }
 
 /**
- * Update an existing card
+ * Save a new note
  */
-export async function updateCard(id: string, updates: Card): Promise<Card> {
-  return invoke<Card>('update_card', { id, updates });
+export async function saveNote(request: NoteRequest): Promise<string> {
+  return invoke<string>('save_note', { request });
 }
 
 /**
- * Delete a card
+ * Update an existing note
  */
-export async function deleteCard(id: string): Promise<void> {
-  return invoke<void>('delete_card', { id });
+export async function updateNote(lemma: string, updates: NoteUpdate): Promise<Note> {
+  return invoke<Note>('update_note', { lemma, updates });
 }
 
 /**
- * Search cards by query
+ * Delete a note
  */
-export async function searchCards(query: string): Promise<Card[]> {
-  return invoke<Card[]>('search_cards', { query });
+export async function deleteNote(lemma: string): Promise<void> {
+  return invoke<void>('delete_note', { lemma });
+}
+
+/**
+ * Search notes by query
+ */
+export async function searchNotes(query: string): Promise<Note[]> {
+  return invoke<Note[]>('search_notes', { query });
+}
+
+/**
+ * Get all contexts for a note
+ */
+export async function getContexts(lemma: string): Promise<Context[]> {
+  return invoke<Context[]>('get_contexts', { lemma });
+}
+
+/**
+ * Save a new context
+ */
+export async function saveContext(lemma: string, context: Context): Promise<string> {
+  return invoke<string>('save_context', { lemma, context });
+}
+
+/**
+ * Update an existing context
+ */
+export async function updateContext(lemma: string, context: Context): Promise<Context> {
+  return invoke<Context>('update_context', { lemma, context });
+}
+
+/**
+ * Delete a context
+ */
+export async function deleteContext(lemma: string, contextId: string): Promise<void> {
+  return invoke<void>('delete_context', { lemma, contextId });
 }
 
 /**

@@ -1,0 +1,9 @@
+name: cloud-sync-interface
+specifications:
+  - specs/sync-provider-interface/spec.md
+  - specs/cloudflare-d1-integration/spec.md
+  - specs/cloudflare-r2-integration/spec.md
+  - specs/incremental-sync/spec.md
+  - specs/conflict-resolution/spec.md
+dependencies:
+  - core-infrastructure

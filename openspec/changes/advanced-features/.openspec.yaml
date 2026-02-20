@@ -1,0 +1,8 @@
+name: advanced-features
+specifications:
+  - specs/semantic-analysis/spec.md
+  - specs/collocation-detection/spec.md
+  - specs/learning-tracking/spec.md
+  - specs/data-visualization/spec.md
+dependencies:
+  - core-infrastructure

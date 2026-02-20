@@ -1,4 +1,4 @@
-# WittCore 重构提案
+# 核心架构（Core Infrastructure）
 
 ## 概述
 

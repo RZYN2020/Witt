@@ -1,0 +1,9 @@
+name: web-platform
+specifications:
+  - specs/cloudflare-pages-deployment/spec.md
+  - specs/responsive-ui/spec.md
+  - specs/web-sync/spec.md
+  - specs/simplified-capture/spec.md
+dependencies:
+  - core-infrastructure
+  - cloud-sync-interface

@@ -1,0 +1,9 @@
+name: ios-platform
+specifications:
+  - specs/ios-app-framework/spec.md
+  - specs/camera-integration/spec.md
+  - specs/screen-capture/spec.md
+  - specs/ios-sync/spec.md
+dependencies:
+  - core-infrastructure
+  - cloud-sync-interface

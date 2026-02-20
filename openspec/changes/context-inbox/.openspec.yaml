@@ -1,0 +1,9 @@
+name: context-inbox
+specifications:
+  - specs/inbox-management/spec.md
+  - specs/quick-capture/spec.md
+  - specs/word-extraction/spec.md
+  - specs/inbox-ui/spec.md
+  - specs/integration/spec.md
+dependencies:
+  - core-infrastructure

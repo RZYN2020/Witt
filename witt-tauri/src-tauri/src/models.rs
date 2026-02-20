@@ -1,22 +1,7 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use witt_core::{Source, note::Audio, note::Image, note::Context};
+use witt_core::{note::Audio, note::Context};
 
-/// Represents a captured note with contexts
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Note {
-    pub lemma: String,
-    pub definition: String,
-    pub pronunciation: Option<Audio>,
-    pub phonetics: Option<String>,
-    pub tags: Vec<String>,
-    pub comment: String,
-    pub deck: String,
-    pub contexts: Vec<Context>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: Option<DateTime<Utc>>,
-}
 
 /// A dictionary definition for a word
 #[derive(Debug, Clone, Serialize, Deserialize)]

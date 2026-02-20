@@ -5,7 +5,7 @@ use tauri::State;
 use tokio::time::sleep;
 use uuid::Uuid;
 use rand::Rng;
-use witt_core::{WittCore, WittConfig, Note, note::Context, Source, note::Audio, note::Image, note::NoteUpdate};
+use witt_core::{WittCore, WittConfig, Note, note::Context, note::NoteUpdate};
 
 pub struct WittCoreState {
     pub core: tokio::sync::Mutex<Option<WittCore>>,

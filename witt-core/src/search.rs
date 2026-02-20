@@ -425,7 +425,6 @@ impl Default for SearchEngine {
 mod tests {
     use super::*;
     use crate::note::{NoteBuilder, Source, Context};
-    use tempfile::tempdir;
 
     #[tokio::test]
     async fn test_search_engine_basic() {

@@ -6,6 +6,7 @@ mod models;
 use witt_core::WittCore;
 use tokio::sync::Mutex;
 
+#[allow(dead_code)]
 struct WittCoreState {
     core: Mutex<Option<WittCore>>,
 }

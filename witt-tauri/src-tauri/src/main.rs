@@ -2,20 +2,38 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
-mod mock_store;
 mod models;
+use witt_core::WittCore;
+use tokio::sync::Mutex;
+
+struct WittCoreState {
+    core: Mutex<Option<WittCore>>,
+}
+
+impl Default for WittCoreState {
+    fn default() -> Self {
+        Self {
+            core: Mutex::new(None),
+        }
+    }
+}
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .manage(mock_store::StoreState::default())
+        .manage(WittCoreState::default())
         .invoke_handler(tauri::generate_handler![
-            commands::get_library_cards,
-            commands::get_card,
-            commands::save_capture,
-            commands::update_card,
-            commands::delete_card,
-            commands::search_cards,
+            commands::init_core,
+            commands::get_notes,
+            commands::get_note,
+            commands::save_note,
+            commands::update_note,
+            commands::delete_note,
+            commands::search_notes,
+            commands::get_contexts,
+            commands::save_context,
+            commands::update_context,
+            commands::delete_context,
             commands::get_definitions,
             commands::get_lemma,
             commands::get_tag_suggestions

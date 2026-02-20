@@ -429,8 +429,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_search_engine_basic() {
-        let temp_dir = tempdir().unwrap();
-        let db = SqliteDb::connect(&temp_dir.path().join("witt.db")).await.unwrap();
+        let temp_file = tempfile::NamedTempFile::new().unwrap();
+        let db_path = temp_file.into_temp_path();
+        println!("DB path: {:?}", db_path);
+        let db = SqliteDb::connect(&db_path).await.unwrap();
 
         // Add some test notes
         let note1 = NoteBuilder::new("test", "a test note")

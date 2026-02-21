@@ -3,25 +3,22 @@
 
 mod commands;
 mod models;
-use witt_core::WittCore;
-use tokio::sync::Mutex;
+mod tray;
 
-#[allow(dead_code)]
-struct WittCoreState {
-    core: Mutex<Option<WittCore>>,
-}
-
-impl Default for WittCoreState {
-    fn default() -> Self {
-        Self {
-            core: Mutex::new(None),
-        }
-    }
-}
+use commands::WittCoreState;
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .setup(|app| {
+            // Create system tray
+            tray::create_system_tray(app.handle())?;
+            Ok(())
+        })
         .manage(WittCoreState::default())
         .invoke_handler(tauri::generate_handler![
             commands::init_core,
@@ -37,7 +34,18 @@ fn main() {
             commands::delete_context,
             commands::get_definitions,
             commands::get_lemma,
-            commands::get_tag_suggestions
+            commands::get_tag_suggestions,
+            // Optimized response commands
+            commands::get_notes_paginated,
+            commands::batch_save_notes,
+            commands::get_note_summaries,
+            commands::bulk_delete_notes,
+            commands::get_stats,
+            // AnkiConnect commands
+            commands::check_anki_connect,
+            commands::get_anki_decks,
+            commands::sync_to_anki,
+            commands::export_to_apkg
         ])
         .run(tauri::generate_context!())
         .expect("error while running witt-tauri");

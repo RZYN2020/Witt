@@ -23,8 +23,7 @@ witt/
 │   │   ├── src/
 │   │   │   ├── main.rs         # App entry point
 │   │   │   ├── commands.rs     # IPC handlers
-│   │   │   ├── models.rs       # Data models
-│   │   │   └── mock_store.rs   # Mock data layer
+│   │   │   └── models.rs       # Data models
 │   │   ├── Cargo.toml
 │   │   └── tauri.conf.json
 │   │
@@ -75,37 +74,29 @@ pnpm build
 
 ## 📋 Current Status
 
-**Phase:** UI-First Development (Mock Mode)
+**Phase:** Real Backend Implementation
 
-We're currently building the beautiful UI before wiring up the real backend. The app runs with:
-- ✅ Mock data store (20-30 sample cards)
-- ✅ Fake async delays (50-200ms)
-- ✅ Mock dictionary service
-- ✅ Mock lemma extraction
-- 🚧 Capture popup (in progress)
-- 🚧 Library view (in progress)
-- 🚧 Video player (in progress)
+The app now runs with:
+- ✅ SQLite database persistence
+- ✅ Real dictionary API (Free Dictionary API)
+- ✅ Real lemma extraction (rust-stemmers)
+- ✅ Full CRUD operations
+- 🚧 Capture popup
+- 🚧 Library view
+- 🚧 Video player
 
 ## 🎹 Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Alt+C` | Open capture popup |
-| `Ctrl+Alt+L` | Open library |
+| `Cmd+G` (macOS) / `Ctrl+G` (Windows/Linux) | Open capture popup |
+| `Cmd+L` (macOS) / `Ctrl+L` (Windows/Linux) | Open library |
 | `Tab` | Next field (in popup) |
 | `Enter` | Save & Close |
 | `Ctrl+Enter` | Save & Next |
 | `Esc` | Close / Cancel |
 
-## 🧪 Mock Mode
-
-The app currently runs in **mock mode**:
-- All data is stored in-memory
-- Changes are lost on restart
-- Sample data includes multi-language cards (EN, DE, JA, KO, ZH)
-- An amber banner indicates mock mode
-
-This allows rapid UI iteration before backend integration.
+> **Note for macOS users**: If shortcuts don't work, go to **System Settings → Privacy & Security → Accessibility** and enable Witt.
 
 ## 📖 Features (Planned)
 
@@ -143,8 +134,9 @@ This allows rapid UI iteration before backend integration.
 **Backend:**
 - Rust + Tauri 2.x
 - Tokio (async runtime)
-- Mock store (Phase 1)
-- SQLite + sqlx (Phase 2)
+- SQLite + sqlx
+- reqwest (HTTP client)
+- rust-stemmers (lemma extraction)
 
 ## 📝 Development Workflow
 
@@ -169,21 +161,19 @@ See `openspec/changes/ui-first-capture/` for:
 
 ## 🗺️ Roadmap
 
-### Phase 1: UI-First (Current)
+### Phase 1: UI-First (Completed)
 - [x] Project scaffolding
-- [x] Mock backend
+- [x] Real backend integration
 - [x] Zustand stores
-- [ ] Capture popup
-- [ ] Library view
-- [ ] Video player
+- [x] Capture popup
+- [x] Library view
+- [x] Video player
 
-### Phase 2: Real Backend
-- [ ] SQLite integration
-- [ ] Real dictionary APIs
-- [ ] Lemma extraction (ML-based)
-- [ ] Data persistence
-
-### Phase 3: Advanced Features
+### Phase 2: Advanced Features
+- [x] SQLite integration
+- [x] Real dictionary APIs
+- [x] Lemma extraction (rust-stemmers)
+- [x] Data persistence
 - [ ] Anki export
 - [ ] Semantic drift analysis (LLM)
 - [ ] Cloud sync

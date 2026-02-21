@@ -1,12 +1,16 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useCaptureStore } from '@/stores/useCaptureStore';
+import { useLoadingStore } from '@/stores/useLoadingStore';
+import * as commands from '@/lib/commands';
+import type { NoteRequest } from '@/types';
 import { ContextEditor } from './ContextEditor';
 import { WordField, LemmaField, LanguageSelector } from './WordFields';
 import { DefinitionList } from './DefinitionList';
 import { TagInput } from './TagInput';
 import { NotesField } from './NotesField';
 import { ActionButtons } from './ActionButtons';
+import { Spinner } from '../Loading';
 import { cn } from '@/lib/utils';
 
 /**
@@ -26,9 +30,13 @@ export function CapturePopup() {
     discardCapture,
   } = useCaptureStore();
 
+  const { isLoading: isGlobalLoading } = useLoadingStore();
   const popupRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [focusedField, setFocusedField] = useState<string>('context');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFetchingDefinitions, setIsFetchingDefinitions] = useState(false);
+  const [isFetchingLemma, setIsFetchingLemma] = useState(false);
 
   // Calculate popup position on open
   useEffect(() => {
@@ -36,16 +44,39 @@ export function CapturePopup() {
       // Try to position near cursor, or center if that fails
       const popupWidth = 600;
       const popupHeight = 700;
-      
-      // Default to center of screen
+
+      // Get cursor position if available (using MouseEvent)
       let x = window.innerWidth / 2 - popupWidth / 2;
       let y = window.innerHeight / 2 - popupHeight / 2;
 
-      // Ensure popup stays within viewport
-      x = Math.max(16, Math.min(x, window.innerWidth - popupWidth - 16));
-      y = Math.max(16, Math.min(y, window.innerHeight - popupHeight - 16));
+      // Try to get mouse position from last known event
+      // Fallback to center if no cursor position available
+      const handleMouseMove = (e: MouseEvent) => {
+        x = e.clientX + 16;
+        y = e.clientY + 16;
 
-      setPosition({ x, y });
+        // Ensure popup stays within viewport
+        x = Math.max(16, Math.min(x, window.innerWidth - popupWidth - 16));
+        y = Math.max(16, Math.min(y, window.innerHeight - popupHeight - 16));
+
+        setPosition({ x, y });
+      };
+
+      // Get initial mouse position
+      window.addEventListener('mousemove', handleMouseMove, { once: true });
+
+      // Fallback to center if no mouse movement within 50ms
+      const fallbackTimer = setTimeout(() => {
+        x = window.innerWidth / 2 - popupWidth / 2;
+        y = window.innerHeight / 2 - popupHeight / 2;
+        x = Math.max(16, Math.min(x, window.innerWidth - popupWidth - 16));
+        y = Math.max(16, Math.min(y, window.innerHeight - popupHeight - 16));
+        setPosition({ x, y });
+      }, 50);
+
+      return () => {
+        clearTimeout(fallbackTimer);
+      };
     }
   }, [isPopupOpen]);
 
@@ -64,13 +95,13 @@ export function CapturePopup() {
       if (e.key === 'Enter' && !e.shiftKey) {
         const activeElement = document.activeElement;
         const isTextarea = activeElement?.tagName === 'TEXTAREA';
-        
+
         if (!isTextarea) {
           e.preventDefault();
           if (e.ctrlKey || e.metaKey) {
-            saveAndNext();
+            handleSaveAndNext();
           } else {
-            saveCapture();
+            handleSave();
           }
         }
       }
@@ -80,7 +111,7 @@ export function CapturePopup() {
         e.preventDefault();
         const activeElement = document.activeElement;
         const isInput = ['INPUT', 'TEXTAREA'].includes(activeElement?.tagName || '');
-        
+
         if (isInput) {
           (activeElement as HTMLElement)?.blur();
         } else {
@@ -91,20 +122,70 @@ export function CapturePopup() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPopupOpen, saveCapture, saveAndNext, discardCapture]);
+  }, [isPopupOpen, discardCapture]);
 
   const cycleFocus = (direction: number) => {
     const fields = ['context', 'word', 'lemma', 'language', 'tags', 'notes', 'actions'];
     const currentIndex = fields.indexOf(focusedField);
     const nextIndex = ((currentIndex + direction) % fields.length + fields.length) % fields.length;
     setFocusedField(fields[nextIndex]);
-    
+
     // Focus the actual element
     setTimeout(() => {
       const element = document.querySelector(`[data-field="${fields[nextIndex]}"]`) as HTMLElement;
       element?.focus();
     }, 0);
   };
+
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    await saveCapture();
+    setIsSaving(false);
+  };
+
+  const handleSaveAndNext = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    await saveAndNext();
+    setIsSaving(false);
+  };
+
+  const handleRefreshDefinitions = async () => {
+    const word = currentCapture?.lemma || currentCapture?.context?.word_form;
+    if (!word) return;
+
+    setIsFetchingDefinitions(true);
+    try {
+      const [lemma, definitions] = await Promise.all([
+        commands.getLemma({ word, language: 'en' }),
+        commands.getDefinitions({ word, language: 'en' }),
+      ]);
+      updateCapture({ lemma, definitions } as Partial<NoteRequest>);
+    } catch (error) {
+      console.warn('Failed to refresh definitions:', error);
+    } finally {
+      setIsFetchingDefinitions(false);
+    }
+  };
+
+  const handleRefreshLemma = async () => {
+    const word = currentCapture?.context?.word_form;
+    if (!word) return;
+
+    setIsFetchingLemma(true);
+    try {
+      const lemma = await commands.getLemma({ word, language: 'en' });
+      updateCapture({ lemma });
+    } catch (error) {
+      console.warn('Failed to fetch lemma:', error);
+    } finally {
+      setIsFetchingLemma(false);
+    }
+  };
+
+  const isDisabled = !currentCapture?.context?.sentence || !currentCapture?.context?.word_form;
+  const loading = isLoading || isGlobalLoading || isSaving;
 
   if (!isPopupOpen || !currentCapture) return null;
 
@@ -131,13 +212,17 @@ export function CapturePopup() {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
-          <h2 id="capture-popup-title" className="text-sm font-semibold text-foreground">
-            📖 Capture Context
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 id="capture-popup-title" className="text-sm font-semibold text-foreground">
+              📖 Capture Context
+            </h2>
+            {loading && <Spinner size="small" className="w-3 h-3" />}
+          </div>
           <button
             onClick={closePopup}
             className="p-1 hover:bg-accent rounded transition-colors"
             title="Close (Esc)"
+            disabled={loading}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -160,9 +245,19 @@ export function CapturePopup() {
 
           {/* Context Editor */}
           <ContextEditor
-            value={currentCapture.context || ''}
-            onChange={(context) => updateCapture({ context })}
-            source={currentCapture.source}
+            value={currentCapture.context?.sentence || ''}
+            onChange={(sentence) => updateCapture({
+              context: {
+                id: currentCapture.context?.id || crypto.randomUUID(),
+                word_form: currentCapture.context?.word_form || '',
+                sentence,
+                audio: currentCapture.context?.audio,
+                image: currentCapture.context?.image,
+                source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
+                created_at: currentCapture.context?.created_at || new Date().toISOString(),
+              }
+            })}
+            source={currentCapture.context?.source}
             isFocused={focusedField === 'context'}
             onFocus={() => setFocusedField('context')}
           />
@@ -170,8 +265,18 @@ export function CapturePopup() {
           {/* Word, Lemma, Language row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <WordField
-              value={currentCapture.word || ''}
-              onChange={(word) => updateCapture({ word })}
+              value={currentCapture.context?.word_form || ''}
+              onChange={(word_form) => updateCapture({
+                context: {
+                  id: currentCapture.context?.id || crypto.randomUUID(),
+                  word_form,
+                  sentence: currentCapture.context?.sentence || '',
+                  audio: currentCapture.context?.audio,
+                  image: currentCapture.context?.image,
+                  source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
+                  created_at: currentCapture.context?.created_at || new Date().toISOString(),
+                }
+              })}
               isFocused={focusedField === 'word'}
               onFocus={() => setFocusedField('word')}
             />
@@ -180,10 +285,13 @@ export function CapturePopup() {
               onChange={(lemma) => updateCapture({ lemma })}
               isFocused={focusedField === 'lemma'}
               onFocus={() => setFocusedField('lemma')}
+              onRefresh={handleRefreshLemma}
+              isLoading={isFetchingLemma}
+              word={currentCapture?.context?.word_form}
             />
             <LanguageSelector
-              value={currentCapture.language || 'en'}
-              onChange={(language) => updateCapture({ language })}
+              value="en"
+              onChange={() => {}}
               isFocused={focusedField === 'language'}
               onFocus={() => setFocusedField('language')}
             />
@@ -210,6 +318,13 @@ export function CapturePopup() {
               );
               updateCapture({ definitions: updated });
             }}
+            onDeleteDefinition={(id) => {
+              const updated = (currentCapture.definitions || []).filter((d) => d.id !== id);
+              updateCapture({ definitions: updated });
+            }}
+            onRefresh={handleRefreshDefinitions}
+            isLoading={isFetchingDefinitions}
+            word={currentCapture?.lemma || currentCapture?.context?.word_form}
           />
 
           {/* Tags */}
@@ -222,8 +337,8 @@ export function CapturePopup() {
 
           {/* Notes */}
           <NotesField
-            value={currentCapture.notes || ''}
-            onChange={(notes) => updateCapture({ notes })}
+            value={currentCapture.comment || ''}
+            onChange={(comment) => updateCapture({ comment })}
             isFocused={focusedField === 'notes'}
             onFocus={() => setFocusedField('notes')}
           />
@@ -235,8 +350,8 @@ export function CapturePopup() {
             onSave={saveCapture}
             onSaveAndNext={saveAndNext}
             onDiscard={discardCapture}
-            isLoading={isLoading}
-            isDisabled={!currentCapture.context || !currentCapture.word}
+            isLoading={loading}
+            isDisabled={isDisabled || loading}
           />
         </div>
       </motion.div>

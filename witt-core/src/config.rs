@@ -173,10 +173,33 @@ impl WittConfig {
 
     /// Returns the default application data directory
     fn data_dir() -> PathBuf {
-        if let Some(dir) = dirs::data_dir() {
-            dir.join("witt")
-        } else {
-            PathBuf::from("data")
+        // Use platform-specific data directories
+        #[cfg(target_os = "macos")]
+        {
+            dirs::home_dir()
+                .map(|d| d.join("Library").join("Application Support").join("witt"))
+                .unwrap_or_else(|| PathBuf::from("data"))
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            dirs::data_local_dir()
+                .map(|d| d.join("witt"))
+                .unwrap_or_else(|| PathBuf::from("data"))
+        }
+        
+        #[cfg(target_os = "linux")]
+        {
+            dirs::data_local_dir()
+                .map(|d| d.join("witt"))
+                .unwrap_or_else(|| PathBuf::from("~/.local/share/witt"))
+        }
+        
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+        {
+            dirs::data_local_dir()
+                .map(|d| d.join("witt"))
+                .unwrap_or_else(|| PathBuf::from("data"))
         }
     }
 }

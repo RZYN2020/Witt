@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use witt_core::{note::Audio, note::Context};
+use witt_core::{note::Audio, note::Context, Note};
 
 
 /// A dictionary definition for a word
@@ -25,6 +25,9 @@ pub struct NoteRequest {
     pub comment: Option<String>,
     pub deck: Option<String>,
     pub context: Context,
+    /// Optional definitions to associate with the note
+    #[serde(default)]
+    pub definitions: Vec<Definition>,
 }
 
 /// Filter options for note queries
@@ -57,4 +60,71 @@ pub struct LemmaRequest {
 pub struct DefinitionRequest {
     pub word: String,
     pub language: String,
+}
+
+/// Paginated response for large datasets
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaginatedResponse<T> {
+    pub items: Vec<T>,
+    pub total: usize,
+    pub page: usize,
+    pub page_size: usize,
+    pub has_more: bool,
+}
+
+impl<T> PaginatedResponse<T> {
+    pub fn new(items: Vec<T>, total: usize, page: usize, page_size: usize) -> Self {
+        let has_more = (page + 1) * page_size < total;
+        Self {
+            items,
+            total,
+            page,
+            page_size,
+            has_more,
+        }
+    }
+}
+
+/// Batch note operation request
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchNoteRequest {
+    pub notes: Vec<NoteRequest>,
+}
+
+/// Batch operation result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchResult {
+    pub successful: Vec<String>,
+    pub failed: Vec<BatchError>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BatchError {
+    pub index: usize,
+    pub lemma: String,
+    pub error: String,
+}
+
+/// Compact note summary for list views
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoteSummary {
+    pub lemma: String,
+    pub definition: String,
+    pub context_count: usize,
+    pub tags: Vec<String>,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl From<&Note> for NoteSummary {
+    fn from(note: &Note) -> Self {
+        Self {
+            lemma: note.lemma.clone(),
+            definition: note.definition.clone(),
+            context_count: note.contexts.len(),
+            tags: note.tags.clone(),
+            created_at: note.created_at.to_rfc3339(),
+            updated_at: note.updated_at.map(|dt| dt.to_rfc3339()),
+        }
+    }
 }

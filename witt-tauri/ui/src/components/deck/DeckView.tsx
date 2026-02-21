@@ -2,33 +2,39 @@ import { useMemo } from 'react';
 import { useLibraryStore } from '@/stores/useLibraryStore';
 import { motion } from 'framer-motion';
 import { Layers, BookOpen, Tag } from 'lucide-react';
+import type { Note } from '@/types';
+import { cn } from '@/lib/utils';
 
 /**
- * Deck view - groups cards by word/lemma for spaced repetition
+ * Deck view - displays notes grouped by different decks
  */
 export function DeckView() {
-  const { cards } = useLibraryStore();
+  const { notes, setDeckFilter } = useLibraryStore();
 
-  // Group cards by word to create decks
+  // Group notes by deck
   const decks = useMemo(() => {
-    const deckMap = new Map<string, typeof cards>();
+    const deckMap = new Map<string, Note[]>();
 
-    cards.forEach((card) => {
-      const key = card.word.toLowerCase();
-      const existing = deckMap.get(key) || [];
-      existing.push(card);
-      deckMap.set(key, existing);
+    notes.forEach((note: Note) => {
+      const existing = deckMap.get(note.deck) || [];
+      existing.push(note);
+      deckMap.set(note.deck, existing);
     });
 
-    return Array.from(deckMap.entries()).map(([word, cards]) => ({
-      word,
-      lemma: cards[0]?.lemma || word,
-      count: cards.length,
-      cards,
-      language: cards[0]?.language || 'en',
-      tags: Array.from(new Set(cards.flatMap(c => c.tags))),
+    return Array.from(deckMap.entries()).map(([deckName, deckNotes]) => ({
+      name: deckName,
+      count: deckNotes.length,
+      totalContexts: deckNotes.reduce((sum: number, n: Note) => sum + n.contexts.length, 0),
+      notes: deckNotes,
+      tags: Array.from(new Set(deckNotes.flatMap((n: Note) => n.tags))),
     }));
-  }, [cards]);
+  }, [notes]);
+
+  const handleDeckClick = (deckName: string) => {
+    console.log('Deck clicked:', deckName);
+    setDeckFilter(deckName);
+    alert(`Filtering to deck: ${deckName}\n\nNote: To view filtered notes, please switch to the Inbox tab.`);
+  };
 
   if (decks.length === 0) {
     return (
@@ -41,7 +47,7 @@ export function DeckView() {
             No Decks Yet
           </h2>
           <p className="text-muted-foreground">
-            Cards you capture will be automatically grouped into decks by word
+            Notes you capture will be automatically grouped into decks
           </p>
         </div>
       </div>
@@ -50,18 +56,16 @@ export function DeckView() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground mb-2">Decks</h1>
         <p className="text-muted-foreground">
-          {decks.length} unique words • {cards.length} total cards
+          {decks.length} deck{decks.length !== 1 ? 's' : ''} • {notes.length} total notes
         </p>
       </div>
 
-      {/* Deck Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {decks.map((deck, index) => (
-          <DeckCard key={deck.word} deck={deck} index={index} />
+        {decks.map((deck) => (
+          <DeckCard key={deck.name} deck={deck} onClick={() => handleDeckClick(deck.name)} />
         ))}
       </div>
     </div>
@@ -70,106 +74,88 @@ export function DeckView() {
 
 interface DeckCardProps {
   deck: {
-    word: string;
-    lemma: string;
+    name: string;
     count: number;
-    cards: any[];
-    language: string;
+    totalContexts: number;
+    notes: Note[];
     tags: string[];
   };
-  index: number;
+  onClick?: () => void;
 }
 
-function DeckCard({ deck, index }: DeckCardProps) {
-  const { selectCard } = useLibraryStore();
-
-  const handleCardClick = (cardId: string) => {
-    selectCard(cardId, false);
-  };
-
-  const getLanguageName = (code: string) => {
-    const names: Record<string, string> = {
-      en: 'English',
-      zh: '中文',
-      ja: '日本語',
-      ko: '한국어',
-      de: 'Deutsch',
-    };
-    return names[code] || code;
+function DeckCard({ deck, onClick }: DeckCardProps) {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.();
   };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="bg-card border border-border rounded-xl p-5 hover:shadow-lg transition-all hover:border-ring/50"
+      whileHover={{ scale: 1.02 }}
+      onClick={handleClick}
+      className={cn(
+        'bg-card border border-border rounded-lg p-5 cursor-pointer',
+        'hover:shadow-lg hover:border-primary/50 transition-all duration-200',
+        'active:scale-98'
+      )}
     >
-      {/* Header */}
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-foreground">{deck.word}</h3>
-          {deck.lemma !== deck.word && (
-            <p className="text-sm text-muted-foreground italic">{deck.lemma}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs px-2 py-1 bg-muted rounded-full">
-            {getLanguageName(deck.language)}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+            <BookOpen className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground text-lg">
+              {deck.name}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {deck.count} note{deck.count !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="flex items-center gap-4 mb-4 text-sm text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <BookOpen className="w-4 h-4" />
-          <span>{deck.count} cards</span>
-        </div>
-        {deck.tags.length > 0 && (
-          <div className="flex items-center gap-1.5">
+      <div className="space-y-3">
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Layers className="w-4 h-4" />
+            <span>{deck.totalContexts} context{deck.totalContexts !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
             <Tag className="w-4 h-4" />
-            <span>{deck.tags.length} tags</span>
+            <span>{deck.tags.length} tag{deck.tags.length !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+
+        {/* Sample notes preview */}
+        {deck.notes.length > 0 && (
+          <div className="pt-3 border-t border-border">
+            <p className="text-xs text-muted-foreground mb-2">Sample notes:</p>
+            <div className="flex flex-wrap gap-1">
+              {deck.notes.slice(0, 5).map((note) => (
+                <span
+                  key={note.lemma}
+                  className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded"
+                >
+                  {note.lemma}
+                </span>
+              ))}
+              {deck.notes.length > 5 && (
+                <span className="text-xs text-muted-foreground">
+                  +{deck.notes.length - 5} more
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Tags preview */}
-      {deck.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {deck.tags.slice(0, 4).map((tag) => (
-            <span
-              key={tag}
-              className="text-xs px-2 py-1 bg-accent text-accent-foreground rounded-full"
-            >
-              {tag}
-            </span>
-          ))}
-          {deck.tags.length > 4 && (
-            <span className="text-xs text-muted-foreground">
-              +{deck.tags.length - 4}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Cards preview */}
-      <div className="space-y-2">
-        <p className="text-xs text-muted-foreground font-medium">Recent cards:</p>
-        {deck.cards.slice(0, 2).map((card) => (
-          <button
-            key={card.id}
-            onClick={() => handleCardClick(card.id)}
-            className="w-full text-left text-sm p-2 bg-muted/50 rounded hover:bg-accent/50 transition-colors truncate"
-          >
-            {card.context}
-          </button>
-        ))}
-        {deck.cards.length > 2 && (
-          <p className="text-xs text-muted-foreground text-center">
-            +{deck.cards.length - 2} more cards
-          </p>
-        )}
+      <div className="mt-4 pt-4 border-t border-border">
+        <button className="w-full py-2 text-sm text-primary hover:bg-primary/5 rounded transition-colors">
+          View Deck
+        </button>
       </div>
     </motion.div>
   );

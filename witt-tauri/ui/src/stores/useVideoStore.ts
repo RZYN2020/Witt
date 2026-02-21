@@ -1,7 +1,36 @@
 import { create } from 'zustand';
 import type { VideoState, Subtitle } from '@/types/video';
+import * as commands from '@/lib/commands';
+import { useToastStore } from './useToastStore';
+import { useLoadingStore } from './useLoadingStore';
+import { classifyError, getUserFriendlyMessage, logError } from '@/lib/errors';
+import { withLoading } from '@/lib/loading';
 
-export const useVideoStore = create<VideoState>((set) => ({
+export interface VideoCapture {
+  lemma: string;
+  definition: string;
+  sentence: string;
+  timestamp: string;
+  frame?: number;
+  audioPath?: string;
+  imagePath?: string;
+}
+
+interface VideoSlice extends VideoState {
+  // Video capture state for Note-Context model
+  currentCaptures: VideoCapture[];
+  isCapturing: boolean;
+  captureLemma: string | null;
+  
+  // Actions
+  addCapture: (capture: VideoCapture) => void;
+  clearCaptures: () => void;
+  saveCaptures: (deck?: string) => Promise<boolean>;
+  setIsCapturing: (capturing: boolean) => void;
+  setCaptureLemma: (lemma: string | null) => void;
+}
+
+export const useVideoStore = create<VideoSlice>((set, get) => ({
   // Playback state
   isPlaying: false,
   currentTime: 0,
@@ -13,6 +42,11 @@ export const useVideoStore = create<VideoState>((set) => ({
   // Current video
   currentVideo: null,
   subtitles: [],
+
+  // Video capture state
+  currentCaptures: [],
+  isCapturing: false,
+  captureLemma: null,
 
   // Actions
   setIsPlaying: (playing) => set({ isPlaying: playing }),
@@ -28,6 +62,115 @@ export const useVideoStore = create<VideoState>((set) => ({
     const text = await file.text();
     const subtitles = parseSubRip(text);
     set({ subtitles });
+  },
+
+  // Note-Context capture actions
+  addCapture: (capture) => {
+    set((state) => ({
+      currentCaptures: [...state.currentCaptures, capture],
+    }));
+    
+    useToastStore.getState().addToast({
+      message: `Captured: ${capture.lemma}`,
+      type: 'success',
+      duration: 2000,
+    });
+  },
+
+  clearCaptures: () => {
+    set({ currentCaptures: [], captureLemma: null });
+  },
+
+  saveCaptures: async (deck = 'Default') => {
+    const { currentCaptures, currentVideo } = get();
+    
+    if (currentCaptures.length === 0) {
+      useToastStore.getState().addToast({
+        message: 'No captures to save',
+        type: 'info',
+        duration: 2000,
+      });
+      return false;
+    }
+
+    set({ isCapturing: true });
+    useLoadingStore.getState().setLoading(true);
+
+    try {
+      let successCount = 0;
+
+      for (const capture of currentCaptures) {
+        await withLoading(async () => {
+          const context = {
+            id: crypto.randomUUID(),
+            word_form: capture.lemma,
+            sentence: capture.sentence,
+            audio: capture.audioPath,
+            image: capture.imagePath,
+            source: {
+              type: 'video' as const,
+              filename: currentVideo?.filename || 'unknown.mp4',
+              timestamp: capture.timestamp,
+              frame: capture.frame,
+            },
+            created_at: new Date().toISOString(),
+          };
+
+          const request = {
+            lemma: capture.lemma,
+            definition: capture.definition,
+            pronunciation: undefined,
+            phonetics: undefined,
+            tags: ['video', 'captured'],
+            comment: '',
+            deck,
+            context,
+          };
+
+          await commands.saveNote(request);
+          successCount++;
+        }, { minDisplayTime: 100 });
+      }
+
+      set({ 
+        isCapturing: false, 
+        currentCaptures: [],
+        captureLemma: null,
+      });
+      useLoadingStore.getState().setLoading(false);
+
+      useToastStore.getState().addToast({
+        message: `Saved ${successCount} captures`,
+        type: 'success',
+        duration: 3000,
+      });
+
+      return true;
+    } catch (error) {
+      const classifiedError = classifyError(error);
+      logError(classifiedError, 'saveCaptures');
+      
+      const userMessage = getUserFriendlyMessage(classifiedError);
+      
+      set({ isCapturing: false });
+      useLoadingStore.getState().setLoading(false);
+
+      useToastStore.getState().addToast({
+        message: userMessage,
+        type: 'error',
+        duration: 4000,
+      });
+
+      return false;
+    }
+  },
+
+  setIsCapturing: (capturing) => {
+    set({ isCapturing: capturing });
+  },
+
+  setCaptureLemma: (lemma) => {
+    set({ captureLemma: lemma });
   },
 }));
 

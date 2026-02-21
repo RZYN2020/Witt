@@ -1,64 +1,95 @@
 import { create } from 'zustand';
-import type { Card, LibraryFilter } from '@/types';
+import type { Note, NoteFilter, Context } from '@/types';
 import * as commands from '@/lib/commands';
+import { useToastStore } from './useToastStore';
+import { useLoadingStore } from './useLoadingStore';
+import { classifyError, getUserFriendlyMessage, logError } from '@/lib/errors';
+import { withLoading, LoadingState } from '@/lib/loading';
 
 /**
  * Library slice state and actions
  */
 interface LibrarySlice {
   // State
-  cards: Card[];
-  filteredCards: Card[];
-  filter: LibraryFilter;
+  notes: Note[];
+  filteredNotes: Note[];
+  filter: NoteFilter;
   searchQuery: string;
   viewMode: 'grid' | 'list';
+  displayMode: 'notes' | 'cards'; // Notes shows lemma groups, Cards shows individual contexts
+  deckFilter: string | 'all'; // Filter by deck
   isLoading: boolean;
   error: string | null;
-  selectedCards: Set<string>;
+  selectedNotes: Set<string>;
 
   // Actions
-  loadCards: (filter?: LibraryFilter) => Promise<void>;
-  setFilter: (filter: Partial<LibraryFilter>) => void;
+  loadNotes: (filter?: NoteFilter) => Promise<void>;
+  setFilter: (filter: Partial<NoteFilter>) => void;
   setSearchQuery: (query: string) => void;
   setViewMode: (mode: 'grid' | 'list') => void;
-  selectCard: (id: string, multi?: boolean) => void;
-  deselectCard: (id: string) => void;
+  setDisplayMode: (mode: 'notes' | 'cards') => void;
+  setDeckFilter: (deck: string | 'all') => void;
+  selectNote: (lemma: string, multi?: boolean) => void;
+  deselectNote: (lemma: string) => void;
   deselectAll: () => void;
-  deleteCard: (id: string) => Promise<void>;
+  deleteNote: (lemma: string) => Promise<void>;
   clearFilters: () => void;
-  addCard: (card: Card) => void;
+  addNote: (note: Note) => void;
+  getDecks: () => string[];
 }
 
 export const useLibraryStore = create<LibrarySlice>((set, get) => ({
-  cards: [],
-  filteredCards: [],
-  filter: { timeRange: 'all' },
+  notes: [],
+  filteredNotes: [],
+  filter: { time_range: 'all' },
   searchQuery: '',
   viewMode: 'grid',
+  displayMode: 'notes',
+  deckFilter: 'all',
   isLoading: false,
   error: null,
-  selectedCards: new Set(),
+  selectedNotes: new Set(),
 
-  loadCards: async (filter?: LibraryFilter) => {
+  loadNotes: async (filter?: NoteFilter) => {
     set({ isLoading: true, error: null });
-    
+    useLoadingStore.getState().setLoading(true);
+
     try {
-      const cards = await commands.getLibraryCards(filter);
+      // Use withLoading for better UX
+      const notes = await withLoading(async () => {
+        return commands.getNotes(filter);
+      }, { minDisplayTime: 150 });
+
       set({
-        cards,
-        filteredCards: cards,
+        notes,
+        filteredNotes: notes,
         isLoading: false,
         filter: filter || get().filter,
       });
+      useLoadingStore.getState().setLoading(false);
     } catch (error) {
+      const classifiedError = classifyError(error);
+      logError(classifiedError, 'loadNotes');
+      
+      const userMessage = getUserFriendlyMessage(classifiedError);
+      
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to load cards',
+        error: userMessage,
+      });
+
+      useLoadingStore.getState().setLoading(false);
+
+      // Show error toast
+      useToastStore.getState().addToast({
+        message: userMessage,
+        type: 'error',
+        duration: 4000,
       });
     }
   },
 
-  setFilter: (filter: Partial<LibraryFilter>) => {
+  setFilter: (filter: Partial<NoteFilter>) => {
     const newFilter = { ...get().filter, ...filter };
     set({ filter: newFilter });
     applyFilters(newFilter, get().searchQuery);
@@ -69,86 +100,140 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
     applyFilters(get().filter, query);
   },
 
-  setViewMode: (mode: 'grid' | 'list') => {
+  setViewMode: (mode) => {
     set({ viewMode: mode });
     // Persist to localStorage
     localStorage.setItem('witt:viewMode', mode);
   },
 
-  selectCard: (id: string, multi?: boolean) => {
+  setDisplayMode: (mode) => {
+    set({ displayMode: mode });
+    localStorage.setItem('witt:displayMode', mode);
+  },
+
+  setDeckFilter: (deck) => {
+    set({ deckFilter: deck });
+    localStorage.setItem('witt:deckFilter', deck);
+    // Re-apply filters when deck changes
+    applyFilters(get().filter, get().searchQuery);
+  },
+
+  selectNote: (lemma: string, multi?: boolean) => {
     set((state) => {
-      const newSelected = new Set(multi ? state.selectedCards : []);
-      newSelected.add(id);
-      return { selectedCards: newSelected };
+      const newSelected = new Set(multi ? state.selectedNotes : []);
+      newSelected.add(lemma);
+      return { selectedNotes: newSelected };
     });
   },
 
-  deselectCard: (id: string) => {
+  deselectNote: (lemma: string) => {
     set((state) => {
-      const newSelected = new Set(state.selectedCards);
-      newSelected.delete(id);
-      return { selectedCards: newSelected };
+      const newSelected = new Set(state.selectedNotes);
+      newSelected.delete(lemma);
+      return { selectedNotes: newSelected };
     });
   },
 
   deselectAll: () => {
-    set({ selectedCards: new Set() });
+    set({ selectedNotes: new Set() });
   },
 
-  deleteCard: async (id: string) => {
+  deleteNote: async (lemma: string) => {
+    const operationId = `delete-${lemma}`;
+    useLoadingStore.getState().addIndicator({
+      id: operationId,
+      type: LoadingState.LOADING,
+      message: 'Deleting note...',
+      createdAt: Date.now(),
+    });
+
     try {
-      await commands.deleteCard(id);
+      await commands.deleteNote(lemma);
       // Remove from local state
       set((state) => ({
-        cards: state.cards.filter((c) => c.id !== id),
-        filteredCards: state.filteredCards.filter((c) => c.id !== id),
+        notes: state.notes.filter((n) => n.lemma !== lemma),
+        filteredNotes: state.filteredNotes.filter((n) => n.lemma !== lemma),
       }));
+      
+      // Remove indicator and show success
+      useLoadingStore.getState().removeIndicator(operationId);
+      
+      // Show success toast
+      useToastStore.getState().addToast({
+        message: 'Note deleted',
+        type: 'success',
+        duration: 2000,
+      });
     } catch (error) {
+      const classifiedError = classifyError(error);
+      logError(classifiedError, 'deleteNote');
+      
+      const userMessage = getUserFriendlyMessage(classifiedError);
+      
       set({
-        error: error instanceof Error ? error.message : 'Failed to delete card',
+        error: userMessage,
+      });
+
+      // Update indicator to error state
+      useLoadingStore.getState().updateIndicator(operationId, {
+        type: LoadingState.ERROR,
+        message: userMessage,
+      });
+
+      // Show error toast
+      useToastStore.getState().addToast({
+        message: userMessage,
+        type: 'error',
+        duration: 4000,
       });
     }
   },
 
   clearFilters: () => {
     set({
-      filter: { timeRange: 'all' },
+      filter: { time_range: 'all' },
       searchQuery: '',
     });
-    applyFilters({ timeRange: 'all' }, '');
+    applyFilters({ time_range: 'all' }, '');
   },
 
-  addCard: (card: Card) => {
+  addNote: (note: Note) => {
     set((state) => ({
-      cards: [card, ...state.cards],
-      filteredCards: [card, ...state.filteredCards],
+      notes: [note, ...state.notes],
+      filteredNotes: [note, ...state.filteredNotes],
     }));
+  },
+
+  getDecks: (): string[] => {
+    const state = useLibraryStore.getState();
+    const decks = Array.from(new Set(state.notes.map((n: Note) => n.deck)));
+    return decks.sort();
   },
 }));
 
 /**
- * Apply filters to the card list
+ * Apply filters to the note list
  */
-async function applyFilters(filter: LibraryFilter, searchQuery: string) {
-  const { cards } = useLibraryStore.getState();
-  
-  let filtered = [...cards];
+async function applyFilters(filter: NoteFilter, searchQuery: string) {
+  const { notes } = useLibraryStore.getState();
+
+  let filtered = [...notes];
 
   // Apply time range filter
-  if (filter.timeRange && filter.timeRange !== 'all') {
+  if (filter.time_range && filter.time_range !== 'all') {
     const cutoffDate = new Date();
-    
-    if (filter.timeRange === 'today') {
+
+    if (filter.time_range === 'today') {
       cutoffDate.setHours(0, 0, 0, 0);
-    } else if (filter.timeRange === 'this_week') {
+    } else if (filter.time_range === 'this_week') {
       cutoffDate.setDate(cutoffDate.getDate() - 7);
-    } else if (filter.timeRange === 'this_month') {
+    } else if (filter.time_range === 'this_month') {
       cutoffDate.setDate(cutoffDate.getDate() - 30);
     }
-    
-    filtered = filtered.filter((card) => {
-      const cardDate = new Date(card.createdAt);
-      return cardDate >= cutoffDate;
+
+    filtered = filtered.filter((note: Note) => {
+      const noteDate = new Date(note.created_at);
+      return noteDate >= cutoffDate;
     });
   }
 
@@ -156,14 +241,18 @@ async function applyFilters(filter: LibraryFilter, searchQuery: string) {
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
     filtered = filtered.filter(
-      (card) =>
-        card.word.toLowerCase().includes(query) ||
-        card.context.toLowerCase().includes(query) ||
-        card.tags.some((tag) => tag.toLowerCase().includes(query))
+      (note: Note) =>
+        note.lemma.toLowerCase().includes(query) ||
+        note.definition.toLowerCase().includes(query) ||
+        note.contexts.some((ctx: Context) =>
+          ctx.word_form.toLowerCase().includes(query) ||
+          ctx.sentence.toLowerCase().includes(query)
+        ) ||
+        note.tags.some((tag: string) => tag.toLowerCase().includes(query))
     );
   }
 
-  useLibraryStore.getState().filteredCards = filtered;
+  useLibraryStore.getState().filteredNotes = filtered;
 }
 
 // Load saved view mode on initialization

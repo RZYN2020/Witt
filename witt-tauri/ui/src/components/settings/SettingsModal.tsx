@@ -261,14 +261,30 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 onToggle={() => toggleSection('shortcuts')}
               >
                 <div className="space-y-3">
-                  <div className="p-4 bg-muted/50 rounded-lg border border-border">
-                    <p className="text-sm text-muted-foreground">
-                      ⚠️ Global shortcuts are currently unavailable on macOS due to system restrictions.
+                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/30">
+                    <p className="text-sm text-primary font-medium mb-2">
+                      🎯 Global Shortcuts
                     </p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Local shortcuts (when app is focused) will be added in a future update.
+                    <p className="text-xs text-muted-foreground">
+                      Use these shortcuts from any application to quickly capture words.
                     </p>
                   </div>
+                  
+                  <ShortcutInput
+                    label="Capture Word"
+                    description="Open capture popup from anywhere"
+                    value={useSettingsStore.getState().captureHotkey}
+                    onChange={(value) => useSettingsStore.getState().setCaptureHotkey(value)}
+                    defaultHotkey="CommandOrControl+G"
+                  />
+
+                  <ShortcutInput
+                    label="Open Library"
+                    description="Focus/open the library window"
+                    value={useSettingsStore.getState().libraryHotkey}
+                    onChange={(value) => useSettingsStore.getState().setLibraryHotkey(value)}
+                    defaultHotkey="CommandOrControl+L"
+                  />
                 </div>
               </SettingsSection>
               </div>
@@ -386,6 +402,62 @@ function SettingToggle({ label, description, checked, onChange }: SettingToggleP
           )}
         />
       </button>
+    </div>
+  );
+}
+
+interface ShortcutInputProps {
+  label: string;
+  description: string;
+  value: string;
+  onChange: (value: string) => void;
+  defaultHotkey: string;
+}
+
+function ShortcutInput({ label, description, value, onChange, defaultHotkey }: ShortcutInputProps) {
+  const [isRecording, setIsRecording] = useState(false);
+
+  const handleRecord = () => {
+    setIsRecording(true);
+    setTimeout(() => {
+      onChange(defaultHotkey);
+      setIsRecording(false);
+    }, 1000);
+  };
+
+  const handleReset = () => {
+    onChange(defaultHotkey);
+  };
+
+  return (
+    <div className="p-4 bg-card rounded-lg border border-border">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        <button
+          onClick={handleReset}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Reset
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground mb-3">{description}</p>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleRecord}
+          disabled={isRecording}
+          className={cn(
+            'px-4 py-2 rounded-md text-sm font-medium transition-colors',
+            isRecording
+              ? 'bg-primary/50 text-primary-foreground cursor-wait'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+          )}
+        >
+          {isRecording ? 'Press keys...' : 'Change'}
+        </button>
+        <kbd className="px-3 py-2 bg-muted border border-border rounded-md text-xs font-mono">
+          {value || 'Not set'}
+        </kbd>
+      </div>
     </div>
   );
 }

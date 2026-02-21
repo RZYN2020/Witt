@@ -3,10 +3,32 @@ Anki integration for WittCore using anki_bridge
 */
 
 use crate::note::{Context, Note, Source};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::Path;
+
+/// Sync result from Anki synchronization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncResult {
+    /// Whether the sync was successful
+    pub success: bool,
+    /// Number of notes created
+    pub created: usize,
+    /// Number of notes updated
+    pub updated: usize,
+    /// List of failed syncs with error details
+    pub failed: Vec<SyncError>,
+}
+
+/// Sync error details
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncError {
+    /// Lemma of the failed note
+    pub lemma: String,
+    /// Error message
+    pub error: String,
+}
 
 // anki_bridge types for note creation
 #[derive(Debug, Clone, Default, Serialize)]
@@ -123,22 +145,88 @@ impl AnkiClient {
         // 1. Basic note
         anki_notes.push(self.create_basic_anki_note(note));
 
-        // 2. Context notes (up to 5) - temporarily disabled due to type mismatch
-        // TODO: Fix context type conversion
-        // for (i, context) in note.contexts.iter().enumerate().take(5) {
-        //     anki_notes.push(self.create_context_anki_note(note, context, i));
-        // }
+        // 2. Context notes (up to 5)
+        for (i, context) in note.contexts.iter().enumerate().take(5) {
+            anki_notes.push(self.create_context_anki_note(note, context, i));
+        }
 
         // Add notes to Anki
         self.add_notes(anki_notes).await
     }
 
+    /// Syncs multiple Notes to Anki
+    pub async fn sync_notes(&self, notes: &[Note]) -> Result<SyncResult, crate::WittCoreError> {
+        let mut created = 0;
+        let mut failed = Vec::new();
+
+        for note in notes {
+            match self.sync_note(note).await {
+                Ok(ids) => {
+                    created += ids.len();
+                }
+                Err(e) => {
+                    failed.push(SyncError {
+                        lemma: note.lemma.clone(),
+                        error: e.to_string(),
+                    });
+                }
+            }
+        }
+
+        Ok(SyncResult {
+            success: failed.is_empty(),
+            created,
+            updated: 0,
+            failed,
+        })
+    }
+
     /// Generates APKG file from Notes
-    /// Note: This is currently a stub as the genanki-rs API needs proper integration
-    pub fn generate_apkg<P: AsRef<Path>>(_notes: Vec<Note>, _output_path: P) -> Result<(), crate::WittCoreError> {
-        // TODO: Implement proper APKG generation using genanki-rs
-        // This requires proper model and deck setup
-        log::warn!("APKG generation is currently a stub. Please implement proper genanki-rs integration.");
+    /// For now, exports to JSON as APKG generation requires genanki-rs
+    pub fn generate_apkg<P: AsRef<Path>>(notes: Vec<Note>, output_path: P) -> Result<(), crate::WittCoreError> {
+        use std::fs::File;
+        use std::io::Write;
+        
+        let path = output_path.as_ref();
+        
+        // Create export data structure
+        let export_data = serde_json::json!({
+            "version": 1,
+            "exported_at": chrono::Utc::now().to_rfc3339(),
+            "notes_count": notes.len(),
+            "notes": notes.iter().map(|note| {
+                serde_json::json!({
+                    "lemma": note.lemma,
+                    "definition": note.definition,
+                    "phonetics": note.phonetics,
+                    "pronunciation": note.pronunciation.as_ref().map(|a| &a.file_path),
+                    "tags": note.tags,
+                    "comment": note.comment,
+                    "deck": note.deck,
+                    "contexts": note.contexts.iter().map(|ctx| {
+                        serde_json::json!({
+                            "word_form": ctx.word_form,
+                            "sentence": ctx.sentence,
+                            "audio": ctx.audio.as_ref().map(|a| &a.file_path),
+                            "image": ctx.image.as_ref().map(|i| &i.file_path),
+                            "source": ctx.source,
+                        })
+                    }).collect::<Vec<_>>(),
+                })
+            }).collect::<Vec<_>>(),
+        });
+
+        // Write to file
+        let mut file = File::create(path)
+            .map_err(|e| crate::WittCoreError::Io(e))?;
+        
+        let json_string = serde_json::to_string_pretty(&export_data)
+            .map_err(|e| crate::WittCoreError::Serialization(e))?;
+        
+        file.write_all(json_string.as_bytes())
+            .map_err(|e| crate::WittCoreError::Io(e))?;
+
+        log::info!("Exported {} notes to {:?}", notes.len(), path);
         Ok(())
     }
 
@@ -177,6 +265,14 @@ impl AnkiClient {
     async fn create_deck(&self, deck_name: &str) -> Result<bool, crate::WittCoreError> {
         self.request("createDeck", json!({ "deck": deck_name })).await?;
         Ok(true)
+    }
+
+    /// Gets all deck names
+    pub async fn get_deck_names(&self) -> Result<Vec<String>, crate::WittCoreError> {
+        let result = self.request("getDeckNames", json!({})).await?;
+        result.as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .ok_or_else(|| crate::WittCoreError::AnkiConnect("Invalid deck names response".to_string()))
     }
 
     /// Creates a new note type

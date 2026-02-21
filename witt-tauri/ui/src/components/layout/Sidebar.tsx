@@ -1,19 +1,17 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '@/stores/useLibraryStore';
 import { cn } from '@/lib/utils';
-import { Inbox, Layers, Video, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import { Inbox, Video, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import type { Note, Context } from '@/types';
 
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onOpenSettings: () => void;
-  currentTab: 'inbox' | 'deck' | 'video';
-  onTabChange: (tab: 'inbox' | 'deck' | 'video') => void;
+  currentTab: 'inbox' | 'video';
+  onTabChange: (tab: 'inbox' | 'video') => void;
 }
 
-/**
- * Main sidebar with collapsible functionality
- */
 export function Sidebar({
   collapsed,
   onToggleCollapse,
@@ -21,20 +19,17 @@ export function Sidebar({
   currentTab,
   onTabChange,
 }: SidebarProps) {
-  const { cards } = useLibraryStore();
+  const { notes } = useLibraryStore();
 
-  // Calculate counts
   const counts = useMemo(() => {
     return {
-      inbox: cards.length,
-      deck: new Set(cards.map(c => c.word)).size,
-      video: cards.filter(c => c.source.type === 'video').length,
+      inbox: notes.length,
+      video: notes.filter((n: Note) => n.contexts.some((c: Context) => c.source.type === 'video')).length,
     };
-  }, [cards]);
+  }, [notes]);
 
   const tabs = [
     { id: 'inbox' as const, icon: Inbox, label: '收集箱', count: counts.inbox },
-    { id: 'deck' as const, icon: Layers, label: 'Decks', count: counts.deck },
     { id: 'video' as const, icon: Video, label: '视频', count: counts.video },
   ];
 
@@ -45,86 +40,54 @@ export function Sidebar({
         collapsed ? 'w-12' : 'w-64'
       )}
     >
-      {/* Logo */}
       <div className={cn("h-[57px] flex items-center px-4 border-b border-border", collapsed ? 'justify-center' : '')}>
         {!collapsed && (
           <span className="text-lg font-bold text-foreground">Witt</span>
         )}
-        {collapsed && (
-          <span className="text-lg font-bold text-foreground">W</span>
-        )}
       </div>
 
-      {/* Navigation Tabs */}
-      <nav className="flex-1 overflow-y-auto p-2">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = currentTab === tab.id;
-
-          return (
+      <nav className="flex-1 py-4">
+        <div className="px-2 space-y-1">
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                'w-full flex items-center rounded-lg transition-all',
-                collapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2',
-                isActive 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
+                currentTab === tab.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent'
               )}
-              title={collapsed ? tab.label : undefined}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
+              <tab.icon className="w-4 h-4" />
               {!collapsed && (
                 <>
-                  <span className="flex-1 text-left text-sm font-medium">{tab.label}</span>
-                  <span className={cn(
-                    "text-xs px-2 py-0.5 rounded-full",
-                    isActive ? 'bg-primary-foreground/20' : 'bg-muted'
-                  )}>
-                    {tab.count}
-                  </span>
+                  <span className="flex-1 text-left text-sm">{tab.label}</span>
+                  <span className="text-xs opacity-75">{tab.count}</span>
                 </>
               )}
             </button>
-          );
-        })}
+          ))}
+        </div>
       </nav>
 
-      {/* Bottom Actions */}
-      <div className={cn("p-2 border-t border-border", collapsed ? 'flex flex-col items-center' : 'space-y-1')}>
-        <button
-          onClick={onOpenSettings}
-          className={cn(
-            'w-full flex items-center rounded-lg transition-colors text-sm',
-            collapsed 
-              ? 'justify-center p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground' 
-              : 'gap-3 px-3 py-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-          )}
-          title={collapsed ? 'Settings' : undefined}
-        >
-          <Settings className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span>设置</span>}
-        </button>
-
-        {/* Collapse toggle button */}
+      <div className="border-t border-border p-2">
         <button
           onClick={onToggleCollapse}
-          className={cn(
-            'w-full flex items-center rounded-lg transition-colors text-sm',
-            collapsed 
-              ? 'justify-center p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground' 
-              : 'gap-3 px-3 py-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-          )}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="w-full flex items-center justify-center gap-2 p-2 text-muted-foreground hover:bg-accent rounded transition-colors"
         >
-          {collapsed ? (
-            <ChevronRight className="w-5 h-5 flex-shrink-0" />
-          ) : (
-            <ChevronLeft className="w-5 h-5 flex-shrink-0" />
-          )}
-          {!collapsed && <span>收起</span>}
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          {!collapsed && <span className="text-sm">Collapse</span>}
         </button>
+        {!collapsed && (
+          <button
+            onClick={onOpenSettings}
+            className="w-full flex items-center justify-center gap-2 p-2 text-muted-foreground hover:bg-accent rounded transition-colors mt-1"
+          >
+            <Settings className="w-4 h-4" />
+            <span className="text-sm">Settings</span>
+          </button>
+        )}
       </div>
     </aside>
   );

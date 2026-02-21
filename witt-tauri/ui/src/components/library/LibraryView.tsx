@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { SettingsModal } from '@/components/settings/SettingsModal';
+import { AnkiSyncModal } from '@/components/anki/AnkiSyncModal';
+import { NoteDetailModal } from './NoteDetailModal';
+import { NoteListItem } from './NoteListItem';
 import { LibraryHeader } from './LibraryHeader';
 import { FilterBadges } from './FilterBadges';
-import { CardGrid } from './CardGrid';
-import { CardList } from './CardList';
-import { CardDetail } from './CardDetail';
 import { EmptyState } from './EmptyState';
 import { SelectionToolbar } from './SelectionToolbar';
 import { VideoLibrary } from '@/components/video/VideoLibrary';
-import { DeckView } from '@/components/deck/DeckView';
 import { useLibraryStore } from '@/stores/useLibraryStore';
+import type { Note } from '@/types';
+import { ViewModeToggle } from './ViewModeToggle';
+import { DeckFilter } from './DeckFilter';
+import { Button } from '@/components/ui/Button';
+import { Upload } from 'lucide-react';
 
-type CurrentTab = 'inbox' | 'deck' | 'video';
+type CurrentTab = 'inbox' | 'video';
 
 /**
  * Main library view with sidebar navigation
@@ -22,58 +25,67 @@ export function LibraryView() {
   const [currentTab, setCurrentTab] = useState<CurrentTab>('inbox');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [ankiSyncOpen, setAnkiSyncOpen] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
   const {
-    filteredCards,
-    viewMode,
+    filteredNotes,
     isLoading,
-    selectedCards,
-    loadCards,
-    deselectAll,
+    selectedNotes,
+    loadNotes,
   } = useLibraryStore();
 
-  // Load cards on mount
+  // Load notes on mount
   useEffect(() => {
-    loadCards();
-  }, [loadCards]);
-
-  // Handle click outside detail panel
-  const handleBackdropClick = () => {
-    deselectAll();
-  };
+    loadNotes();
+  }, [loadNotes]);
 
   // Render content based on current tab
   const renderContent = () => {
     switch (currentTab) {
       case 'video':
         return <VideoLibrary />;
-      case 'deck':
-        return (
-          <>
-            <LibraryHeader />
-            <FilterBadges />
-            {selectedCards.size > 0 && <SelectionToolbar />}
-            <main className="flex-1 overflow-y-auto p-6">
-              <DeckView />
-            </main>
-          </>
-        );
       case 'inbox':
       default:
         return (
           <>
             <LibraryHeader />
             <FilterBadges />
-            {selectedCards.size > 0 && <SelectionToolbar />}
+            {selectedNotes.size > 0 && <SelectionToolbar />}
             <main className="flex-1 overflow-y-auto p-6">
+              {/* View Controls */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <DeckFilter />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAnkiSyncOpen(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Anki Sync</span>
+                  </Button>
+                  <ViewModeToggle />
+                </div>
+              </div>
+              
               {isLoading ? (
                 <LoadingSkeleton />
-              ) : filteredCards.length === 0 ? (
+              ) : filteredNotes.length === 0 ? (
                 <EmptyState />
-              ) : viewMode === 'grid' ? (
-                <CardGrid cards={filteredCards} />
               ) : (
-                <CardList cards={filteredCards} />
+                <div className="space-y-2">
+                  {filteredNotes.map((note) => (
+                    <NoteListItem
+                      key={note.lemma}
+                      note={note}
+                      onClick={() => setSelectedNote(note)}
+                    />
+                  ))}
+                </div>
               )}
             </main>
           </>
@@ -97,22 +109,19 @@ export function LibraryView() {
         {renderContent()}
       </div>
 
-      {/* Detail panel backdrop */}
-      {selectedCards.size > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-40"
-          onClick={handleBackdropClick}
+      {/* Note Detail Modal */}
+      {selectedNote && (
+        <NoteDetailModal
+          note={selectedNote}
+          onClose={() => setSelectedNote(null)}
         />
       )}
 
-      {/* Detail panel */}
-      {selectedCards.size > 0 && <CardDetail />}
-
       {/* Settings Modal */}
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      
+      {/* Anki Sync Modal */}
+      <AnkiSyncModal open={ankiSyncOpen} onClose={() => setAnkiSyncOpen(false)} />
     </div>
   );
 }

@@ -7,6 +7,10 @@ interface DefinitionListProps {
   definitions: Definition[];
   onAddDefinition: (text: string) => void;
   onUpdateDefinition: (id: string, text: string) => void;
+  onDeleteDefinition?: (id: string) => void;
+  onRefresh?: () => void;
+  isLoading?: boolean;
+  word?: string;
 }
 
 /**
@@ -16,6 +20,10 @@ export function DefinitionList({
   definitions,
   onAddDefinition,
   onUpdateDefinition,
+  onDeleteDefinition,
+  onRefresh,
+  isLoading,
+  word,
 }: DefinitionListProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newDefinition, setNewDefinition] = useState('');
@@ -46,20 +54,53 @@ export function DefinitionList({
     setEditingText('');
   };
 
+  const handleDelete = (id: string) => {
+    if (window.confirm('Delete this definition?')) {
+      onDeleteDefinition?.(id);
+    }
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Definitions
         </label>
-        {!isAdding && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="text-xs text-primary hover:text-primary/80 transition-colors"
-          >
-            + Add
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isLoading || !word}
+              className="text-xs text-primary hover:text-primary/80 transition-colors disabled:opacity-50 flex items-center gap-1"
+              title="Refresh definitions"
+            >
+              {isLoading ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  <span>Loading...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                    <path d="M21 3v9h-9" />
+                  </svg>
+                  <span>Refresh</span>
+                </>
+              )}
+            </button>
+          )}
+          {!isAdding && (
+            <button
+              onClick={() => setIsAdding(true)}
+              className="text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              + Add
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Definitions list */}
@@ -111,16 +152,27 @@ export function DefinitionList({
                         {index + 1}.
                       </span>
                       <p className="text-sm text-foreground flex-1">{def.text}</p>
-                      <button
-                        onClick={() => handleEdit(def)}
-                        className="p-1 hover:bg-accent rounded transition-colors"
-                        title="Edit definition"
-                      >
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEdit(def)}
+                          className="p-1 hover:bg-accent rounded transition-colors"
+                          title="Edit definition"
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(def.id)}
+                          className="p-1 hover:bg-destructive/20 text-destructive rounded transition-colors"
+                          title="Delete definition"
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground ml-6">
                       <span>{def.source}</span>

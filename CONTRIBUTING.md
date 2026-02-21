@@ -29,15 +29,11 @@ pnpm dev
 - **Framer Motion** for animations
 - **Vite** for build tooling
 
-### Backend (Mock Phase)
+### Backend
 - **Tauri 2.x** for native window management
-- **Mock store** with sample data for UI development
-- **IPC commands** with fake async delays
-
-### Future Backend
-- **Rust** + `sqlx` for SQLite persistence
-- **Real dictionary APIs** (Wiktionary, Jisho, etc.)
-- **LLM integration** for semantic drift analysis
+- **SQLite** + sqlx for data persistence
+- **Real dictionary APIs** (Free Dictionary API)
+- **rust-stemmers** for lemma extraction
 
 ## Project Structure
 
@@ -52,8 +48,7 @@ witt/
 │   │   ├── src/
 │   │   │   ├── main.rs         # Entry point
 │   │   │   ├── commands.rs     # IPC handlers
-│   │   │   ├── models.rs       # Data models
-│   │   │   └── mock_store.rs   # Mock data
+│   │   │   └── models.rs       # Data models
 │   │   └── tauri.conf.json
 │   │
 │   └── ui/                     # React frontend

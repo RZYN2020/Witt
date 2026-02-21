@@ -5,15 +5,15 @@ import { useCaptureStore } from '@/stores/useCaptureStore';
  * Empty state component for library view
  */
 export function EmptyState() {
-  const { cards, searchQuery, filter, clearFilters } = useLibraryStore();
+  const { notes, searchQuery, filter, clearFilters } = useLibraryStore();
   const { openPopup } = useCaptureStore();
 
   const hasActiveFilters =
-    (filter.timeRange && filter.timeRange !== 'all') ||
+    (filter.time_range && filter.time_range !== 'all') ||
     filter.source ||
     searchQuery;
 
-  if (cards.length === 0) {
+  if (notes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <div className="text-6xl mb-4">🎉</div>

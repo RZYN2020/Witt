@@ -9,13 +9,13 @@ export function FilterBadges() {
 
   const badges: Array<{ id: string; label: string }> = [];
 
-  if (filter.timeRange && filter.timeRange !== 'all') {
+  if (filter.time_range && filter.time_range !== 'all') {
     const labels: Record<string, string> = {
       today: 'Today',
       this_week: 'This Week',
       this_month: 'This Month',
     };
-    badges.push({ id: 'timeRange', label: labels[filter.timeRange] });
+    badges.push({ id: 'time_range', label: labels[filter.time_range] });
   }
 
   if (filter.source) {
@@ -23,7 +23,7 @@ export function FilterBadges() {
   }
 
   if (filter.tags && filter.tags.length > 0) {
-    filter.tags.forEach((tag) => {
+    filter.tags.forEach((tag: string) => {
       badges.push({ id: `tag-${tag}`, label: tag });
     });
   }

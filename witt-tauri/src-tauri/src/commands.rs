@@ -1,14 +1,20 @@
 use crate::models::*;
 use chrono::Utc;
-use std::time::Duration;
+use serde::{Deserialize, Serialize};
 use tauri::State;
-use tokio::time::sleep;
 use uuid::Uuid;
-use rand::Rng;
 use witt_core::{WittCore, WittConfig, Note, note::Context, note::NoteUpdate};
 
 pub struct WittCoreState {
     pub core: tokio::sync::Mutex<Option<WittCore>>,
+}
+
+impl Default for WittCoreState {
+    fn default() -> Self {
+        Self {
+            core: tokio::sync::Mutex::new(None),
+        }
+    }
 }
 
 /// Initialize WittCore
@@ -22,20 +28,12 @@ pub async fn init_core(state: State<'_, WittCoreState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Simulate async delay for realistic UI behavior
-async fn fake_delay(min_ms: u64, max_ms: u64) {
-    let delay = rand::thread_rng().gen_range(min_ms..max_ms);
-    sleep(Duration::from_millis(delay)).await;
-}
-
 /// Get all notes with optional filtering
 #[tauri::command]
 pub async fn get_notes(
     state: State<'_, WittCoreState>,
     filter: Option<NoteFilter>,
 ) -> Result<Vec<Note>, String> {
-    fake_delay(50, 150).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -80,8 +78,6 @@ pub async fn get_note(
     state: State<'_, WittCoreState>,
     lemma: String,
 ) -> Result<Note, String> {
-    fake_delay(30, 80).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -94,8 +90,6 @@ pub async fn save_note(
     state: State<'_, WittCoreState>,
     request: NoteRequest,
 ) -> Result<String, String> {
-    fake_delay(100, 200).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -121,8 +115,6 @@ pub async fn update_note(
     lemma: String,
     updates: NoteUpdate,
 ) -> Result<Note, String> {
-    fake_delay(100, 200).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -158,8 +150,6 @@ pub async fn delete_note(
     state: State<'_, WittCoreState>,
     lemma: String,
 ) -> Result<(), String> {
-    fake_delay(50, 150).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -173,8 +163,6 @@ pub async fn search_notes(
     state: State<'_, WittCoreState>,
     query: String,
 ) -> Result<Vec<Note>, String> {
-    fake_delay(100, 200).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -187,8 +175,6 @@ pub async fn get_contexts(
     state: State<'_, WittCoreState>,
     lemma: String,
 ) -> Result<Vec<Context>, String> {
-    fake_delay(50, 150).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -203,8 +189,6 @@ pub async fn save_context(
     lemma: String,
     context: Context,
 ) -> Result<Uuid, String> {
-    fake_delay(100, 200).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -223,8 +207,6 @@ pub async fn update_context(
     lemma: String,
     context: Context,
 ) -> Result<Context, String> {
-    fake_delay(100, 200).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -243,8 +225,6 @@ pub async fn delete_context(
     lemma: String,
     context_id: Uuid,
 ) -> Result<(), String> {
-    fake_delay(50, 150).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -256,43 +236,22 @@ pub async fn delete_context(
     Ok(())
 }
 
-/// Get dictionary definitions for a word (mock)
+/// Get dictionary definitions for a word
 #[tauri::command]
 pub async fn get_definitions(
     _state: State<'_, WittCoreState>,
     request: DefinitionRequest,
 ) -> Result<Vec<Definition>, String> {
-    fake_delay(50, 150).await;
-
-    // Mock dictionary responses based on language
-    let definitions = match request.language.as_str() {
-        "en" => mock_english_definitions(&request.word),
-        "de" => mock_german_definitions(&request.word),
-        "ja" => mock_japanese_definitions(&request.word),
-        "ko" => mock_korean_definitions(&request.word),
-        "zh" => mock_chinese_definitions(&request.word),
-        _ => mock_fallback_definitions(&request.word),
-    };
-
-    Ok(definitions)
+    fetch_dictionary_definitions(&request.word, &request.language).await
 }
 
-/// Get lemma for a word (mock)
+/// Get lemma for a word
 #[tauri::command]
 pub async fn get_lemma(
     _state: State<'_, WittCoreState>,
     request: LemmaRequest,
 ) -> Result<String, String> {
-    fake_delay(30, 80).await;
-
-    // Simple mock lemmatization
-    let lemma = match request.language.as_str() {
-        "en" => mock_english_lemma(&request.word),
-        "de" => mock_german_lemma(&request.word),
-        _ => request.word.clone(), // Fallback: return as-is
-    };
-
-    Ok(lemma)
+    Ok(extract_lemma(&request.word, &request.language))
 }
 
 /// Get tag suggestions
@@ -301,8 +260,6 @@ pub async fn get_tag_suggestions(
     state: State<'_, WittCoreState>,
     prefix: String,
 ) -> Result<Vec<String>, String> {
-    fake_delay(30, 100).await;
-
     let core = state.core.lock().await;
     let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
@@ -319,188 +276,396 @@ pub async fn get_tag_suggestions(
     Ok(tags)
 }
 
-// Mock dictionary helpers
+// ============================================================================
+// Real AnkiConnect Integration Commands
+// ============================================================================
 
-fn mock_english_definitions(word: &str) -> Vec<Definition> {
-    let word_lower = word.to_lowercase();
-
-    match word_lower.as_str() {
-        "bank" => vec![
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("sloping land beside a river or lake"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("noun")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("a financial institution"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("noun")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("a supply or stock held in reserve"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("noun")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-        ],
-        "run" => vec![
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("move at a speed faster than a walk"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("verb")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("to manage or operate"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("verb")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-        ],
-        "set" => vec![
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("to put something in a particular place"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("verb")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("to go down below the horizon"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("verb")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-            Definition {
-                id: Uuid::new_v4(),
-                text: String::from("a group or collection of things"),
-                source: String::from("Wiktionary"),
-                part_of_speech: Some(String::from("noun")),
-                is_custom: false,
-                is_user_edited: false,
-            },
-        ],
-        _ => vec![
-            Definition {
-                id: Uuid::new_v4(),
-                text: format!("Definition for '{}'", word),
-                source: String::from("Wiktionary"),
-                part_of_speech: None,
-                is_custom: false,
-                is_user_edited: false,
-            },
-        ],
+/// Check AnkiConnect connection
+#[tauri::command]
+pub async fn check_anki_connect() -> Result<AnkiConnectStatus, String> {
+    let anki_client = witt_core::anki::AnkiClient::new();
+    
+    match anki_client.is_available().await {
+        true => {
+            let version = anki_client.version().await.unwrap_or(0);
+            Ok(AnkiConnectStatus {
+                available: true,
+                version: Some(version),
+            })
+        }
+        false => Ok(AnkiConnectStatus {
+            available: false,
+            version: None,
+        })
     }
 }
 
-fn mock_german_definitions(word: &str) -> Vec<Definition> {
-    vec![
-        Definition {
-            id: Uuid::new_v4(),
-            text: format!("Definition für '{}'", word),
-            source: String::from("Dict.cc"),
-            part_of_speech: None,
-            is_custom: false,
-            is_user_edited: false,
-        },
-    ]
+/// AnkiConnect status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnkiConnectStatus {
+    pub available: bool,
+    pub version: Option<u32>,
 }
 
-fn mock_japanese_definitions(word: &str) -> Vec<Definition> {
-    vec![
-        Definition {
-            id: Uuid::new_v4(),
-            text: format!("'{}' の定義", word),
-            source: String::from("Jisho"),
-            part_of_speech: None,
-            is_custom: false,
-            is_user_edited: false,
-        },
-    ]
+/// Get available decks from Anki
+#[tauri::command]
+pub async fn get_anki_decks() -> Result<Vec<String>, String> {
+    let anki_client = witt_core::anki::AnkiClient::new();
+    
+    // Get deck names from AnkiConnect
+    let result = anki_client
+        .get_deck_names()
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    Ok(result)
 }
 
-fn mock_korean_definitions(word: &str) -> Vec<Definition> {
-    vec![
-        Definition {
-            id: Uuid::new_v4(),
-            text: format!("'{}' 의 정의", word),
-            source: String::from("Naver Dictionary"),
-            part_of_speech: None,
-            is_custom: false,
-            is_user_edited: false,
-        },
-    ]
+/// Sync notes to Anki
+#[tauri::command]
+pub async fn sync_to_anki(
+    state: State<'_, WittCoreState>,
+    lemmas: Vec<String>,
+) -> Result<AnkiSyncResult, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+    
+    let anki_client = witt_core::anki::AnkiClient::new();
+    
+    // Fetch notes by lemmas
+    let mut notes = Vec::new();
+    for lemma in &lemmas {
+        if let Some(note) = core.db().get_note_by_lemma(lemma).await.map_err(|e| e.to_string())? {
+            notes.push(note);
+        }
+    }
+    
+    // Sync to Anki
+    let sync_result = anki_client.sync_notes(&notes).await.map_err(|e| e.to_string())?;
+    
+    Ok(AnkiSyncResult {
+        success: sync_result.success,
+        created: sync_result.created,
+        updated: sync_result.updated,
+        failed: sync_result.failed.into_iter().map(|e| SyncError {
+            lemma: e.lemma,
+            error: e.error,
+        }).collect(),
+    })
 }
 
-fn mock_chinese_definitions(word: &str) -> Vec<Definition> {
-    vec![
-        Definition {
-            id: Uuid::new_v4(),
-            text: format!("'{}' 的定义", word),
-            source: String::from("CEDICT"),
-            part_of_speech: None,
-            is_custom: false,
-            is_user_edited: false,
-        },
-    ]
+/// Anki sync result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnkiSyncResult {
+    pub success: bool,
+    pub created: usize,
+    pub updated: usize,
+    pub failed: Vec<SyncError>,
 }
 
-fn mock_fallback_definitions(word: &str) -> Vec<Definition> {
-    vec![
-        Definition {
-            id: Uuid::new_v4(),
-            text: format!("No dictionary definition available for '{}'", word),
-            source: String::from("Fallback"),
-            part_of_speech: None,
-            is_custom: false,
-            is_user_edited: false,
-        },
-    ]
+/// Sync error
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncError {
+    pub lemma: String,
+    pub error: String,
 }
 
-// Mock lemma helpers
+/// Export notes to APKG
+#[tauri::command]
+pub async fn export_to_apkg(
+    state: State<'_, WittCoreState>,
+    lemmas: Vec<String>,
+    output_path: String,
+) -> Result<String, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+    
+    // Fetch notes by lemmas
+    let mut notes = Vec::new();
+    for lemma in &lemmas {
+        if let Some(note) = core.db().get_note_by_lemma(lemma).await.map_err(|e| e.to_string())? {
+            notes.push(note);
+        }
+    }
+    
+    // Generate APKG
+    let output = std::path::Path::new(&output_path);
+    witt_core::anki::AnkiClient::generate_apkg(notes, output)
+        .map_err(|e| e.to_string())?;
+    
+    Ok(output_path)
+}
 
-fn mock_english_lemma(word: &str) -> String {
-    let word_lower = word.to_lowercase();
+// ============================================================================
+// Real Dictionary API Integration
+// ============================================================================
 
-    // Simple rule-based lemmatization
-    if word_lower.ends_with("ing") {
-        // running -> run
-        word_lower[..word_lower.len() - 3].to_string()
-    } else if word_lower.ends_with("ed") {
-        // walked -> walk
-        word_lower[..word_lower.len() - 2].to_string()
-    } else if word_lower.ends_with("s") && !word_lower.ends_with("ss") {
-        // runs -> run
-        word_lower[..word_lower.len() - 1].to_string()
+/// Fetch definitions from Free Dictionary API
+async fn fetch_dictionary_definitions(word: &str, language: &str) -> Result<Vec<Definition>, String> {
+    let client = reqwest::Client::new();
+    
+    // Use Free Dictionary API (https://dictionaryapi.dev/)
+    let url = format!("https://api.dictionaryapi.dev/api/v2/entries/{}/{}", language, word);
+    
+    match client.get(&url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<serde_json::Value>().await {
+                    Ok(data) => {
+                        if let Some(entries) = data.as_array() {
+                            let mut definitions = Vec::new();
+                            
+                            for entry in entries {
+                                if let Some(meanings) = entry.get("meanings").and_then(|m| m.as_array()) {
+                                    for meaning in meanings {
+                                        let part_of_speech = meaning.get("partOfSpeech")
+                                            .and_then(|p| p.as_str())
+                                            .map(String::from);
+                                        
+                                        if let Some(defs) = meaning.get("definitions").and_then(|d| d.as_array()) {
+                                            for def in defs.iter().take(3) {
+                                                let text = def.get("definition")
+                                                    .and_then(|d| d.as_str())
+                                                    .unwrap_or("No definition")
+                                                    .to_string();
+                                                
+                                                let source = def.get("source")
+                                                    .and_then(|s| s.as_str())
+                                                    .unwrap_or("Free Dictionary API")
+                                                    .to_string();
+                                                
+                                                definitions.push(Definition {
+                                                    id: Uuid::new_v4(),
+                                                    text,
+                                                    source,
+                                                    part_of_speech: part_of_speech.clone(),
+                                                    is_custom: false,
+                                                    is_user_edited: false,
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if !definitions.is_empty() {
+                                return Ok(definitions);
+                            }
+                        }
+                    }
+                    Err(e) => log::warn!("Failed to parse dictionary response: {}", e),
+                }
+            }
+        }
+        Err(e) => log::warn!("Failed to fetch dictionary: {}", e),
+    }
+    
+    // Fallback: return a placeholder definition
+    Ok(vec![Definition {
+        id: Uuid::new_v4(),
+        text: format!("No dictionary definition found for '{}'. You can add a custom definition.", word),
+        source: String::from("Fallback"),
+        part_of_speech: None,
+        is_custom: false,
+        is_user_edited: false,
+    }])
+}
+
+// ============================================================================
+// Lemma Extraction using rust-stemmers
+// ============================================================================
+
+/// Extract lemma (base form) of a word using stemming
+fn extract_lemma(word: &str, language: &str) -> String {
+    use rust_stemmers::Algorithm;
+    
+    let algorithm = match language {
+        "en" => Algorithm::English,
+        "de" => Algorithm::German,
+        "fr" => Algorithm::French,
+        "es" => Algorithm::Spanish,
+        "it" => Algorithm::Italian,
+        "pt" => Algorithm::Portuguese,
+        "nl" => Algorithm::Dutch,
+        "ru" => Algorithm::Russian,
+        _ => Algorithm::English, // Default to English
+    };
+    
+    let stemmer = rust_stemmers::Stemmer::create(algorithm);
+    let stemmed = stemmer.stem(word);
+    
+    // Return stemmed word in lowercase
+    stemmed.to_lowercase()
+}
+
+// ============================================================================
+// Optimized Response Format Commands
+// ============================================================================
+
+/// Get notes with optimized response format (supports pagination)
+#[tauri::command]
+pub async fn get_notes_paginated(
+    state: State<'_, WittCoreState>,
+    page: usize,
+    page_size: usize,
+    filter: Option<NoteFilter>,
+) -> Result<PaginatedResponse<NoteSummary>, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+
+    let mut notes = core.db().get_all_notes().await.map_err(|e| e.to_string())?;
+    let total = notes.len();
+
+    // Apply filters if provided
+    if let Some(f) = filter {
+        if let Some(time_range) = f.time_range {
+            let now = Utc::now();
+            notes.retain(|note| match time_range {
+                TimeRange::Today => note.created_at.date_naive() == now.date_naive(),
+                TimeRange::ThisWeek => {
+                    note.created_at >= now - chrono::Duration::weeks(1)
+                }
+                TimeRange::ThisMonth => {
+                    note.created_at >= now - chrono::Duration::weeks(4)
+                }
+                TimeRange::All => true,
+            });
+        }
+
+        if let Some(search) = f.search_query {
+            let query = search.to_lowercase();
+            notes.retain(|note| {
+                note.lemma.to_lowercase().contains(&query)
+                    || note.definition.to_lowercase().contains(&query)
+                    || note.contexts.iter().any(|ctx| ctx.word_form.to_lowercase().contains(&query) || ctx.sentence.to_lowercase().contains(&query))
+                    || note.tags.iter().any(|t| t.to_lowercase().contains(&query))
+            });
+        }
+    }
+
+    // Sort by created_at descending
+    notes.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+
+    // Apply pagination
+    let start = page * page_size;
+    let end = (start + page_size).min(notes.len());
+    let page_notes = if start < notes.len() {
+        notes[start..end].iter().map(NoteSummary::from).collect()
     } else {
-        word_lower
-    }
+        Vec::new()
+    };
+
+    Ok(PaginatedResponse::new(page_notes, total, page, page_size))
 }
 
-fn mock_german_lemma(word: &str) -> String {
-    // Very simplified German lemmatization
-    let word_lower = word.to_lowercase();
+/// Batch save multiple notes
+#[tauri::command]
+pub async fn batch_save_notes(
+    state: State<'_, WittCoreState>,
+    request: BatchNoteRequest,
+) -> Result<BatchResult, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
 
-    if word_lower.ends_with("en") {
-        // laufen -> lauf (infinitive removal)
-        word_lower[..word_lower.len() - 2].to_string()
-    } else {
-        word_lower
+    let mut successful = Vec::new();
+    let mut failed = Vec::new();
+
+    for (index, note_req) in request.notes.into_iter().enumerate() {
+        let lemma = note_req.lemma.clone();
+        
+        match core.db().save_note(&Note::new_with_context(
+            note_req.lemma,
+            note_req.definition,
+            note_req.pronunciation,
+            note_req.phonetics,
+            note_req.tags,
+            note_req.comment.unwrap_or_default(),
+            note_req.deck.unwrap_or_else(|| "Default".to_string()),
+            note_req.context,
+        )).await {
+            Ok(_) => successful.push(lemma),
+            Err(e) => failed.push(BatchError {
+                index,
+                lemma,
+                error: e.to_string(),
+            }),
+        }
     }
+
+    Ok(BatchResult { successful, failed })
+}
+
+/// Get note summaries for efficient list rendering
+#[tauri::command]
+pub async fn get_note_summaries(
+    state: State<'_, WittCoreState>,
+    lemmas: Vec<String>,
+) -> Result<Vec<NoteSummary>, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+
+    let mut summaries = Vec::new();
+    for lemma in lemmas {
+        if let Some(note) = core.db().get_note_by_lemma(&lemma).await.map_err(|e| e.to_string())? {
+            summaries.push(NoteSummary::from(&note));
+        }
+    }
+
+    Ok(summaries)
+}
+
+/// Bulk delete multiple notes
+#[tauri::command]
+pub async fn bulk_delete_notes(
+    state: State<'_, WittCoreState>,
+    lemmas: Vec<String>,
+) -> Result<BatchResult, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+
+    let mut successful = Vec::new();
+    let mut failed = Vec::new();
+
+    for (index, lemma) in lemmas.into_iter().enumerate() {
+        match core.db().delete_note(&lemma).await {
+            Ok(_) => successful.push(lemma),
+            Err(e) => failed.push(BatchError {
+                index,
+                lemma: String::new(),
+                error: e.to_string(),
+            }),
+        }
+    }
+
+    Ok(BatchResult { successful, failed })
+}
+
+/// Get application statistics
+#[tauri::command]
+pub async fn get_stats(
+    state: State<'_, WittCoreState>,
+) -> Result<AppStats, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+
+    let notes = core.db().get_all_notes().await.map_err(|e| e.to_string())?;
+    let total_notes = notes.len();
+    let total_contexts: usize = notes.iter().map(|n| n.contexts.len()).sum();
+    let unique_tags: std::collections::HashSet<_> = notes.iter().flat_map(|n| &n.tags).collect();
+    
+    Ok(AppStats {
+        total_notes,
+        total_contexts,
+        unique_tags: unique_tags.len(),
+        notes_with_contexts: notes.iter().filter(|n| !n.contexts.is_empty()).count(),
+    })
+}
+
+/// Application statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppStats {
+    pub total_notes: usize,
+    pub total_contexts: usize,
+    pub unique_tags: usize,
+    pub notes_with_contexts: usize,
 }

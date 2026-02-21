@@ -20,7 +20,6 @@ pub mod media;
 pub mod search;
 pub mod db;
 pub mod anki;
-pub mod migration;
 
 pub use config::WittConfig;
 pub use error::WittCoreError;
@@ -31,7 +30,6 @@ pub use media::MediaManager;
 pub use search::SearchQuery;
 pub use db::SqliteDb;
 pub use anki::AnkiClient;
-pub use migration::migrate_old_cards;
 
 /// Main entry point for using WittCore
 pub struct WittCore {
@@ -49,8 +47,10 @@ impl WittCore {
 
     /// Creates a new instance of WittCore with custom configuration
     pub async fn new_with_config(config: WittConfig) -> Result<Self, WittCoreError> {
-        // Initialize logging
-        logging::init_logging()?;
+        // Initialize logging (ignore errors in development)
+        if let Err(e) = logging::init_logging() {
+            eprintln!("Warning: Failed to initialize logging: {}", e);
+        }
 
         log::info!("Initializing WittCore");
 

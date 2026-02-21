@@ -34,8 +34,7 @@ witt-tauri/
 │   ├── src/
 │   │   ├── main.rs     # Tauri app entry point
 │   │   ├── commands.rs # IPC command handlers
-│   │   ├── models.rs   # Data models
-│   │   └── mock_store.rs # In-memory mock data store
+│   │   └── models.rs   # Data models
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 │
@@ -55,7 +54,7 @@ witt-tauri/
 - 🎯 **Capture Popup** - Global hotkey trigger, editable context, auto-fetch definitions
 - 📚 **Library View** - Browse, filter, search captured cards
 - 🎬 **Video Player** - Watch with subtitles, frame-accurate capture
-- 🧪 **Mock Mode** - Develop UI with sample data before backend integration
+- 💾 **SQLite Backend** - Persistent storage with full CRUD operations
 
 ## Tech Stack
 
@@ -76,18 +75,12 @@ witt-tauri/
 | `Ctrl+Enter` | Save & Next |
 | `Esc` | Close / Cancel |
 
-## Mock Mode
+## Backend Features
 
-Currently running in **mock mode** - all data is stored in-memory and will be lost on restart. This allows rapid UI development before wiring up the real SQLite backend.
-
-To identify mock mode:
-- Amber banner at top of app
-- Console log on startup
-- Sample data includes cards in English, German, Japanese, Korean, and Chinese
-
-## Next Steps
-
-See `../openspec/changes/ui-first-capture/tasks.md` for the full implementation roadmap.
+- 💾 **SQLite Database** - Persistent storage with sqlx
+- 📖 **Dictionary API** - Free Dictionary API integration
+- 🔤 **Lemma Extraction** - rust-stemmers for multiple languages
+- 🌐 **HTTP Client** - reqwest for external API calls
 
 ## License
 

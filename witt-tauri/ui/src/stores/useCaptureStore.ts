@@ -1,23 +1,27 @@
 import { create } from 'zustand';
-import type { CaptureRequest, Source, Definition } from '@/types';
+import type { NoteRequest, Source, Definition } from '@/types';
 import * as commands from '@/lib/commands';
 import { useToastStore } from './useToastStore';
+import { useLoadingStore } from './useLoadingStore';
+import { useLibraryStore } from './useLibraryStore';
+import { classifyError, getUserFriendlyMessage, logError } from '@/lib/errors';
+import { withLoading, LoadingState } from '@/lib/loading';
 
 /**
  * Capture slice state and actions
  */
 interface CaptureSlice {
   // State
-  currentCapture: Partial<CaptureRequest> & { definitions?: Definition[] } | null;
+  currentCapture: Partial<NoteRequest> & { definitions?: Definition[] } | null;
   isPopupOpen: boolean;
   isLoading: boolean;
   error: string | null;
-  lastDiscardedCapture: Partial<CaptureRequest> | null;
+  lastDiscardedCapture: Partial<NoteRequest> | null;
 
   // Actions
   openPopup: (context: string, source: Source) => void;
   closePopup: () => void;
-  updateCapture: (updates: Partial<CaptureRequest>) => void;
+  updateCapture: (updates: Partial<NoteRequest>) => void;
   saveCapture: () => Promise<string | null>;
   saveAndNext: () => Promise<boolean>;
   discardCapture: () => void;
@@ -40,23 +44,42 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
   openPopup: (context: string, source: Source) => {
     set({
       currentCapture: {
-        context,
-        source,
-        word: '',
+        context: {
+          id: crypto.randomUUID(),
+          word_form: '',
+          sentence: context,
+          audio: undefined,
+          image: undefined,
+          source,
+          created_at: new Date().toISOString(),
+        },
         lemma: '',
-        language: 'en',
+        definition: '',
+        pronunciation: undefined,
+        phonetics: '',
         tags: [],
-        notes: '',
+        comment: '',
+        deck: 'Default',
         definitions: [],
       },
       isPopupOpen: true,
       error: null,
     });
-    
+
     // Auto-extract word from context (simple: first word)
     const firstWord = context.trim().split(/\s+/)[0] || '';
-    get().updateCapture({ word: firstWord });
-    
+    get().updateCapture({
+      context: {
+        id: crypto.randomUUID(),
+        word_form: firstWord,
+        sentence: context,
+        audio: undefined,
+        image: undefined,
+        source,
+        created_at: new Date().toISOString(),
+      }
+    });
+
     // Fetch lemma and definitions
     setTimeout(() => {
       fetchLemmaAndDefinitions(firstWord, 'en');
@@ -71,7 +94,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
     });
   },
 
-  updateCapture: (updates: Partial<CaptureRequest>) => {
+  updateCapture: (updates: Partial<NoteRequest>) => {
     set((state) => ({
       currentCapture: state.currentCapture
         ? { ...state.currentCapture, ...updates }
@@ -81,41 +104,73 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
 
   saveCapture: async () => {
     const { currentCapture } = get();
-    
-    if (!currentCapture?.context || !currentCapture?.word) {
-      set({ error: 'Context and word are required' });
+
+    if (!currentCapture?.context?.sentence || !currentCapture?.context?.word_form) {
+      set({ error: 'Context and word form are required' });
       return null;
     }
 
     set({ isLoading: true, error: null });
 
+    // Use loading indicator
+    useLoadingStore.getState().setLoading(true);
+
     try {
-      const request: CaptureRequest = {
-        context: currentCapture.context,
-        word: currentCapture.word,
-        lemma: currentCapture.lemma,
-        language: currentCapture.language,
+      const request: NoteRequest = {
+        lemma: currentCapture.lemma || currentCapture.context.word_form,
+        definition: currentCapture.definition || '',
+        pronunciation: currentCapture.pronunciation,
+        phonetics: currentCapture.phonetics,
         tags: currentCapture.tags || [],
-        notes: currentCapture.notes,
-        source: currentCapture.source || { type: 'app', name: 'Manual' },
+        comment: currentCapture.comment || '',
+        deck: currentCapture.deck || 'Default',
+        context: currentCapture.context,
       };
-      
-      const id = await commands.saveCapture(request);
+
+      // Use withLoading for better UX
+      await withLoading(async () => {
+        const lemma = await commands.saveNote(request);
+        return lemma;
+      }, { minDisplayTime: 200 });
+
       set({ isLoading: false, isPopupOpen: false, currentCapture: null });
-      
+      useLoadingStore.getState().setLoading(false);
+
+      // Refresh library to show the new note
+      try {
+        await useLibraryStore.getState().loadNotes();
+      } catch (refreshError) {
+        console.warn('Failed to refresh library after save:', refreshError);
+      }
+
       // Show success toast
       useToastStore.getState().addToast({
-        message: 'Capture saved!',
+        message: 'Note saved!',
         type: 'success',
         duration: 2000,
       });
-      
-      return id;
+
+      return request.lemma;
     } catch (error) {
+      const classifiedError = classifyError(error);
+      logError(classifiedError, 'saveCapture');
+      
+      const userMessage = getUserFriendlyMessage(classifiedError);
+      
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to save capture',
+        error: userMessage,
       });
+
+      useLoadingStore.getState().setLoading(false);
+
+      // Show error toast
+      useToastStore.getState().addToast({
+        message: userMessage,
+        type: 'error',
+        duration: 4000,
+      });
+
       return null;
     }
   },
@@ -126,12 +181,22 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
       // Reset for next capture
       set({
         currentCapture: {
-          context: '',
-          word: '',
+          context: {
+            id: crypto.randomUUID(),
+            word_form: '',
+            sentence: '',
+            audio: undefined,
+            image: undefined,
+            source: { type: 'app', name: 'Manual' },
+            created_at: new Date().toISOString(),
+          },
           lemma: '',
-          language: 'en',
+          definition: '',
+          pronunciation: undefined,
+          phonetics: '',
           tags: [],
-          notes: '',
+          comment: '',
+          deck: 'Default',
           definitions: [],
         },
         isPopupOpen: true,
@@ -144,7 +209,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
 
   discardCapture: () => {
     const { currentCapture } = get();
-    
+
     // Store for potential undo
     set({
       lastDiscardedCapture: currentCapture,
@@ -169,7 +234,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
 
   restoreLastDiscarded: () => {
     const { lastDiscardedCapture } = get();
-    
+
     if (lastDiscardedCapture) {
       set({
         currentCapture: lastDiscardedCapture,
@@ -182,6 +247,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
 
   setLoading: (loading: boolean) => {
     set({ isLoading: loading });
+    useLoadingStore.getState().setLoading(loading);
   },
 
   setError: (error: string | null) => {
@@ -190,18 +256,38 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
 }));
 
 /**
- * Fetch lemma and definitions for a word
+ * Fetch lemma and definitions for a word with loading indicator
  */
 async function fetchLemmaAndDefinitions(word: string, language: string) {
+  const operationId = 'fetch-lemma-definitions';
+  
   try {
+    useLoadingStore.getState().addIndicator({
+      id: operationId,
+      type: LoadingState.LOADING,
+      message: 'Looking up word...',
+      createdAt: Date.now(),
+    });
+
     const [lemma, definitions] = await Promise.all([
       commands.getLemma({ word, language }),
       commands.getDefinitions({ word, language }),
     ]);
 
     const { updateCapture } = useCaptureStore.getState();
-    updateCapture({ lemma, definitions } as Partial<CaptureRequest>);
+    updateCapture({ lemma, definitions } as Partial<NoteRequest>);
+    
+    // Remove indicator
+    useLoadingStore.getState().removeIndicator(operationId);
   } catch (error) {
-    console.error('Failed to fetch lemma/definitions:', error);
+    const classifiedError = classifyError(error);
+    logError(classifiedError, 'fetchLemmaAndDefinitions');
+    
+    // Remove indicator
+    useLoadingStore.getState().removeIndicator(operationId);
+    
+    // Don't show error toast for lemma/definition fetch failures
+    // as they are non-critical and the user can still manually enter data
+    console.warn('Failed to fetch lemma/definitions, continuing with manual entry');
   }
 }

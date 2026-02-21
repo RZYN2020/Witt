@@ -1,68 +1,36 @@
-import { motion } from 'framer-motion';
 import { useLibraryStore } from '@/stores/useLibraryStore';
-import { X, Trash2, Download } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-/**
- * Selection toolbar for batch operations
- */
-export function SelectionToolbar() {
-  const { selectedCards, deselectAll, deleteCard } = useLibraryStore();
-  const count = selectedCards.size;
+interface SelectionToolbarProps {
+  className?: string;
+}
 
-  const handleDeleteAll = () => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete ${count} selected cards?`
-      )
-    ) {
-      selectedCards.forEach((id) => deleteCard(id));
-      deselectAll();
+export function SelectionToolbar({ className }: SelectionToolbarProps) {
+  const { selectedNotes, deleteNote } = useLibraryStore();
+  const selectedCount = selectedNotes.size;
+
+  const handleDeleteSelected = async () => {
+    if (!confirm(`Delete ${selectedCount} selected notes?`)) return;
+
+    for (const lemma of Array.from(selectedNotes)) {
+      await deleteNote(lemma);
     }
   };
 
-  const handleExport = () => {
-    // TODO: Implement export functionality
-    alert(`Export ${count} cards (not yet implemented)`);
-  };
+  if (selectedCount === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className="bg-accent border-b border-border px-6 py-3 flex items-center justify-between"
-    >
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium text-accent-foreground">
-          {count} card{count > 1 ? 's' : ''} selected
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-accent-foreground/10 hover:bg-accent-foreground/20 text-accent-foreground rounded transition-colors"
-        >
-          <Download className="w-4 h-4" />
-          Export
-        </button>
-
-        <button
-          onClick={handleDeleteAll}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete
-        </button>
-
-        <button
-          onClick={deselectAll}
-          className="p-1.5 hover:bg-accent-foreground/20 rounded transition-colors"
-          title="Deselect all"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-    </motion.div>
+    <div className={cn(
+      'fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-4 z-40',
+      className
+    )}>
+      <span className="text-sm font-medium">{selectedCount} selected</span>
+      <button
+        onClick={handleDeleteSelected}
+        className="text-sm hover:underline"
+      >
+        Delete
+      </button>
+    </div>
   );
 }

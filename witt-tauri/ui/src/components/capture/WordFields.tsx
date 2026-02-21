@@ -12,6 +12,9 @@ interface LemmaFieldProps {
   onChange: (value: string) => void;
   isFocused: boolean;
   onFocus: () => void;
+  onRefresh?: () => void;
+  isLoading?: boolean;
+  word?: string;
 }
 
 interface LanguageSelectorProps {
@@ -69,15 +72,42 @@ export function WordField({ value, onChange, isFocused, onFocus }: WordFieldProp
 /**
  * Lemma input field
  */
-export function LemmaField({ value, onChange, isFocused, onFocus }: LemmaFieldProps) {
+export function LemmaField({ value, onChange, isFocused, onFocus, onRefresh, isLoading, word }: LemmaFieldProps) {
   return (
     <div className="space-y-1.5">
-      <label
-        htmlFor="lemma-field"
-        className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-      >
-        Lemma
-      </label>
+      <div className="flex items-center justify-between">
+        <label
+          htmlFor="lemma-field"
+          className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+        >
+          Lemma <span className="italic font-normal">(Base form)</span>
+        </label>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isLoading || !word}
+            className="text-xs text-primary hover:text-primary/80 transition-colors disabled:opacity-50 flex items-center gap-0.5"
+            title="Auto-fill lemma from word"
+          >
+            {isLoading ? (
+              <>
+                <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                </svg>
+                <span>Finding...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  <path d="M21 3v9h-9" />
+                </svg>
+                <span>Auto-fill</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
       <input
         ref={isFocused ? (el) => el?.focus() : null}
         data-field="lemma"
@@ -92,8 +122,11 @@ export function LemmaField({ value, onChange, isFocused, onFocus }: LemmaFieldPr
           'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
           'transition-all duration-200'
         )}
-        placeholder="Base form"
+        placeholder="Type or auto-fill base form"
       />
+      <p className="text-xs text-muted-foreground">
+        Edit manually or click "Auto-fill" to find the base form
+      </p>
     </div>
   );
 }
@@ -125,6 +158,7 @@ export function LanguageSelector({ value, onChange, isFocused, onFocus }: Langua
             'transition-all duration-200',
             'appearance-none cursor-pointer'
           )}
+          title="Select language for dictionary lookup"
         >
           {LANGUAGES.map((lang) => (
             <option key={lang.code} value={lang.code}>
@@ -138,6 +172,9 @@ export function LanguageSelector({ value, onChange, isFocused, onFocus }: Langua
           </svg>
         </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Used for dictionary and lemma lookup
+      </p>
     </div>
   );
 }

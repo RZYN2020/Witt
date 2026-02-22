@@ -19,35 +19,29 @@ export function GlobalShortcuts() {
     }
 
     // Register capture shortcut
-    if (captureHotkey && !registeredShortcuts.current.has(captureHotkey)) {
-      registerShortcut(captureHotkey, async () => {
-        console.log('[GlobalShortcut] Capture shortcut triggered');
+    if (captureHotkey) {
+      const normalizedCaptureHotkey = captureHotkey.replace('CommandOrControl', 'CmdOrCtrl');
+      if (!registeredShortcuts.current.has(normalizedCaptureHotkey)) {
+        registerShortcut(normalizedCaptureHotkey, async () => {
+          console.log('[GlobalShortcut] Capture shortcut triggered');
 
-        // Read clipboard content
-        const clipboardText = await readClipboard();
-
-        // Show/hide the capture window
-        await toggleCaptureWindow();
-
-        // Open capture popup with clipboard content
-        setTimeout(() => {
-          if (clipboardText) {
-            openPopup(clipboardText.trim(), { type: 'app', name: 'Clipboard' });
-          } else {
-            openPopup('', { type: 'app', name: 'Global Shortcut' });
-          }
-        }, 150);
-      });
-      registeredShortcuts.current.add(captureHotkey);
+          // Show/hide the capture window
+          await toggleCaptureWindow();
+        });
+        registeredShortcuts.current.add(normalizedCaptureHotkey);
+      }
     }
 
     // Register library shortcut
-    if (libraryHotkey && !registeredShortcuts.current.has(libraryHotkey)) {
-      registerShortcut(libraryHotkey, async () => {
-        console.log('[GlobalShortcut] Library shortcut triggered');
-        await showMainWindow();
-      });
-      registeredShortcuts.current.add(libraryHotkey);
+    if (libraryHotkey) {
+      const normalizedLibraryHotkey = libraryHotkey.replace('CommandOrControl', 'CmdOrCtrl');
+      if (!registeredShortcuts.current.has(normalizedLibraryHotkey)) {
+        registerShortcut(normalizedLibraryHotkey, async () => {
+          console.log('[GlobalShortcut] Library shortcut triggered');
+          await showMainWindow();
+        });
+        registeredShortcuts.current.add(normalizedLibraryHotkey);
+      }
     }
 
     return () => {
@@ -78,6 +72,8 @@ async function readClipboard(): Promise<string> {
 async function toggleCaptureWindow() {
   try {
     const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
+    const { cursorPosition } = await import('@tauri-apps/api/window');
+    const { PhysicalPosition } = await import('@tauri-apps/api/dpi');
     const windows = await getAllWebviewWindows();
 
     console.log('[Window] Available windows:', windows.map(w => w.label));
@@ -86,11 +82,17 @@ async function toggleCaptureWindow() {
     // Find and show capture window
     let captureWindow = windows.find(w => w.label === 'capture');
 
+    // Get current mouse position for window placement
+    const mousePos = await cursorPosition();
+    console.log('[Window] Mouse position:', mousePos);
+
     if (captureWindow) {
       console.log('[Window] Showing existing capture window');
       await captureWindow.show();
       await captureWindow.setFocus();
       await captureWindow.unminimize();
+      // Move existing window to mouse position
+      await captureWindow.setPosition(new PhysicalPosition(mousePos.x + 16, mousePos.y + 16));
     } else {
       // Create capture window if it doesn't exist
       console.log('[Window] Creating new capture window');
@@ -107,7 +109,8 @@ async function toggleCaptureWindow() {
         transparent: false,
         alwaysOnTop: true,
         visible: true,
-        center: true,
+        x: mousePos.x + 16, // Offset to avoid cursor overlap
+        y: mousePos.y + 16,
         skipTaskbar: true,
       });
 
@@ -121,6 +124,13 @@ async function toggleCaptureWindow() {
       });
 
       await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    // Hide main window if it's visible
+    const mainWindow = windows.find(w => w.label === 'main');
+    if (mainWindow) {
+      console.log('[Window] Hiding main window');
+      await mainWindow.hide();
     }
   } catch (error) {
     console.error('[Window] Failed to toggle capture window:', error);
@@ -153,30 +163,27 @@ async function registerShortcut(shortcut: string, callback: () => void) {
   try {
     const { register, isRegistered, unregister } = await import('@tauri-apps/plugin-global-shortcut');
 
-    // Normalize shortcut format - Tauri expects "CmdOrCtrl" instead of "CommandOrControl"
-    const normalizedShortcut = shortcut.replace('CommandOrControl', 'CmdOrCtrl');
+    console.log('[GlobalShortcut] Attempting to register:', shortcut);
 
-    console.log('[GlobalShortcut] Attempting to register:', normalizedShortcut);
-
-    const alreadyRegistered = await isRegistered(normalizedShortcut);
+    const alreadyRegistered = await isRegistered(shortcut);
     if (alreadyRegistered) {
-      console.log('[GlobalShortcut] Already registered, unregistering first:', normalizedShortcut);
-      await unregister(normalizedShortcut);
+      console.log('[GlobalShortcut] Already registered, unregistering first:', shortcut);
+      await unregister(shortcut);
     }
 
-    await register(normalizedShortcut, (event) => {
+    await register(shortcut, (event) => {
       if (event.state === 'Pressed') {
-        console.log('[GlobalShortcut] Shortcut pressed:', normalizedShortcut);
+        console.log('[GlobalShortcut] Shortcut pressed:', shortcut);
         callback();
       }
     });
 
     // Verify registration
-    const isNowRegistered = await isRegistered(normalizedShortcut);
+    const isNowRegistered = await isRegistered(shortcut);
     if (isNowRegistered) {
-      console.log('[GlobalShortcut] ✓ Successfully registered:', normalizedShortcut);
+      console.log('[GlobalShortcut] ✓ Successfully registered:', shortcut);
     } else {
-      console.error('[GlobalShortcut] ✗ Failed to register:', normalizedShortcut, '- Registration check failed');
+      console.error('[GlobalShortcut] ✗ Failed to register:', shortcut, '- Registration check failed');
     }
   } catch (error) {
     console.error('[GlobalShortcut] ✗ Failed to register shortcut:', shortcut, error);

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { configDefaults } from 'vitest/config';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -24,5 +25,16 @@ export default defineConfig({
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_DEBUG,
     outDir: 'dist',
+  },
+  // Vitest configuration
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.ts',
+    exclude: [...configDefaults.exclude, '**/node_modules/**', '**/dist/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+    },
   },
 });

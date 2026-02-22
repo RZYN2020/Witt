@@ -37,6 +37,8 @@ export function CapturePopup() {
   const [isSaving, setIsSaving] = useState(false);
   const [isFetchingDefinitions, setIsFetchingDefinitions] = useState(false);
   const [isFetchingLemma, setIsFetchingLemma] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   // Calculate popup position on open
   useEffect(() => {
@@ -79,6 +81,51 @@ export function CapturePopup() {
       };
     }
   }, [isPopupOpen]);
+
+  // Handle drag functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only allow dragging from the header area
+    const header = e.currentTarget.closest('.drag-handle');
+    if (!header) return;
+
+    setIsDragging(true);
+    setDragOffset({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    });
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      const popupWidth = 600;
+      const popupHeight = 700;
+
+      let x = e.clientX - dragOffset.x;
+      let y = e.clientY - dragOffset.y;
+
+      // Ensure popup stays within viewport
+      x = Math.max(16, Math.min(x, window.innerWidth - popupWidth - 16));
+      y = Math.max(16, Math.min(y, window.innerHeight - popupHeight - 16));
+
+      setPosition({ x, y });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, dragOffset]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -211,7 +258,10 @@ export function CapturePopup() {
         aria-labelledby="capture-popup-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50">
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/50 drag-handle cursor-move"
+          onMouseDown={handleMouseDown}
+        >
           <div className="flex items-center gap-2">
             <h2 id="capture-popup-title" className="text-sm font-semibold text-foreground">
               📖 Capture Context

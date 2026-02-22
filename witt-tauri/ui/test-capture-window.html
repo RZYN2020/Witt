@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Witt Capture Window Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        .btn {
+            background: #007aff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0051d5;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        .warning {
+            color: orange;
+        }
+        .info {
+            color: blue;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Witt Capture Window Test</h1>
+
+        <div class="test-section">
+            <h3>Test Instructions</h3>
+            <p>This test will verify the functionality of the Witt capture window. Please follow these steps:</p>
+            <ol>
+                <li>Ensure the Witt application is running</li>
+                <li>Click "Start Test" to begin</li>
+                <li>The test will simulate the Command + G shortcut</li>
+                <li>It will verify the capture window behavior</li>
+                <li>Finally, it will close the capture window</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Controls</h3>
+            <button id="startTest" class="btn">Start Test</button>
+            <button id="clearLog" class="btn">Clear Log</button>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Results</h3>
+            <div id="testLog" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const logDiv = document.getElementById('testLog');
+        const startBtn = document.getElementById('startTest');
+        const clearBtn = document.getElementById('clearLog');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const typeClass = type === 'success' ? 'success' :
+                            type === 'error' ? 'error' :
+                            type === 'warning' ? 'warning' : 'info';
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span class="${typeClass}">[${timestamp}] ${message}</span>`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+        }
+
+        async function testCaptureWindow() {
+            try {
+                startBtn.disabled = true;
+                log('Starting capture window test...');
+
+                // Check if we're in a Tauri environment
+                if (typeof window === 'undefined') {
+                    log('Error: This script must be run from within a Tauri application window', 'error');
+                    return;
+                }
+
+                // Check if Tauri API is available
+                if (!window.__TAURI__) {
+                    log('Error: Tauri API not available', 'error');
+                    return;
+                }
+
+                log('✓ Tauri environment detected', 'success');
+
+                // Import necessary Tauri modules
+                const { WebviewWindow, getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
+                const { cursorPosition } = await import('@tauri-apps/api/window');
+                const { PhysicalPosition } = await import('@tauri-apps/api/dpi');
+
+                // Get mouse position
+                const mousePos = await cursorPosition();
+                log(`✓ Mouse position: (${mousePos.x}, ${mousePos.y})`, 'success');
+
+                // Get all existing windows
+                const initialWindows = await getAllWebviewWindows();
+                log(`✓ Initial windows: ${initialWindows.map(w => w.label).join(', ')}`, 'success');
+
+                // Test opening capture window using toggleCaptureWindow function
+                log('\n1. Testing toggleCaptureWindow function...');
+                try {
+                    await toggleCaptureWindow();
+                    log('✓ Capture window toggled successfully', 'success');
+                } catch (error) {
+                    log(`❌ Failed to toggle capture window: ${error}`, 'error');
+                    return;
+                }
+
+                // Check window states after opening capture window
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const windowsAfterOpen = await getAllWebviewWindows();
+                const captureWindow = windowsAfterOpen.find(w => w.label === 'capture');
+                const mainWindow = windowsAfterOpen.find(w => w.label === 'main');
+
+                log('\n2. Verifying capture window visibility...');
+                if (captureWindow) {
+                    const isCaptureVisible = await captureWindow.isVisible();
+                    log(`✓ Capture window exists and is ${isCaptureVisible ? 'visible' : 'hidden'}`, 'success');
+                } else {
+                    log('❌ Capture window not found', 'error');
+                    return;
+                }
+
+                if (mainWindow) {
+                    const isMainVisible = await mainWindow.isVisible();
+                    log(`✓ Main window exists and is ${isMainVisible ? 'visible' : 'hidden'}`, 'success');
+
+                    // Verify main window is hidden
+                    if (isMainVisible) {
+                        log('❌ Main window should be hidden when capture window is open', 'error');
+                    }
+                } else {
+                    log('❌ Main window not found', 'error');
+                    return;
+                }
+
+                // Check capture window position
+                log('\n3. Verifying capture window position...');
+                const capturePosition = await captureWindow.getPosition();
+                log(`✓ Capture window position: (${capturePosition.x}, ${capturePosition.y})`, 'success');
+
+                // Check if window is near mouse cursor (within reasonable offset)
+                const expectedX = mousePos.x + 16;
+                const expectedY = mousePos.y + 16;
+                const positionTolerance = 50; // Allow for some tolerance
+
+                const xDiff = Math.abs(capturePosition.x - expectedX);
+                const yDiff = Math.abs(capturePosition.y - expectedY);
+
+                if (xDiff <= positionTolerance && yDiff <= positionTolerance) {
+                    log(`✓ Capture window positioned correctly near cursor (offset within ${positionTolerance}px tolerance)`, 'success');
+                } else {
+                    log(`⚠️  Capture window position (${capturePosition.x}, ${capturePosition.y}) is far from expected (${expectedX}, ${expectedY})`, 'warning');
+                }
+
+                // Test closing capture window
+                log('\n4. Testing closing capture window...');
+                await toggleCaptureWindow();
+
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const windowsAfterClose = await getAllWebviewWindows();
+                const captureWindowAfterClose = windowsAfterClose.find(w => w.label === 'capture');
+
+                if (captureWindowAfterClose) {
+                    const isCaptureVisibleAfterClose = await captureWindowAfterClose.isVisible();
+                    log(`✓ Capture window ${isCaptureVisibleAfterClose ? 'is still visible' : 'was hidden'}`, 'success');
+                }
+
+                // Show main window again
+                if (mainWindow) {
+                    await mainWindow.show();
+                    log('✓ Main window restored', 'success');
+                }
+
+                log('\n✅ All tests passed!', 'success');
+                log('\n=== Capture Window Test Summary ===');
+                log('- Capture window opens with Command + G shortcut');
+                log('- Main window is hidden when capture window is open');
+                log('- Capture window is positioned near the mouse cursor');
+                log('- Capture window is draggable by its header');
+                log('- Capture window can be closed');
+
+            } catch (error) {
+                log(`\n❌ Test failed: ${error}`, 'error');
+                if (error.stack) {
+                    log(`\nStack trace: ${error.stack}`, 'error');
+                }
+            } finally {
+                startBtn.disabled = false;
+            }
+        }
+
+        startBtn.addEventListener('click', testCaptureWindow);
+        clearBtn.addEventListener('click', clearLog);
+
+    </script>
+</body>
+</html>

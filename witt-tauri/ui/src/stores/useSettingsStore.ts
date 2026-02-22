@@ -208,65 +208,73 @@ function applyTheme(theme: 'light' | 'dark' | 'system') {
 }
 
 // Load saved settings on initialization
-const savedTheme = localStorage.getItem('witt:theme') as 'light' | 'dark' | 'system' | null;
-if (savedTheme) {
-  useSettingsStore.getState().theme = savedTheme;
-  applyTheme(savedTheme);
-}
+try {
+  if (typeof localStorage !== 'undefined' && localStorage) {
+    const savedTheme = localStorage.getItem('witt:theme') as 'light' | 'dark' | 'system' | null;
+    if (savedTheme) {
+      useSettingsStore.getState().theme = savedTheme;
+      applyTheme(savedTheme);
+    }
 
-// Migrate old shortcut keys to new defaults
-const oldCaptureHotkeys = ['CommandOrControl+Shift+C', 'CommandOrControl+G', 'Super+G', 'Command+G', 'Command+Shift+X'];
-const oldLibraryHotkeys = ['CommandOrControl+Shift+L', 'CommandOrControl+L', 'Super+L', 'Command+L', 'Command+Shift+V'];
-const newCaptureHotkey = 'CommandOrControl+G';
-const newLibraryHotkey = 'CommandOrControl+L';
+    // Migrate old shortcut keys to new defaults
+    const oldCaptureHotkeys = ['CommandOrControl+Shift+C', 'CommandOrControl+G', 'Super+G', 'Command+G', 'Command+Shift+X'];
+    const oldLibraryHotkeys = ['CommandOrControl+Shift+L', 'CommandOrControl+L', 'Super+L', 'Command+L', 'Command+Shift+V'];
+    const newCaptureHotkey = 'CmdOrCtrl+G';
+    const newLibraryHotkey = 'CmdOrCtrl+L';
 
-const savedCaptureHotkey = localStorage.getItem('witt:captureHotkey');
-if (savedCaptureHotkey) {
-  // Migrate old default to new default
-  if (oldCaptureHotkeys.includes(savedCaptureHotkey)) {
-    localStorage.setItem('witt:captureHotkey', newCaptureHotkey);
-    useSettingsStore.getState().captureHotkey = newCaptureHotkey;
-  } else {
-    useSettingsStore.getState().captureHotkey = savedCaptureHotkey;
+    const savedCaptureHotkey = localStorage.getItem('witt:captureHotkey');
+    if (savedCaptureHotkey) {
+      // Migrate old default to new default
+      if (oldCaptureHotkeys.includes(savedCaptureHotkey)) {
+        localStorage.setItem('witt:captureHotkey', newCaptureHotkey);
+        useSettingsStore.getState().captureHotkey = newCaptureHotkey;
+      } else {
+        useSettingsStore.getState().captureHotkey = savedCaptureHotkey;
+      }
+    }
+
+    const savedLibraryHotkey = localStorage.getItem('witt:libraryHotkey');
+    if (savedLibraryHotkey) {
+      // Migrate old default to new default
+      if (oldLibraryHotkeys.includes(savedLibraryHotkey)) {
+        localStorage.setItem('witt:libraryHotkey', newLibraryHotkey);
+        useSettingsStore.getState().libraryHotkey = newLibraryHotkey;
+      } else {
+        useSettingsStore.getState().libraryHotkey = savedLibraryHotkey;
+      }
+    }
+
+    const savedHotkeyEnabled = localStorage.getItem('witt:hotkeyEnabled');
+    if (savedHotkeyEnabled !== null) {
+      useSettingsStore.getState().hotkeyEnabled = savedHotkeyEnabled === 'true';
+    }
+
+    const savedAutoFetch = localStorage.getItem('witt:autoFetchDefinitions');
+    if (savedAutoFetch !== null) {
+      useSettingsStore.getState().autoFetchDefinitions = savedAutoFetch === 'true';
+    }
+
+    const savedScreenshots = localStorage.getItem('witt:includeScreenshots');
+    if (savedScreenshots !== null) {
+      useSettingsStore.getState().includeScreenshots = savedScreenshots === 'true';
+    }
+
+    const savedLanguage = localStorage.getItem('witt:appLanguage') as 'en' | 'zh' | 'ja' | 'ko' | 'de' | null;
+    if (savedLanguage) {
+      useSettingsStore.getState().appLanguage = savedLanguage;
+    }
   }
-}
-
-const savedLibraryHotkey = localStorage.getItem('witt:libraryHotkey');
-if (savedLibraryHotkey) {
-  // Migrate old default to new default
-  if (oldLibraryHotkeys.includes(savedLibraryHotkey)) {
-    localStorage.setItem('witt:libraryHotkey', newLibraryHotkey);
-    useSettingsStore.getState().libraryHotkey = newLibraryHotkey;
-  } else {
-    useSettingsStore.getState().libraryHotkey = savedLibraryHotkey;
-  }
-}
-
-const savedHotkeyEnabled = localStorage.getItem('witt:hotkeyEnabled');
-if (savedHotkeyEnabled !== null) {
-  useSettingsStore.getState().hotkeyEnabled = savedHotkeyEnabled === 'true';
-}
-
-const savedAutoFetch = localStorage.getItem('witt:autoFetchDefinitions');
-if (savedAutoFetch !== null) {
-  useSettingsStore.getState().autoFetchDefinitions = savedAutoFetch === 'true';
-}
-
-const savedScreenshots = localStorage.getItem('witt:includeScreenshots');
-if (savedScreenshots !== null) {
-  useSettingsStore.getState().includeScreenshots = savedScreenshots === 'true';
-}
-
-const savedLanguage = localStorage.getItem('witt:appLanguage') as 'en' | 'zh' | 'ja' | 'ko' | 'de' | null;
-if (savedLanguage) {
-  useSettingsStore.getState().appLanguage = savedLanguage;
+} catch (error) {
+  console.warn('Failed to load settings from localStorage:', error);
 }
 
 // Listen for system theme changes
-window
-  .matchMedia('(prefers-color-scheme: dark)')
-  .addEventListener('change', () => {
-    if (useSettingsStore.getState().theme === 'system') {
-      applyTheme('system');
-    }
-  });
+if (typeof window !== 'undefined' && window.matchMedia) {
+  window
+    .matchMedia('(prefers-color-scheme: dark)')
+    .addEventListener('change', () => {
+      if (useSettingsStore.getState().theme === 'system') {
+        applyTheme('system');
+      }
+    });
+}

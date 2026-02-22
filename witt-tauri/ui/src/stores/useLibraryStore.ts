@@ -256,7 +256,13 @@ async function applyFilters(filter: NoteFilter, searchQuery: string) {
 }
 
 // Load saved view mode on initialization
-const savedViewMode = localStorage.getItem('witt:viewMode') as 'grid' | 'list' | null;
-if (savedViewMode) {
-  useLibraryStore.getState().viewMode = savedViewMode;
+try {
+  if (typeof localStorage !== 'undefined' && localStorage) {
+    const savedViewMode = localStorage.getItem('witt:viewMode') as 'grid' | 'list' | null;
+    if (savedViewMode) {
+      useLibraryStore.getState().viewMode = savedViewMode;
+    }
+  }
+} catch (error) {
+  console.warn('Failed to load view mode from localStorage:', error);
 }

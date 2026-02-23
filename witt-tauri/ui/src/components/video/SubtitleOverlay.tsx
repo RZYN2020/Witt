@@ -14,10 +14,7 @@ export function SubtitleOverlay({ text, position = 'bottom' }: SubtitleOverlayPr
 
   return (
     <div
-      className={cn(
-        'absolute left-0 right-0 px-8 pointer-events-none',
-        positionClasses[position]
-      )}
+      className={cn('absolute left-0 right-0 px-8 pointer-events-none', positionClasses[position])}
     >
       <div className="bg-black/70 text-white text-lg px-4 py-2 rounded inline-block max-w-full mx-auto">
         <p className="text-center">{text}</p>

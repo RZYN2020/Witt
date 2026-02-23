@@ -271,10 +271,7 @@ export function generateCards(
 
   // Generate context cards
   if (defaultOptions.generateContexts) {
-    const contextsToGenerate = Math.min(
-      note.contexts.length,
-      defaultOptions.maxContexts
-    );
+    const contextsToGenerate = Math.min(note.contexts.length, defaultOptions.maxContexts);
 
     for (let i = 0; i < contextsToGenerate; i++) {
       const context = note.contexts[i];
@@ -284,10 +281,7 @@ export function generateCards(
 
   // Generate cloze cards
   if (defaultOptions.generateCloze) {
-    const contextsToGenerate = Math.min(
-      note.contexts.length,
-      defaultOptions.maxContexts
-    );
+    const contextsToGenerate = Math.min(note.contexts.length, defaultOptions.maxContexts);
 
     for (let i = 0; i < contextsToGenerate; i++) {
       const context = note.contexts[i];
@@ -301,22 +295,25 @@ export function generateCards(
 /**
  * Generate a basic card
  */
-function generateBasicCard(
-  note: Note,
-  template: CardTemplate
-): GeneratedCard {
+function generateBasicCard(note: Note, template: CardTemplate): GeneratedCard {
   return {
     id: crypto.randomUUID(),
     type: 'basic',
     front: renderTemplate(template.front, {
       Lemma: note.lemma,
       Phonetics: note.phonetics || '',
-      Pronunciation: typeof note.pronunciation === 'string' ? note.pronunciation : note.pronunciation?.file_path || '',
+      Pronunciation:
+        typeof note.pronunciation === 'string'
+          ? note.pronunciation
+          : note.pronunciation?.file_path || '',
     }),
     back: renderTemplate(template.back, {
       Lemma: note.lemma,
       Phonetics: note.phonetics || '',
-      Pronunciation: typeof note.pronunciation === 'string' ? note.pronunciation : note.pronunciation?.file_path || '',
+      Pronunciation:
+        typeof note.pronunciation === 'string'
+          ? note.pronunciation
+          : note.pronunciation?.file_path || '',
       Definition: note.definition,
       Contexts: formatContexts(note.contexts),
       Comment: note.comment,
@@ -346,8 +343,12 @@ function generateContextCard(
     back: renderTemplate(template.back, {
       Lemma: note.lemma,
       Phonetics: note.phonetics || '',
-      Pronunciation: typeof note.pronunciation === 'string' ? note.pronunciation : note.pronunciation?.file_path || '',
-      ContextAudio: typeof context.audio === 'string' ? context.audio : context.audio?.file_path || '',
+      Pronunciation:
+        typeof note.pronunciation === 'string'
+          ? note.pronunciation
+          : note.pronunciation?.file_path || '',
+      ContextAudio:
+        typeof context.audio === 'string' ? context.audio : context.audio?.file_path || '',
       Definition: note.definition,
       WordForm: context.word_form,
       OtherContexts: formatOtherContexts(note.contexts, context.id),
@@ -408,18 +409,12 @@ function escapeRegex(string: string): string {
 /**
  * Render a template with replacements
  */
-function renderTemplate(
-  template: string,
-  data: Record<string, string>
-): string {
+function renderTemplate(template: string, data: Record<string, string>): string {
   let result = template;
 
   for (const [key, value] of Object.entries(data)) {
     // Handle Anki conditional blocks {{#Key}}...{{/Key}}
-    const conditionalRegex = new RegExp(
-      `{{#${key}}}(.*?){{/${key}}}`,
-      'gs'
-    );
+    const conditionalRegex = new RegExp(`{{#${key}}}(.*?){{/${key}}}`, 'gs');
     if (value) {
       result = result.replace(conditionalRegex, value);
     } else {
@@ -458,10 +453,7 @@ function formatOtherContexts(contexts: Context[], excludeId: string): string {
   return `
     <ul>
       ${otherContexts
-        .map(
-          (ctx) =>
-            `<li><strong>${ctx.word_form}:</strong> ${truncate(ctx.sentence, 80)}</li>`
-        )
+        .map((ctx) => `<li><strong>${ctx.word_form}:</strong> ${truncate(ctx.sentence, 80)}</li>`)
         .join('')}
     </ul>
   `;

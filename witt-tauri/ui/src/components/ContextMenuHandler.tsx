@@ -33,7 +33,11 @@ export function ContextMenuHandler() {
 /**
  * Show capture option in context menu
  */
-async function showCaptureOption(event: MouseEvent, selectedText: string, openPopup: (context: string, source: any) => void) {
+async function showCaptureOption(
+  event: MouseEvent,
+  selectedText: string,
+  openPopup: (context: string, source: any) => void
+) {
   // Prevent default context menu temporarily
   event.preventDefault();
 

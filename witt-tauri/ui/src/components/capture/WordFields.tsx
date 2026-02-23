@@ -72,7 +72,15 @@ export function WordField({ value, onChange, isFocused, onFocus }: WordFieldProp
 /**
  * Lemma input field
  */
-export function LemmaField({ value, onChange, isFocused, onFocus, onRefresh, isLoading, word }: LemmaFieldProps) {
+export function LemmaField({
+  value,
+  onChange,
+  isFocused,
+  onFocus,
+  onRefresh,
+  isLoading,
+  word,
+}: LemmaFieldProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -91,14 +99,26 @@ export function LemmaField({ value, onChange, isFocused, onFocus, onRefresh, isL
           >
             {isLoading ? (
               <>
-                <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className="w-3 h-3 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
                 <span>Finding...</span>
               </>
             ) : (
               <>
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className="w-3 h-3"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                   <path d="M21 3v9h-9" />
                 </svg>
@@ -167,14 +187,18 @@ export function LanguageSelector({ value, onChange, isFocused, onFocus }: Langua
           ))}
         </select>
         <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-          <svg className="w-4 h-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            className="w-4 h-4 text-muted-foreground"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M6 9l6 6 6-6" />
           </svg>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Used for dictionary and lemma lookup
-      </p>
+      <p className="text-xs text-muted-foreground">Used for dictionary and lemma lookup</p>
     </div>
   );
 }

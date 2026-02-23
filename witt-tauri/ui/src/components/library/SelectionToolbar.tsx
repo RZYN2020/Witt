@@ -20,15 +20,14 @@ export function SelectionToolbar({ className }: SelectionToolbarProps) {
   if (selectedCount === 0) return null;
 
   return (
-    <div className={cn(
-      'fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-4 z-40',
-      className
-    )}>
+    <div
+      className={cn(
+        'fixed bottom-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-4 z-40',
+        className
+      )}
+    >
       <span className="text-sm font-medium">{selectedCount} selected</span>
-      <button
-        onClick={handleDeleteSelected}
-        className="text-sm hover:underline"
-      >
+      <button onClick={handleDeleteSelected} className="text-sm hover:underline">
         Delete
       </button>
     </div>

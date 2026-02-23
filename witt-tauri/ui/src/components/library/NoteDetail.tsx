@@ -47,7 +47,13 @@ export function NoteDetail({
               className="p-2 hover:bg-accent rounded transition-colors"
               aria-label="Close"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M19 12H5M12 19l-7-7 7-7" />
               </svg>
             </button>
@@ -147,7 +153,13 @@ export function NoteDetail({
                 Deck
               </h2>
               <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className="w-4 h-4 text-muted-foreground"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                   <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
                 </svg>
@@ -205,7 +217,13 @@ export function NoteDetail({
 
                 {contextCount === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
-                    <svg className="w-12 h-12 mx-auto mb-3 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      className="w-12 h-12 mx-auto mb-3 opacity-50"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                       <line x1="16" y1="13" x2="8" y2="13" />
@@ -213,10 +231,7 @@ export function NoteDetail({
                     </svg>
                     <p>No contexts added yet</p>
                     {hasEmptySlots && onAddContext && (
-                      <button
-                        onClick={onAddContext}
-                        className="mt-3 text-primary hover:underline"
-                      >
+                      <button onClick={onAddContext} className="mt-3 text-primary hover:underline">
                         Add your first context
                       </button>
                     )}
@@ -229,13 +244,11 @@ export function NoteDetail({
             <section className="note-metadata pt-6 border-t border-border">
               <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
                 <div>
-                  <span className="font-medium">Created:</span>{' '}
-                  {formatDate(note.created_at)}
+                  <span className="font-medium">Created:</span> {formatDate(note.created_at)}
                 </div>
                 {note.updated_at && (
                   <div>
-                    <span className="font-medium">Updated:</span>{' '}
-                    {formatDate(note.updated_at)}
+                    <span className="font-medium">Updated:</span> {formatDate(note.updated_at)}
                   </div>
                 )}
               </div>

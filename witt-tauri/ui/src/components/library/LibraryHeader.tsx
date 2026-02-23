@@ -7,8 +7,7 @@ import { cn } from '@/lib/utils';
  * Library header with search and view toggle
  */
 export function LibraryHeader() {
-  const { searchQuery, setSearchQuery, viewMode, setViewMode } =
-    useLibraryStore();
+  const { searchQuery, setSearchQuery, viewMode, setViewMode } = useLibraryStore();
   const { openPopup } = useCaptureStore();
 
   return (
@@ -36,9 +35,7 @@ export function LibraryHeader() {
               onClick={() => setViewMode('grid')}
               className={cn(
                 'p-2 rounded transition-colors',
-                viewMode === 'grid'
-                  ? 'bg-background shadow-sm'
-                  : 'hover:bg-accent'
+                viewMode === 'grid' ? 'bg-background shadow-sm' : 'hover:bg-accent'
               )}
               title="Grid view"
             >
@@ -59,9 +56,7 @@ export function LibraryHeader() {
               onClick={() => setViewMode('list')}
               className={cn(
                 'p-2 rounded transition-colors',
-                viewMode === 'list'
-                  ? 'bg-background shadow-sm'
-                  : 'hover:bg-accent'
+                viewMode === 'list' ? 'bg-background shadow-sm' : 'hover:bg-accent'
               )}
               title="List view"
             >

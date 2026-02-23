@@ -28,7 +28,7 @@ export function VideoUploader({ onVideoSelect, onClose }: VideoUploaderProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('video/')) {
       handleFile(file);
@@ -84,10 +84,7 @@ export function VideoUploader({ onVideoSelect, onClose }: VideoUploaderProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-xl font-semibold text-foreground">Upload Video</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-accent rounded-md transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-accent rounded-md transition-colors">
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
         </div>
@@ -114,18 +111,19 @@ export function VideoUploader({ onVideoSelect, onClose }: VideoUploaderProps) {
               onChange={handleFileSelect}
               className="hidden"
             />
-            
+
             <div className="flex flex-col items-center gap-4">
-              <div className={cn(
-                'w-16 h-16 rounded-full flex items-center justify-center transition-colors',
-                isDragging ? 'bg-primary/20' : 'bg-muted'
-              )}>
-                <Upload className={cn(
-                  'w-8 h-8',
-                  isDragging ? 'text-primary' : 'text-muted-foreground'
-                )} />
+              <div
+                className={cn(
+                  'w-16 h-16 rounded-full flex items-center justify-center transition-colors',
+                  isDragging ? 'bg-primary/20' : 'bg-muted'
+                )}
+              >
+                <Upload
+                  className={cn('w-8 h-8', isDragging ? 'text-primary' : 'text-muted-foreground')}
+                />
               </div>
-              
+
               <div>
                 <p className="text-sm font-medium text-foreground mb-1">
                   {isDragging ? 'Drop video here' : 'Drag & drop video here'}

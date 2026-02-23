@@ -14,7 +14,7 @@ export function CardDetail({ note, onClose }: CardDetailProps) {
 
   const handleDelete = async () => {
     if (!confirm(`Delete note "${note.lemma}"?`)) return;
-    
+
     setIsDeleting(true);
     await deleteNote(note.lemma);
     onClose();
@@ -38,11 +38,14 @@ export function CardDetail({ note, onClose }: CardDetailProps) {
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-accent rounded transition-colors"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button onClick={onClose} className="p-2 hover:bg-accent rounded transition-colors">
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>
@@ -60,7 +63,10 @@ export function CardDetail({ note, onClose }: CardDetailProps) {
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Tags</h3>
               <div className="flex flex-wrap gap-2">
                 {note.tags.map((tag, i) => (
-                  <span key={i} className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-full">
+                  <span
+                    key={i}
+                    className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded-full"
+                  >
                     {tag}
                   </span>
                 ))}

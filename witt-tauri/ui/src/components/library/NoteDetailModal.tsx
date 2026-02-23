@@ -25,7 +25,6 @@ export function NoteDetailModal({
   onEditContext,
   onDeleteContext,
 }: NoteDetailModalProps) {
-
   return (
     <AnimatePresence>
       {/* Backdrop */}
@@ -44,7 +43,7 @@ export function NoteDetailModal({
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
         className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
       >
-        <div 
+        <div
           className="w-full max-w-3xl max-h-[85vh] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto mx-4"
           onClick={(e) => e.stopPropagation()}
         >
@@ -53,9 +52,7 @@ export function NoteDetailModal({
             <div>
               <h2 className="text-2xl font-bold text-foreground">{note.lemma}</h2>
               {note.phonetics && (
-                <p className="text-sm text-muted-foreground font-mono mt-1">
-                  /{note.phonetics}/
-                </p>
+                <p className="text-sm text-muted-foreground font-mono mt-1">/{note.phonetics}/</p>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -94,9 +91,7 @@ export function NoteDetailModal({
                 Definition
               </h3>
               <div className="p-4 bg-muted/50 rounded-lg">
-                <p className="text-base text-foreground leading-relaxed">
-                  {note.definition}
-                </p>
+                <p className="text-base text-foreground leading-relaxed">{note.definition}</p>
               </div>
             </section>
 
@@ -186,11 +181,13 @@ export function NoteDetailModal({
                   <span className="font-medium text-foreground">Deck:</span> {note.deck}
                 </div>
                 <div>
-                  <span className="font-medium text-foreground">Created:</span> {new Date(note.created_at).toLocaleString()}
+                  <span className="font-medium text-foreground">Created:</span>{' '}
+                  {new Date(note.created_at).toLocaleString()}
                 </div>
                 {note.updated_at && (
                   <div>
-                    <span className="font-medium text-foreground">Updated:</span> {new Date(note.updated_at).toLocaleString()}
+                    <span className="font-medium text-foreground">Updated:</span>{' '}
+                    {new Date(note.updated_at).toLocaleString()}
                   </div>
                 )}
               </div>

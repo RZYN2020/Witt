@@ -15,17 +15,20 @@ export function SearchBar({ className }: SearchBarProps) {
   const [localValue, setLocalValue] = useState(searchQuery);
 
   // Debounced search
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setLocalValue(value);
-    
-    // Debounce search by 300ms
-    const timeoutId = setTimeout(() => {
-      setSearchQuery(value);
-    }, 300);
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setLocalValue(value);
 
-    return () => clearTimeout(timeoutId);
-  }, [setSearchQuery]);
+      // Debounce search by 300ms
+      const timeoutId = setTimeout(() => {
+        setSearchQuery(value);
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    },
+    [setSearchQuery]
+  );
 
   const handleClear = () => {
     setLocalValue('');
@@ -59,7 +62,13 @@ export function SearchBar({ className }: SearchBarProps) {
             className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-accent rounded"
             aria-label="Clear search"
           >
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className="w-3 h-3"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
@@ -140,7 +149,10 @@ export function SortDropdown({ className }: SortDropdownProps) {
       <select
         value={`${sortBy}-${sortOrder}`}
         onChange={(e) => {
-          const [newSortBy, newSortOrder] = e.target.value.split('-') as [typeof sortBy, typeof sortOrder];
+          const [newSortBy, newSortOrder] = e.target.value.split('-') as [
+            typeof sortBy,
+            typeof sortOrder,
+          ];
           setSortBy(newSortBy);
           setSortOrder(newSortOrder);
         }}
@@ -181,7 +193,13 @@ export function ViewToggle({ className }: ViewToggleProps) {
         aria-label="Grid view"
         aria-pressed={viewMode === 'grid'}
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-4 h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <rect x="3" y="3" width="7" height="7" />
           <rect x="14" y="3" width="7" height="7" />
           <rect x="14" y="14" width="7" height="7" />
@@ -199,7 +217,13 @@ export function ViewToggle({ className }: ViewToggleProps) {
         aria-label="List view"
         aria-pressed={viewMode === 'list'}
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-4 h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <line x1="8" y1="6" x2="21" y2="6" />
           <line x1="8" y1="12" x2="21" y2="12" />
           <line x1="8" y1="18" x2="21" y2="18" />
@@ -268,7 +292,13 @@ export function FilterChips({ className }: FilterChipsProps) {
             className="hover:text-destructive"
             aria-label={`Remove ${filter.label} filter`}
           >
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className="w-3 h-3"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>

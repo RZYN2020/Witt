@@ -21,7 +21,7 @@ interface VideoSlice extends VideoState {
   currentCaptures: VideoCapture[];
   isCapturing: boolean;
   captureLemma: string | null;
-  
+
   // Actions
   addCapture: (capture: VideoCapture) => void;
   clearCaptures: () => void;
@@ -69,7 +69,7 @@ export const useVideoStore = create<VideoSlice>((set, get) => ({
     set((state) => ({
       currentCaptures: [...state.currentCaptures, capture],
     }));
-    
+
     useToastStore.getState().addToast({
       message: `Captured: ${capture.lemma}`,
       type: 'success',
@@ -83,7 +83,7 @@ export const useVideoStore = create<VideoSlice>((set, get) => ({
 
   saveCaptures: async (deck = 'Default') => {
     const { currentCaptures, currentVideo } = get();
-    
+
     if (currentCaptures.length === 0) {
       useToastStore.getState().addToast({
         message: 'No captures to save',
@@ -100,40 +100,43 @@ export const useVideoStore = create<VideoSlice>((set, get) => ({
       let successCount = 0;
 
       for (const capture of currentCaptures) {
-        await withLoading(async () => {
-          const context = {
-            id: crypto.randomUUID(),
-            word_form: capture.lemma,
-            sentence: capture.sentence,
-            audio: capture.audioPath,
-            image: capture.imagePath,
-            source: {
-              type: 'video' as const,
-              filename: currentVideo?.filename || 'unknown.mp4',
-              timestamp: capture.timestamp,
-              frame: capture.frame,
-            },
-            created_at: new Date().toISOString(),
-          };
+        await withLoading(
+          async () => {
+            const context = {
+              id: crypto.randomUUID(),
+              word_form: capture.lemma,
+              sentence: capture.sentence,
+              audio: capture.audioPath,
+              image: capture.imagePath,
+              source: {
+                type: 'video' as const,
+                filename: currentVideo?.filename || 'unknown.mp4',
+                timestamp: capture.timestamp,
+                frame: capture.frame,
+              },
+              created_at: new Date().toISOString(),
+            };
 
-          const request = {
-            lemma: capture.lemma,
-            definition: capture.definition,
-            pronunciation: undefined,
-            phonetics: undefined,
-            tags: ['video', 'captured'],
-            comment: '',
-            deck,
-            context,
-          };
+            const request = {
+              lemma: capture.lemma,
+              definition: capture.definition,
+              pronunciation: undefined,
+              phonetics: undefined,
+              tags: ['video', 'captured'],
+              comment: '',
+              deck,
+              context,
+            };
 
-          await commands.saveNote(request);
-          successCount++;
-        }, { minDisplayTime: 100 });
+            await commands.saveNote(request);
+            successCount++;
+          },
+          { minDisplayTime: 100 }
+        );
       }
 
-      set({ 
-        isCapturing: false, 
+      set({
+        isCapturing: false,
         currentCaptures: [],
         captureLemma: null,
       });
@@ -149,9 +152,9 @@ export const useVideoStore = create<VideoSlice>((set, get) => ({
     } catch (error) {
       const classifiedError = classifyError(error);
       logError(classifiedError, 'saveCaptures');
-      
+
       const userMessage = getUserFriendlyMessage(classifiedError);
-      
+
       set({ isCapturing: false });
       useLoadingStore.getState().setLoading(false);
 
@@ -205,7 +208,10 @@ function parseSubRip(text: string): Subtitle[] {
       parseInt(match[7]) +
       parseInt(match[8]) / 1000;
 
-    const text = lines.slice(2).join('\n').replace(/<[^>]*>/g, '');
+    const text = lines
+      .slice(2)
+      .join('\n')
+      .replace(/<[^>]*>/g, '');
 
     subtitles.push({
       id: crypto.randomUUID(),

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { expect, afterEach, beforeAll, vi } from 'vitest';
+import { afterEach, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
 // Mock localStorage and matchMedia
@@ -27,7 +27,7 @@ beforeAll(() => {
 
   // Mock matchMedia
   Object.defineProperty(window, 'matchMedia', {
-    value: vi.fn().mockImplementation(query => ({
+    value: vi.fn().mockImplementation((query) => ({
       matches: false,
       media: query,
       onchange: null,

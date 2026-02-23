@@ -56,9 +56,12 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
 
     try {
       // Use withLoading for better UX
-      const notes = await withLoading(async () => {
-        return commands.getNotes(filter);
-      }, { minDisplayTime: 150 });
+      const notes = await withLoading(
+        async () => {
+          return commands.getNotes(filter);
+        },
+        { minDisplayTime: 150 }
+      );
 
       set({
         notes,
@@ -70,9 +73,9 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
     } catch (error) {
       const classifiedError = classifyError(error);
       logError(classifiedError, 'loadNotes');
-      
+
       const userMessage = getUserFriendlyMessage(classifiedError);
-      
+
       set({
         isLoading: false,
         error: userMessage,
@@ -154,10 +157,10 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
         notes: state.notes.filter((n) => n.lemma !== lemma),
         filteredNotes: state.filteredNotes.filter((n) => n.lemma !== lemma),
       }));
-      
+
       // Remove indicator and show success
       useLoadingStore.getState().removeIndicator(operationId);
-      
+
       // Show success toast
       useToastStore.getState().addToast({
         message: 'Note deleted',
@@ -167,9 +170,9 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
     } catch (error) {
       const classifiedError = classifyError(error);
       logError(classifiedError, 'deleteNote');
-      
+
       const userMessage = getUserFriendlyMessage(classifiedError);
-      
+
       set({
         error: userMessage,
       });
@@ -244,9 +247,10 @@ async function applyFilters(filter: NoteFilter, searchQuery: string) {
       (note: Note) =>
         note.lemma.toLowerCase().includes(query) ||
         note.definition.toLowerCase().includes(query) ||
-        note.contexts.some((ctx: Context) =>
-          ctx.word_form.toLowerCase().includes(query) ||
-          ctx.sentence.toLowerCase().includes(query)
+        note.contexts.some(
+          (ctx: Context) =>
+            ctx.word_form.toLowerCase().includes(query) ||
+            ctx.sentence.toLowerCase().includes(query)
         ) ||
         note.tags.some((tag: string) => tag.toLowerCase().includes(query))
     );

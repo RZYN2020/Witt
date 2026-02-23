@@ -74,10 +74,7 @@ export function formatProgress(progress: ProgressInfo): string {
 /**
  * Estimate remaining time based on progress
  */
-export function estimateRemainingTime(
-  progress: ProgressInfo,
-  elapsedMs: number
-): number | null {
+export function estimateRemainingTime(progress: ProgressInfo, elapsedMs: number): number | null {
   if (progress.current === 0 || progress.percentage === 100) {
     return null;
   }
@@ -153,11 +150,7 @@ export class ProgressTracker {
   private onProgress?: (progress: ProgressInfo) => void;
   private startTime: number;
 
-  constructor(
-    total: number,
-    message?: string,
-    onProgress?: (progress: ProgressInfo) => void
-  ) {
+  constructor(total: number, message?: string, onProgress?: (progress: ProgressInfo) => void) {
     this.total = total;
     this.message = message;
     this.onProgress = onProgress;

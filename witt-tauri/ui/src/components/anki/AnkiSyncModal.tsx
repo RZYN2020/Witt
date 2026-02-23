@@ -18,17 +18,19 @@ interface AnkiSyncModalProps {
 export function AnkiSyncModal({ open, onClose }: AnkiSyncModalProps) {
   const { notes, getDecks } = useLibraryStore();
   const { autoSyncToAnki, setAutoSyncToAnki } = useSettingsStore();
-  
+
   const [activeTab, setActiveTab] = useState<'export' | 'sync' | 'settings'>('sync');
   const [selectedDeck, setSelectedDeck] = useState<string>('all');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<anki.SyncResult | null>(null);
   const [ankiStatus, setAnkiStatus] = useState<anki.AnkiStatus | null>(null);
-  
+
   // Download dialog state
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadStatus, setDownloadStatus] = useState<'downloading' | 'completed' | 'error'>('downloading');
+  const [downloadStatus, setDownloadStatus] = useState<'downloading' | 'completed' | 'error'>(
+    'downloading'
+  );
   const [downloadPath, setDownloadPath] = useState<string>('');
   const [downloadError, setDownloadError] = useState<string>('');
 
@@ -52,25 +54,25 @@ export function AnkiSyncModal({ open, onClose }: AnkiSyncModalProps) {
     if (selectedDeck === 'all') {
       return notes;
     }
-    return notes.filter(note => note.deck === selectedDeck);
+    return notes.filter((note) => note.deck === selectedDeck);
   };
 
   const handleExport = async () => {
     const filteredNotes = getFilteredNotes();
-    const lemmas = filteredNotes.map(n => n.lemma);
+    const lemmas = filteredNotes.map((n) => n.lemma);
     const deckName = selectedDeck === 'all' ? undefined : selectedDeck;
     const fileName = `witt-export-${deckName || 'all'}-${new Date().toISOString().split('T')[0]}.apkg`;
-    
+
     // Show download dialog
     setShowDownloadDialog(true);
     setDownloadStatus('downloading');
     setDownloadProgress(0);
     setDownloadPath(fileName);
     setDownloadError('');
-    
+
     // Simulate progress
     const progressInterval = setInterval(() => {
-      setDownloadProgress(prev => {
+      setDownloadProgress((prev) => {
         if (prev >= 90) {
           clearInterval(progressInterval);
           return 90;
@@ -78,25 +80,27 @@ export function AnkiSyncModal({ open, onClose }: AnkiSyncModalProps) {
         return prev + 10;
       });
     }, 200);
-    
+
     try {
       // Generate APKG file
       const apkgBlob = await anki.exportToAPKG(lemmas, filteredNotes);
       clearInterval(progressInterval);
       setDownloadProgress(100);
       setDownloadStatus('completed');
-      
+
       // Save file using Tauri dialog
       try {
         const dialog = await import('@tauri-apps/plugin-dialog');
         const savePath = await dialog.save({
-          filters: [{
-            name: 'APKG',
-            extensions: ['apkg'],
-          }],
+          filters: [
+            {
+              name: 'APKG',
+              extensions: ['apkg'],
+            },
+          ],
           defaultPath: fileName,
         });
-        
+
         if (savePath) {
           const fs = await import('@tauri-apps/plugin-fs');
           const arrayBuffer = await apkgBlob.arrayBuffer();
@@ -124,10 +128,10 @@ export function AnkiSyncModal({ open, onClose }: AnkiSyncModalProps) {
   const handleOpenLocation = async () => {
     if (downloadPath && downloadPath.startsWith('Downloaded:')) {
       // Browser download, can't open location
-      alert('File was downloaded to your browser\'s default download folder.');
+      alert("File was downloaded to your browser's default download folder.");
       return;
     }
-    
+
     if (downloadPath) {
       try {
         // Use Tauri shell to open file location
@@ -144,11 +148,11 @@ export function AnkiSyncModal({ open, onClose }: AnkiSyncModalProps) {
 
   const handleSync = async () => {
     const filteredNotes = getFilteredNotes();
-    const lemmas = filteredNotes.map(n => n.lemma);
-    
+    const lemmas = filteredNotes.map((n) => n.lemma);
+
     setIsSyncing(true);
     setSyncResult(null);
-    
+
     try {
       const result = await anki.syncToAnki(lemmas);
       setSyncResult(result);
@@ -191,10 +195,12 @@ export function AnkiSyncModal({ open, onClose }: AnkiSyncModalProps) {
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-border bg-muted/30">
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    'w-10 h-10 rounded-lg flex items-center justify-center',
-                    ankiStatus?.available ? 'bg-green-500/10' : 'bg-red-500/10'
-                  )}>
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-lg flex items-center justify-center',
+                      ankiStatus?.available ? 'bg-green-500/10' : 'bg-red-500/10'
+                    )}
+                  >
                     {ankiStatus?.available ? (
                       <Check className="w-5 h-5 text-green-600" />
                     ) : (
@@ -204,8 +210,8 @@ export function AnkiSyncModal({ open, onClose }: AnkiSyncModalProps) {
                   <div>
                     <h2 className="text-xl font-semibold text-foreground">Anki Sync</h2>
                     <p className="text-sm text-muted-foreground">
-                      {ankiStatus?.available 
-                        ? `Connected (v${ankiStatus.version})` 
+                      {ankiStatus?.available
+                        ? `Connected (v${ankiStatus.version})`
                         : 'AnkiConnect not available'}
                     </p>
                   </div>
@@ -368,9 +374,7 @@ function SyncTab({
             <p className="text-sm font-medium text-foreground">
               {notes.length} note{notes.length !== 1 ? 's' : ''} selected
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Will be synced to Anki
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Will be synced to Anki</p>
           </div>
           <button
             onClick={onRefresh}
@@ -384,10 +388,14 @@ function SyncTab({
 
       {/* Sync Result */}
       {syncResult && (
-        <div className={cn(
-          'p-4 rounded-lg',
-          syncResult.success ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'
-        )}>
+        <div
+          className={cn(
+            'p-4 rounded-lg',
+            syncResult.success
+              ? 'bg-green-500/10 border border-green-500/30'
+              : 'bg-red-500/10 border border-red-500/30'
+          )}
+        >
           <div className="flex items-start gap-3">
             {syncResult.success ? (
               <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -395,10 +403,12 @@ function SyncTab({
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             )}
             <div className="flex-1">
-              <p className={cn(
-                'text-sm font-medium',
-                syncResult.success ? 'text-green-600' : 'text-red-600'
-              )}>
+              <p
+                className={cn(
+                  'text-sm font-medium',
+                  syncResult.success ? 'text-green-600' : 'text-red-600'
+                )}
+              >
                 {syncResult.success ? 'Sync Completed' : 'Sync Failed'}
               </p>
               {syncResult.success && (
@@ -409,7 +419,9 @@ function SyncTab({
               {!syncResult.success && syncResult.failed.length > 0 && (
                 <ul className="text-sm text-red-600/80 mt-1 space-y-1">
                   {syncResult.failed.map((f, i) => (
-                    <li key={i}>{f.lemma}: {f.error}</li>
+                    <li key={i}>
+                      {f.lemma}: {f.error}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -459,13 +471,7 @@ interface ExportTabProps {
   onExport: () => void;
 }
 
-function ExportTab({
-  selectedDeck,
-  setSelectedDeck,
-  decks,
-  notes,
-  onExport,
-}: ExportTabProps) {
+function ExportTab({ selectedDeck, setSelectedDeck, decks, notes, onExport }: ExportTabProps) {
   return (
     <div className="space-y-6">
       {/* Deck Selection */}
@@ -493,9 +499,7 @@ function ExportTab({
           <p className="text-sm font-medium text-foreground">
             {notes.length} note{notes.length !== 1 ? 's' : ''} selected
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Will be exported to APKG file
-          </p>
+          <p className="text-xs text-muted-foreground mt-1">Will be exported to APKG file</p>
         </div>
       </div>
 
@@ -522,9 +526,7 @@ function SettingsTab({ autoSync, onToggleAutoSync }: SettingsTabProps) {
       <div className="p-4 border border-border rounded-lg">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-foreground">
-              Auto-sync to Anki
-            </h3>
+            <h3 className="text-sm font-medium text-foreground">Auto-sync to Anki</h3>
             <p className="text-xs text-muted-foreground mt-1">
               Automatically sync new cards to Anki when created
             </p>
@@ -547,9 +549,7 @@ function SettingsTab({ autoSync, onToggleAutoSync }: SettingsTabProps) {
       </div>
 
       <div className="p-4 bg-muted/50 rounded-lg">
-        <h3 className="text-sm font-medium text-foreground mb-2">
-          AnkiConnect Settings
-        </h3>
+        <h3 className="text-sm font-medium text-foreground mb-2">AnkiConnect Settings</h3>
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Endpoint</span>

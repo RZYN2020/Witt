@@ -13,6 +13,7 @@ import * as commands from './lib/commands';
  */
 function App() {
   const { theme } = useSettingsStore();
+  const { openPopup } = useCaptureStore();
   const [initialized, setInitialized] = useState(false);
   const [isCaptureWindow, setIsCaptureWindow] = useState(false);
 
@@ -69,23 +70,9 @@ function App() {
     }
   }, [theme]);
 
-  // Show loading state while initializing
-  if (!initialized) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Initializing WittCore...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If it's the capture window, only render the capture popup and auto-open it
-  if (isCaptureWindow) {
-    const { openPopup } = useCaptureStore();
-
-    useEffect(() => {
+  // Auto-open capture popup if we're in capture window
+  useEffect(() => {
+    if (isCaptureWindow) {
       const openCapturePopup = async () => {
         try {
           const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
@@ -102,8 +89,23 @@ function App() {
       };
 
       openCapturePopup();
-    }, [openPopup]);
+    }
+  }, [isCaptureWindow, openPopup]);
 
+  // Show loading state while initializing
+  if (!initialized) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Initializing WittCore...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If it's the capture window, only render the capture popup
+  if (isCaptureWindow) {
     return (
       <div className="min-h-screen bg-background">
         <CapturePopup />

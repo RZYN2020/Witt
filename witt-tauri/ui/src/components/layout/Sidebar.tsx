@@ -24,7 +24,8 @@ export function Sidebar({
   const counts = useMemo(() => {
     return {
       inbox: notes.length,
-      video: notes.filter((n: Note) => n.contexts.some((c: Context) => c.source.type === 'video')).length,
+      video: notes.filter((n: Note) => n.contexts.some((c: Context) => c.source.type === 'video'))
+        .length,
     };
   }, [notes]);
 
@@ -40,10 +41,13 @@ export function Sidebar({
         collapsed ? 'w-12' : 'w-64'
       )}
     >
-      <div className={cn("h-[57px] flex items-center px-4 border-b border-border", collapsed ? 'justify-center' : '')}>
-        {!collapsed && (
-          <span className="text-lg font-bold text-foreground">Witt</span>
+      <div
+        className={cn(
+          'h-[57px] flex items-center px-4 border-b border-border',
+          collapsed ? 'justify-center' : ''
         )}
+      >
+        {!collapsed && <span className="text-lg font-bold text-foreground">Witt</span>}
       </div>
 
       <nav className="flex-1 py-4">

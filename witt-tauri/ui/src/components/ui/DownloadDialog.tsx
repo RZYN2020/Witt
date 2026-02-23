@@ -46,27 +46,32 @@ export function DownloadDialog({
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
           >
-            <div 
+            <div
               className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden p-6 pointer-events-auto mx-4"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    'w-10 h-10 rounded-lg flex items-center justify-center',
-                    status === 'completed' && 'bg-green-500/10',
-                    status === 'error' && 'bg-red-500/10',
-                    status === 'downloading' && 'bg-primary/10'
-                  )}>
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-lg flex items-center justify-center',
+                      status === 'completed' && 'bg-green-500/10',
+                      status === 'error' && 'bg-red-500/10',
+                      status === 'downloading' && 'bg-primary/10'
+                    )}
+                  >
                     {status === 'completed' && <Check className="w-5 h-5 text-green-600" />}
                     {status === 'error' && <AlertCircle className="w-5 h-5 text-red-600" />}
                     {status === 'downloading' && <Download className="w-5 h-5 text-primary" />}
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">
-                      {status === 'completed' ? 'Download Complete' : 
-                       status === 'error' ? 'Download Failed' : 'Downloading...'}
+                      {status === 'completed'
+                        ? 'Download Complete'
+                        : status === 'error'
+                          ? 'Download Failed'
+                          : 'Downloading...'}
                     </h3>
                     <p className="text-sm text-muted-foreground truncate max-w-[250px]">
                       {fileName}
@@ -102,9 +107,7 @@ export function DownloadDialog({
               {filePath && status === 'completed' && (
                 <div className="mt-4 p-3 bg-muted/50 rounded-lg">
                   <p className="text-xs text-muted-foreground mb-1">Saved to:</p>
-                  <p className="text-sm text-foreground font-mono break-all">
-                    {filePath}
-                  </p>
+                  <p className="text-sm text-foreground font-mono break-all">{filePath}</p>
                 </div>
               )}
 

@@ -12,11 +12,7 @@ interface CardListProps {
  */
 export function CardList({ notes }: CardListProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="space-y-2"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
       {notes.map((note, index) => (
         <motion.div
           key={note.lemma}

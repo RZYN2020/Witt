@@ -2,9 +2,18 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useVideoStore } from '@/stores/useVideoStore';
 import { useCaptureStore } from '@/stores/useCaptureStore';
 import { VideoUploader } from './VideoUploader';
-import { 
-  Play, Pause, Volume2, VolumeX, Maximize, Minimize, 
-  SkipBack, SkipForward, Upload, X, Clock 
+import {
+  Play,
+  Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
+  SkipBack,
+  SkipForward,
+  Upload,
+  X,
+  Clock,
 } from 'lucide-react';
 
 /**
@@ -15,15 +24,23 @@ export function VideoLibrary() {
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   const [currentVideoFile, setCurrentVideoFile] = useState<File | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
-  const { 
-    isPlaying, currentTime, duration, volume, playbackRate,
-    setIsPlaying, setCurrentTime, setDuration, setVolume, setPlaybackRate 
+
+  const {
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    playbackRate,
+    setIsPlaying,
+    setCurrentTime,
+    setDuration,
+    setVolume,
+    setPlaybackRate,
   } = useVideoStore();
-  
+
   const { openPopup } = useCaptureStore();
 
   // Handle video selection from uploader
@@ -31,7 +48,7 @@ export function VideoLibrary() {
     setCurrentVideoFile(file);
     setCurrentVideoUrl(url);
     setShowUploader(false);
-    
+
     // Reset video state
     setIsPlaying(false);
     setCurrentTime(0);
@@ -40,7 +57,7 @@ export function VideoLibrary() {
   // Toggle play/pause
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
-    
+
     if (isPlaying) {
       videoRef.current.pause();
     } else {
@@ -64,18 +81,24 @@ export function VideoLibrary() {
   }, [setDuration]);
 
   // Handle seek
-  const handleSeek = useCallback((time: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = time;
-    setCurrentTime(time);
-  }, [setCurrentTime]);
+  const handleSeek = useCallback(
+    (time: number) => {
+      if (!videoRef.current) return;
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    },
+    [setCurrentTime]
+  );
 
   // Handle volume change
-  const handleVolumeChange = useCallback((newVolume: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.volume = newVolume;
-    setVolume(newVolume);
-  }, [setVolume]);
+  const handleVolumeChange = useCallback(
+    (newVolume: number) => {
+      if (!videoRef.current) return;
+      videoRef.current.volume = newVolume;
+      setVolume(newVolume);
+    },
+    [setVolume]
+  );
 
   // Toggle mute
   const toggleMute = useCallback(() => {
@@ -88,7 +111,7 @@ export function VideoLibrary() {
   // Toggle fullscreen
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
-    
+
     if (!document.fullscreenElement) {
       containerRef.current.requestFullscreen();
       setIsFullscreen(true);
@@ -99,23 +122,26 @@ export function VideoLibrary() {
   }, []);
 
   // Skip forward/backward
-  const skip = useCallback((seconds: number) => {
-    handleSeek(Math.max(0, Math.min(duration, currentTime + seconds)));
-  }, [currentTime, duration, handleSeek]);
+  const skip = useCallback(
+    (seconds: number) => {
+      handleSeek(Math.max(0, Math.min(duration, currentTime + seconds)));
+    },
+    [currentTime, duration, handleSeek]
+  );
 
   // Capture current subtitle/word
   const handleCapture = useCallback(() => {
     if (!videoRef.current) return;
-    
+
     const timestamp = formatTime(currentTime);
     const context = `Video: ${currentVideoFile?.name || 'Unknown'} at ${timestamp}`;
-    
+
     openPopup(context, {
       type: 'video',
       filename: currentVideoFile?.name || 'unknown.mp4',
       timestamp,
     });
-    
+
     // Pause video on capture
     if (videoRef.current) {
       videoRef.current.pause();
@@ -127,10 +153,10 @@ export function VideoLibrary() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!currentVideoUrl) return;
-      
+
       // Don't handle if typing in input
       if (document.activeElement?.tagName === 'INPUT') return;
-      
+
       switch (e.key) {
         case ' ':
         case 'k':
@@ -174,7 +200,16 @@ export function VideoLibrary() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentVideoUrl, togglePlay, skip, handleVolumeChange, toggleFullscreen, handleCapture, toggleMute, volume]);
+  }, [
+    currentVideoUrl,
+    togglePlay,
+    skip,
+    handleVolumeChange,
+    toggleFullscreen,
+    handleCapture,
+    toggleMute,
+    volume,
+  ]);
 
   // Format time display
   const formatTimeDisplay = (seconds: number) => {
@@ -191,12 +226,8 @@ export function VideoLibrary() {
           <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
             <Upload className="w-12 h-12 text-muted-foreground" />
           </div>
-          <h2 className="text-2xl font-semibold text-foreground mb-2">
-            上传视频
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            支持 MP4、WebM、OGG、MOV 格式（最大 500MB）
-          </p>
+          <h2 className="text-2xl font-semibold text-foreground mb-2">上传视频</h2>
+          <p className="text-muted-foreground mb-6">支持 MP4、WebM、OGG、MOV 格式（最大 500MB）</p>
           <button
             onClick={() => setShowUploader(true)}
             className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors inline-flex items-center gap-2"
@@ -212,10 +243,7 @@ export function VideoLibrary() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-black">
       {/* Video container */}
-      <div 
-        ref={containerRef}
-        className="flex-1 relative flex items-center justify-center"
-      >
+      <div ref={containerRef} className="flex-1 relative flex items-center justify-center">
         <video
           ref={videoRef}
           src={currentVideoUrl}
@@ -225,7 +253,7 @@ export function VideoLibrary() {
           onEnded={() => setIsPlaying(false)}
           onClick={togglePlay}
         />
-        
+
         {/* Capture button overlay */}
         <div className="absolute top-4 right-4 flex gap-2">
           <button
@@ -235,7 +263,7 @@ export function VideoLibrary() {
             <Clock className="w-4 h-4" />
             Capture Word
           </button>
-          
+
           <button
             onClick={() => {
               setCurrentVideoUrl(null);
@@ -263,9 +291,7 @@ export function VideoLibrary() {
             onChange={(e) => handleSeek(Number(e.target.value))}
             className="flex-1 h-1 bg-muted rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
           />
-          <span className="text-xs text-muted-foreground w-12">
-            {formatTimeDisplay(duration)}
-          </span>
+          <span className="text-xs text-muted-foreground w-12">{formatTimeDisplay(duration)}</span>
         </div>
 
         {/* Control buttons */}
@@ -283,11 +309,7 @@ export function VideoLibrary() {
               onClick={togglePlay}
               className="p-3 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-colors flex-shrink-0"
             >
-              {isPlaying ? (
-                <Pause className="w-6 h-6" />
-              ) : (
-                <Play className="w-6 h-6" />
-              )}
+              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
             </button>
 
             <button
@@ -359,10 +381,7 @@ export function VideoLibrary() {
 
       {/* Upload dialog */}
       {showUploader && (
-        <VideoUploader
-          onVideoSelect={handleVideoSelect}
-          onClose={() => setShowUploader(false)}
-        />
+        <VideoUploader onVideoSelect={handleVideoSelect} onClose={() => setShowUploader(false)} />
       )}
     </div>
   );

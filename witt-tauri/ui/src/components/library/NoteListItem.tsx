@@ -26,9 +26,7 @@ export function NoteListItem({ note, onClick }: NoteListItemProps) {
       className={cn(
         'flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all',
         'hover:shadow-md hover:border-primary/50',
-        isSelected 
-          ? 'border-primary bg-primary/5 shadow-md' 
-          : 'border-border bg-card'
+        isSelected ? 'border-primary bg-primary/5 shadow-md' : 'border-border bg-card'
       )}
       role="article"
       aria-label={`Note: ${note.lemma}`}
@@ -43,11 +41,12 @@ export function NoteListItem({ note, onClick }: NoteListItemProps) {
       {/* Lemma and Definition */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <h3 className="text-base font-semibold text-foreground truncate">
-            {note.lemma}
-          </h3>
+          <h3 className="text-base font-semibold text-foreground truncate">{note.lemma}</h3>
           {note.contexts.length > 0 && (
-            <span className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full font-medium" title={`${note.contexts.length} context(s)`}>
+            <span
+              className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full font-medium"
+              title={`${note.contexts.length} context(s)`}
+            >
               {note.contexts.length}
             </span>
           )}
@@ -71,17 +70,13 @@ export function NoteListItem({ note, onClick }: NoteListItemProps) {
             </span>
           ))}
           {note.tags.length > 3 && (
-            <span className="text-xs text-muted-foreground">
-              +{note.tags.length - 3}
-            </span>
+            <span className="text-xs text-muted-foreground">+{note.tags.length - 3}</span>
           )}
         </div>
       )}
 
       {/* Deck */}
-      <div className="flex-shrink-0 text-xs text-muted-foreground w-24 truncate">
-        {note.deck}
-      </div>
+      <div className="flex-shrink-0 text-xs text-muted-foreground w-24 truncate">{note.deck}</div>
 
       {/* Date */}
       <div className="flex-shrink-0 text-xs text-muted-foreground w-20 text-right">

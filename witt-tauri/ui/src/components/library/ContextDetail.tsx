@@ -39,17 +39,11 @@ export function ContextDetail({
           <span className="flex items-center justify-center w-6 h-6 text-xs font-semibold bg-primary text-primary-foreground rounded-full">
             {index + 1}
           </span>
-          <span className="text-sm font-medium text-foreground">
-            {context.word_form}
-          </span>
+          <span className="text-sm font-medium text-foreground">{context.word_form}</span>
         </div>
         <div className="flex items-center gap-2">
-          {audioPath && (
-            <AudioPlayer audioPath={audioPath} />
-          )}
-          {imagePath && (
-            <ImageViewer imagePath={imagePath} />
-          )}
+          {audioPath && <AudioPlayer audioPath={audioPath} />}
+          {imagePath && <ImageViewer imagePath={imagePath} />}
           {isEditable && (
             <>
               <button
@@ -58,7 +52,13 @@ export function ContextDetail({
                 title="Edit context"
                 aria-label="Edit context"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                 </svg>
@@ -69,7 +69,13 @@ export function ContextDetail({
                 title="Delete context"
                 aria-label="Delete context"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <polyline points="3 6 5 6 21 6" />
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                 </svg>
@@ -81,9 +87,7 @@ export function ContextDetail({
 
       {/* Context Sentence */}
       <div className="context-sentence p-3 bg-muted/50 rounded-lg">
-        <p className="text-sm text-foreground leading-relaxed">
-          {context.sentence}
-        </p>
+        <p className="text-sm text-foreground leading-relaxed">{context.sentence}</p>
       </div>
 
       {/* Source Information */}
@@ -97,15 +101,10 @@ export function ContextDetail({
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className={cn(
-              'h-1 flex-1 rounded-full',
-              i < totalCount ? 'bg-primary' : 'bg-muted'
-            )}
+            className={cn('h-1 flex-1 rounded-full', i < totalCount ? 'bg-primary' : 'bg-muted')}
           />
         ))}
-        <span className="text-xs text-muted-foreground ml-2">
-          {totalCount} / 5 contexts
-        </span>
+        <span className="text-xs text-muted-foreground ml-2">{totalCount} / 5 contexts</span>
       </div>
     </div>
   );
@@ -172,7 +171,13 @@ function ImageViewer({ imagePath }: ImageViewerProps) {
         title="View image"
         aria-label="View image"
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-4 h-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
           <circle cx="8.5" cy="8.5" r="1.5" />
           <polyline points="21 15 16 10 5 21" />
@@ -184,16 +189,19 @@ function ImageViewer({ imagePath }: ImageViewerProps) {
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={() => setIsOpen(false)}
         >
-          <div
-            className="relative max-w-4xl max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setIsOpen(false)}
               className="absolute -top-8 right-0 p-2 text-white hover:bg-white/20 rounded"
               aria-label="Close image viewer"
             >
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                className="w-6 h-6"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             </button>

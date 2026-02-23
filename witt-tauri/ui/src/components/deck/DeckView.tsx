@@ -33,7 +33,9 @@ export function DeckView() {
   const handleDeckClick = (deckName: string) => {
     console.log('Deck clicked:', deckName);
     setDeckFilter(deckName);
-    alert(`Filtering to deck: ${deckName}\n\nNote: To view filtered notes, please switch to the Inbox tab.`);
+    alert(
+      `Filtering to deck: ${deckName}\n\nNote: To view filtered notes, please switch to the Inbox tab.`
+    );
   };
 
   if (decks.length === 0) {
@@ -43,9 +45,7 @@ export function DeckView() {
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <Layers className="w-10 h-10 text-muted-foreground" />
           </div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            No Decks Yet
-          </h2>
+          <h2 className="text-xl font-semibold text-foreground mb-2">No Decks Yet</h2>
           <p className="text-muted-foreground">
             Notes you capture will be automatically grouped into decks
           </p>
@@ -107,9 +107,7 @@ function DeckCard({ deck, onClick }: DeckCardProps) {
             <BookOpen className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground text-lg">
-              {deck.name}
-            </h3>
+            <h3 className="font-semibold text-foreground text-lg">{deck.name}</h3>
             <p className="text-sm text-muted-foreground">
               {deck.count} note{deck.count !== 1 ? 's' : ''}
             </p>
@@ -121,11 +119,15 @@ function DeckCard({ deck, onClick }: DeckCardProps) {
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Layers className="w-4 h-4" />
-            <span>{deck.totalContexts} context{deck.totalContexts !== 1 ? 's' : ''}</span>
+            <span>
+              {deck.totalContexts} context{deck.totalContexts !== 1 ? 's' : ''}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Tag className="w-4 h-4" />
-            <span>{deck.tags.length} tag{deck.tags.length !== 1 ? 's' : ''}</span>
+            <span>
+              {deck.tags.length} tag{deck.tags.length !== 1 ? 's' : ''}
+            </span>
           </div>
         </div>
 
@@ -143,9 +145,7 @@ function DeckCard({ deck, onClick }: DeckCardProps) {
                 </span>
               ))}
               {deck.notes.length > 5 && (
-                <span className="text-xs text-muted-foreground">
-                  +{deck.notes.length - 5} more
-                </span>
+                <span className="text-xs text-muted-foreground">+{deck.notes.length - 5} more</span>
               )}
             </div>
           </div>

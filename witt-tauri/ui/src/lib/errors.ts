@@ -93,7 +93,11 @@ export function classifyError(error: unknown): WittError {
   }
 
   // Conflict errors
-  if (errorMessage.includes('conflict') || errorMessage.includes('duplicate') || errorMessage.includes('already exists')) {
+  if (
+    errorMessage.includes('conflict') ||
+    errorMessage.includes('duplicate') ||
+    errorMessage.includes('already exists')
+  ) {
     return createError(ErrorType.CONFLICT, errorMessage);
   }
 
@@ -127,12 +131,7 @@ export function getUserFriendlyMessage(error: WittError | unknown): string {
  * Type guard to check if an object is a WittError
  */
 function isWittError(error: unknown): error is WittError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'type' in error &&
-    'message' in error
-  );
+  return typeof error === 'object' && error !== null && 'type' in error && 'message' in error;
 }
 
 /**
@@ -162,12 +161,7 @@ export async function withRetry<T>(
     onRetry?: (attempt: number, error: unknown) => void;
   }
 ): Promise<T> {
-  const {
-    maxRetries = 3,
-    initialDelay = 1000,
-    maxDelay = 10000,
-    onRetry,
-  } = options || {};
+  const { maxRetries = 3, initialDelay = 1000, maxDelay = 10000, onRetry } = options || {};
 
   let lastError: unknown;
   let delay = initialDelay;

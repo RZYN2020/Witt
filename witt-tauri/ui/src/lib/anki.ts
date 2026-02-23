@@ -8,12 +8,9 @@ import type { Note } from '@/types';
 /**
  * Export notes to APKG file
  */
-export async function exportToAPKG(
-  _lemmas: string[],
-  notes: Note[]
-): Promise<Blob> {
+export async function exportToAPKG(_lemmas: string[], notes: Note[]): Promise<Blob> {
   console.log('[APKG Export] Starting export:', { notesCount: notes.length });
-  
+
   try {
     // Generate APKG file
     const apkgBlob = await generateAPKG(notes);
@@ -37,7 +34,7 @@ export function downloadAPKG(blob: Blob, fileName: string): void {
  */
 export async function syncToAnki(lemmas: string[]): Promise<SyncResult> {
   console.log('[Anki Sync] Starting sync:', { lemmasCount: lemmas.length });
-  
+
   try {
     const result = await invoke<SyncResult>('sync_to_anki', { lemmas });
     console.log('[Anki Sync] Sync completed:', result);

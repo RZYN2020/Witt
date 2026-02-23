@@ -12,7 +12,7 @@ import { withLoading, LoadingState } from '@/lib/loading';
  */
 interface CaptureSlice {
   // State
-  currentCapture: Partial<NoteRequest> & { definitions?: Definition[] } | null;
+  currentCapture: (Partial<NoteRequest> & { definitions?: Definition[] }) | null;
   isPopupOpen: boolean;
   isLoading: boolean;
   error: string | null;
@@ -77,7 +77,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
         image: undefined,
         source,
         created_at: new Date().toISOString(),
-      }
+      },
     });
 
     // Fetch lemma and definitions
@@ -96,9 +96,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
 
   updateCapture: (updates: Partial<NoteRequest>) => {
     set((state) => ({
-      currentCapture: state.currentCapture
-        ? { ...state.currentCapture, ...updates }
-        : updates,
+      currentCapture: state.currentCapture ? { ...state.currentCapture, ...updates } : updates,
     }));
   },
 
@@ -128,10 +126,13 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
       };
 
       // Use withLoading for better UX
-      await withLoading(async () => {
-        const lemma = await commands.saveNote(request);
-        return lemma;
-      }, { minDisplayTime: 200 });
+      await withLoading(
+        async () => {
+          const lemma = await commands.saveNote(request);
+          return lemma;
+        },
+        { minDisplayTime: 200 }
+      );
 
       set({ isLoading: false, isPopupOpen: false, currentCapture: null });
       useLoadingStore.getState().setLoading(false);
@@ -154,9 +155,9 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
     } catch (error) {
       const classifiedError = classifyError(error);
       logError(classifiedError, 'saveCapture');
-      
+
       const userMessage = getUserFriendlyMessage(classifiedError);
-      
+
       set({
         isLoading: false,
         error: userMessage,
@@ -260,7 +261,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
  */
 async function fetchLemmaAndDefinitions(word: string, language: string) {
   const operationId = 'fetch-lemma-definitions';
-  
+
   try {
     useLoadingStore.getState().addIndicator({
       id: operationId,
@@ -276,16 +277,16 @@ async function fetchLemmaAndDefinitions(word: string, language: string) {
 
     const { updateCapture } = useCaptureStore.getState();
     updateCapture({ lemma, definitions } as Partial<NoteRequest>);
-    
+
     // Remove indicator
     useLoadingStore.getState().removeIndicator(operationId);
   } catch (error) {
     const classifiedError = classifyError(error);
     logError(classifiedError, 'fetchLemmaAndDefinitions');
-    
+
     // Remove indicator
     useLoadingStore.getState().removeIndicator(operationId);
-    
+
     // Don't show error toast for lemma/definition fetch failures
     // as they are non-critical and the user can still manually enter data
     console.warn('Failed to fetch lemma/definitions, continuing with manual entry');

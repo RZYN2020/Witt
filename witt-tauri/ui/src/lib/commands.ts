@@ -156,9 +156,7 @@ export async function getNotesPaginated(
 /**
  * Batch save multiple notes in a single operation
  */
-export async function batchSaveNotes(
-  request: BatchNoteRequest
-): Promise<BatchResult> {
+export async function batchSaveNotes(request: BatchNoteRequest): Promise<BatchResult> {
   return invokeWithErrorHandling<BatchResult>('batch_save_notes', { request });
 }
 
@@ -187,12 +185,7 @@ export async function getStats(): Promise<AppStats> {
  * Check if an error is a specific error type
  */
 export function isErrorCode(error: unknown, code: ErrorType): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'type' in error &&
-    error.type === code
-  );
+  return typeof error === 'object' && error !== null && 'type' in error && error.type === code;
 }
 
 /**

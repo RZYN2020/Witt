@@ -11,25 +11,30 @@ interface TimelineProps {
 export function Timeline({ currentTime, duration, subtitles, onSeek }: TimelineProps) {
   const timelineRef = useRef<HTMLDivElement>(null);
 
-  const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!timelineRef.current || duration === 0) return;
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!timelineRef.current || duration === 0) return;
 
-    const rect = timelineRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = x / rect.width;
-    const time = percentage * duration;
+      const rect = timelineRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = x / rect.width;
+      const time = percentage * duration;
 
-    onSeek(time);
-  }, [duration, onSeek]);
+      onSeek(time);
+    },
+    [duration, onSeek]
+  );
 
   // Calculate subtitle markers
-  const markers = subtitles.map((s) => ({
-    left: `${(s.start / duration) * 100}%`,
-    width: `${((s.end - s.start) / duration) * 100}%`,
-  })).filter((m) => {
-    const w = parseFloat(m.width);
-    return !isNaN(w) && w > 0;
-  });
+  const markers = subtitles
+    .map((s) => ({
+      left: `${(s.start / duration) * 100}%`,
+      width: `${((s.end - s.start) / duration) * 100}%`,
+    }))
+    .filter((m) => {
+      const w = parseFloat(m.width);
+      return !isNaN(w) && w > 0;
+    });
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

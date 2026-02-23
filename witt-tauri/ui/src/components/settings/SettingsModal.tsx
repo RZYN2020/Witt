@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { X, Sun, Moon, Monitor, Palette, Keyboard, Bell, Globe, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  X,
+  Sun,
+  Moon,
+  Monitor,
+  Palette,
+  Keyboard,
+  Bell,
+  Globe,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SettingsModalProps {
@@ -104,11 +115,15 @@ const TRANSLATIONS = {
  * Settings modal - Typeless style floating window
  */
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
-  const { 
-    theme, setTheme,
-    autoFetchDefinitions, setAutoFetchDefinitions,
-    includeScreenshots, setIncludeScreenshots,
-    appLanguage, setAppLanguage,
+  const {
+    theme,
+    setTheme,
+    autoFetchDefinitions,
+    setAutoFetchDefinitions,
+    includeScreenshots,
+    setIncludeScreenshots,
+    appLanguage,
+    setAppLanguage,
   } = useSettingsStore();
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -119,9 +134,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   });
 
   const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }));
   };
 
@@ -163,130 +178,128 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-5 min-h-0">
-              {/* Appearance Section */}
-              <SettingsSection
-                id="appearance"
-                title={t.appearance}
-                icon={Palette}
-                isExpanded={expandedSections.appearance}
-                onToggle={() => toggleSection('appearance')}
-              >
-                <div className="grid grid-cols-3 gap-4">
-                  <ThemeOption
-                    value="light"
-                    icon={Sun}
-                    label={t.light}
-                    current={theme}
-                    onChange={setTheme}
-                  />
-                  <ThemeOption
-                    value="dark"
-                    icon={Moon}
-                    label={t.dark}
-                    current={theme}
-                    onChange={setTheme}
-                  />
-                  <ThemeOption
-                    value="system"
-                    icon={Monitor}
-                    label={t.system}
-                    current={theme}
-                    onChange={setTheme}
-                  />
-                </div>
-              </SettingsSection>
-
-              {/* Language Section */}
-              <SettingsSection
-                id="language"
-                title={t.language}
-                icon={Globe}
-                isExpanded={expandedSections.language}
-                onToggle={() => toggleSection('language')}
-              >
-                <div className="grid grid-cols-2 gap-4">
-                  {LANGUAGES.map((lang) => (
-                    <button
-                      key={lang.value}
-                      onClick={() => setAppLanguage(lang.value)}
-                      className={cn(
-                        'flex items-center gap-4 p-4 rounded-xl border transition-all',
-                        appLanguage === lang.value
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-card hover:border-ring'
-                      )}
-                    >
-                      <span className="text-3xl">{lang.flag}</span>
-                      <span className="flex-1 text-left text-base font-medium text-foreground">
-                        {lang.label}
-                      </span>
-                      {appLanguage === lang.value && (
-                        <span className="text-primary text-lg font-bold">✓</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </SettingsSection>
-
-              {/* Preferences Section */}
-              <SettingsSection
-                id="preferences"
-                title={t.preferences}
-                icon={Bell}
-                isExpanded={expandedSections.preferences}
-                onToggle={() => toggleSection('preferences')}
-              >
-                <div className="space-y-3">
-                  <SettingToggle
-                    label={t.autoFetchDefinitions}
-                    description={t.autoFetchDesc}
-                    checked={autoFetchDefinitions}
-                    onChange={setAutoFetchDefinitions}
-                  />
-                  <SettingToggle
-                    label={t.includeScreenshots}
-                    description={t.screenshotsDesc}
-                    checked={includeScreenshots}
-                    onChange={setIncludeScreenshots}
-                  />
-                </div>
-              </SettingsSection>
-
-              {/* Keyboard Shortcuts Section */}
-              <SettingsSection
-                id="shortcuts"
-                title={t.shortcuts}
-                icon={Keyboard}
-                isExpanded={expandedSections.shortcuts}
-                onToggle={() => toggleSection('shortcuts')}
-              >
-                <div className="space-y-3">
-                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/30">
-                    <p className="text-sm text-primary font-medium mb-2">
-                      🎯 Global Shortcuts
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Use these shortcuts from any application to quickly capture words.
-                    </p>
+                {/* Appearance Section */}
+                <SettingsSection
+                  id="appearance"
+                  title={t.appearance}
+                  icon={Palette}
+                  isExpanded={expandedSections.appearance}
+                  onToggle={() => toggleSection('appearance')}
+                >
+                  <div className="grid grid-cols-3 gap-4">
+                    <ThemeOption
+                      value="light"
+                      icon={Sun}
+                      label={t.light}
+                      current={theme}
+                      onChange={setTheme}
+                    />
+                    <ThemeOption
+                      value="dark"
+                      icon={Moon}
+                      label={t.dark}
+                      current={theme}
+                      onChange={setTheme}
+                    />
+                    <ThemeOption
+                      value="system"
+                      icon={Monitor}
+                      label={t.system}
+                      current={theme}
+                      onChange={setTheme}
+                    />
                   </div>
-                  
-                  <ShortcutInput
-                    label="Capture Word"
-                    description="Open capture popup from anywhere"
-                    value={useSettingsStore.getState().captureHotkey}
-                    onChange={(value) => useSettingsStore.getState().setCaptureHotkey(value)}
-                    defaultHotkey="CommandOrControl+G"
-                  />
+                </SettingsSection>
 
-                  <ShortcutInput
-                    label="Open Library"
-                    description="Focus/open the library window"
-                    value={useSettingsStore.getState().libraryHotkey}
-                    onChange={(value) => useSettingsStore.getState().setLibraryHotkey(value)}
-                    defaultHotkey="CommandOrControl+L"
-                  />
-                </div>
-              </SettingsSection>
+                {/* Language Section */}
+                <SettingsSection
+                  id="language"
+                  title={t.language}
+                  icon={Globe}
+                  isExpanded={expandedSections.language}
+                  onToggle={() => toggleSection('language')}
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    {LANGUAGES.map((lang) => (
+                      <button
+                        key={lang.value}
+                        onClick={() => setAppLanguage(lang.value)}
+                        className={cn(
+                          'flex items-center gap-4 p-4 rounded-xl border transition-all',
+                          appLanguage === lang.value
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border bg-card hover:border-ring'
+                        )}
+                      >
+                        <span className="text-3xl">{lang.flag}</span>
+                        <span className="flex-1 text-left text-base font-medium text-foreground">
+                          {lang.label}
+                        </span>
+                        {appLanguage === lang.value && (
+                          <span className="text-primary text-lg font-bold">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </SettingsSection>
+
+                {/* Preferences Section */}
+                <SettingsSection
+                  id="preferences"
+                  title={t.preferences}
+                  icon={Bell}
+                  isExpanded={expandedSections.preferences}
+                  onToggle={() => toggleSection('preferences')}
+                >
+                  <div className="space-y-3">
+                    <SettingToggle
+                      label={t.autoFetchDefinitions}
+                      description={t.autoFetchDesc}
+                      checked={autoFetchDefinitions}
+                      onChange={setAutoFetchDefinitions}
+                    />
+                    <SettingToggle
+                      label={t.includeScreenshots}
+                      description={t.screenshotsDesc}
+                      checked={includeScreenshots}
+                      onChange={setIncludeScreenshots}
+                    />
+                  </div>
+                </SettingsSection>
+
+                {/* Keyboard Shortcuts Section */}
+                <SettingsSection
+                  id="shortcuts"
+                  title={t.shortcuts}
+                  icon={Keyboard}
+                  isExpanded={expandedSections.shortcuts}
+                  onToggle={() => toggleSection('shortcuts')}
+                >
+                  <div className="space-y-3">
+                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/30">
+                      <p className="text-sm text-primary font-medium mb-2">🎯 Global Shortcuts</p>
+                      <p className="text-xs text-muted-foreground">
+                        Use these shortcuts from any application to quickly capture words.
+                      </p>
+                    </div>
+
+                    <ShortcutInput
+                      label="Capture Word"
+                      description="Open capture popup from anywhere"
+                      value={useSettingsStore.getState().captureHotkey}
+                      onChange={(value) => useSettingsStore.getState().setCaptureHotkey(value)}
+                      defaultHotkey="CommandOrControl+G"
+                    />
+
+                    <ShortcutInput
+                      label="Open Library"
+                      description="Focus/open the library window"
+                      value={useSettingsStore.getState().libraryHotkey}
+                      onChange={(value) => useSettingsStore.getState().setLibraryHotkey(value)}
+                      defaultHotkey="CommandOrControl+L"
+                    />
+                  </div>
+                </SettingsSection>
               </div>
             </div>
           </motion.div>
@@ -305,7 +318,13 @@ interface SettingsSectionProps {
   children: React.ReactNode;
 }
 
-function SettingsSection({ title, icon: Icon, isExpanded, onToggle, children }: SettingsSectionProps) {
+function SettingsSection({
+  title,
+  icon: Icon,
+  isExpanded,
+  onToggle,
+  children,
+}: SettingsSectionProps) {
   return (
     <div className="border border-border rounded-xl mb-3 overflow-hidden">
       <button
@@ -322,7 +341,7 @@ function SettingsSection({ title, icon: Icon, isExpanded, onToggle, children }: 
           <ChevronDown className="w-5 h-5 text-muted-foreground" />
         )}
       </button>
-      
+
       <AnimatePresence>
         {isExpanded && (
           <motion.div
@@ -332,9 +351,7 @@ function SettingsSection({ title, icon: Icon, isExpanded, onToggle, children }: 
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="p-4 pt-0 border-t border-border">
-              {children}
-            </div>
+            <div className="p-4 pt-0 border-t border-border">{children}</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -363,10 +380,7 @@ function ThemeOption({ value, icon: Icon, label, current, onChange }: ThemeOptio
           : 'border-border bg-card hover:border-ring hover:bg-accent/50'
       )}
     >
-      <Icon className={cn(
-        'w-8 h-8',
-        isActive ? 'text-primary' : 'text-muted-foreground'
-      )} />
+      <Icon className={cn('w-8 h-8', isActive ? 'text-primary' : 'text-muted-foreground')} />
       <span className="text-base font-medium">{label}</span>
     </button>
   );
@@ -384,9 +398,7 @@ function SettingToggle({ label, description, checked, onChange }: SettingToggleP
     <div className="flex items-start justify-between gap-4 p-3 rounded-lg hover:bg-accent/30 transition-colors">
       <div className="flex-1">
         <p className="text-base font-medium text-foreground">{label}</p>
-        {description && (
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
-        )}
+        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
       </div>
       <button
         onClick={() => onChange(!checked)}

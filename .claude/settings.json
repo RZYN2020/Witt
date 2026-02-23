@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx @tauri-apps/cli dev:*)",
+      "mcp__chrome-devtools__navigate_page",
+      "Bash(chmod:*)",
+      "Bash(npm run test:run:*)",
+      "Bash(NODE_OPTIONS=\"--require $PWD/src/test/localStorageMock.cjs\" npm run test:run:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run test:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run format)"
+    ]
+  }
+}

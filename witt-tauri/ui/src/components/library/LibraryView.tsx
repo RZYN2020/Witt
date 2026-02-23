@@ -28,12 +28,7 @@ export function LibraryView() {
   const [ankiSyncOpen, setAnkiSyncOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
-  const {
-    filteredNotes,
-    isLoading,
-    selectedNotes,
-    loadNotes,
-  } = useLibraryStore();
+  const { filteredNotes, isLoading, selectedNotes, loadNotes } = useLibraryStore();
 
   // Load notes on mount
   useEffect(() => {
@@ -71,7 +66,7 @@ export function LibraryView() {
                   <ViewModeToggle />
                 </div>
               </div>
-              
+
               {isLoading ? (
                 <LoadingSkeleton />
               ) : filteredNotes.length === 0 ? (
@@ -105,21 +100,16 @@ export function LibraryView() {
       />
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {renderContent()}
-      </div>
+      <div className="flex-1 flex flex-col overflow-hidden">{renderContent()}</div>
 
       {/* Note Detail Modal */}
       {selectedNote && (
-        <NoteDetailModal
-          note={selectedNote}
-          onClose={() => setSelectedNote(null)}
-        />
+        <NoteDetailModal note={selectedNote} onClose={() => setSelectedNote(null)} />
       )}
 
       {/* Settings Modal */}
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      
+
       {/* Anki Sync Modal */}
       <AnkiSyncModal open={ankiSyncOpen} onClose={() => setAnkiSyncOpen(false)} />
     </div>
@@ -133,10 +123,7 @@ function LoadingSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="bg-card rounded-lg border p-4 animate-pulse"
-        >
+        <div key={i} className="bg-card rounded-lg border p-4 animate-pulse">
           <div className="h-6 bg-muted rounded w-3/4 mb-3" />
           <div className="h-4 bg-muted rounded w-full mb-2" />
           <div className="h-4 bg-muted rounded w-2/3" />

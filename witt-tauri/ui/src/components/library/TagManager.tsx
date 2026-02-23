@@ -10,10 +10,7 @@ interface TagManagerProps {
 /**
  * Tag management component for organizing notes with tags
  */
-export function TagManager({
-  notes,
-  onDeleteTag,
-}: TagManagerProps) {
+export function TagManager({ notes, onDeleteTag }: TagManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
@@ -39,9 +36,7 @@ export function TagManager({
     <div className="tag-manager space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-foreground">
-          Tags ({tagStats.length})
-        </h3>
+        <h3 className="text-sm font-medium text-foreground">Tags ({tagStats.length})</h3>
       </div>
 
       {/* Search */}
@@ -110,7 +105,9 @@ function TagItem({ name, count, isSelected, onSelect, onDelete }: TagItemProps) 
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">{name}</p>
-          <p className="text-xs text-muted-foreground">{count} note{count !== 1 ? 's' : ''}</p>
+          <p className="text-xs text-muted-foreground">
+            {count} note{count !== 1 ? 's' : ''}
+          </p>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -121,7 +118,13 @@ function TagItem({ name, count, isSelected, onSelect, onDelete }: TagItemProps) 
             className="p-1 hover:bg-destructive/20 text-destructive rounded"
             title="Delete tag"
           >
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className="w-3 h-3"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>

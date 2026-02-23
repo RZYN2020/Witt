@@ -14,13 +14,7 @@ interface ContextEditorProps {
  * Editable context textarea with auto-resize
  * Shows source metadata below the text
  */
-export function ContextEditor({
-  value,
-  onChange,
-  source,
-  isFocused,
-  onFocus,
-}: ContextEditorProps) {
+export function ContextEditor({ value, onChange, source, isFocused, onFocus }: ContextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -31,7 +25,7 @@ export function ContextEditor({
     textarea.style.height = 'auto';
     const scrollHeight = textarea.scrollHeight;
     const maxHeight = 150; // ~6 lines
-    
+
     textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
     textarea.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
   }, [value]);
@@ -102,9 +96,7 @@ export function ContextEditor({
         >
           Context
         </label>
-        <span className="text-xs text-muted-foreground">
-          {value.length} chars
-        </span>
+        <span className="text-xs text-muted-foreground">{value.length} chars</span>
       </div>
 
       <textarea
@@ -126,11 +118,7 @@ export function ContextEditor({
       />
 
       {/* Source metadata */}
-      {source && (
-        <div className="flex items-center gap-2 pt-1">
-          {getSourceDisplay()}
-        </div>
-      )}
+      {source && <div className="flex items-center gap-2 pt-1">{getSourceDisplay()}</div>}
     </div>
   );
 }

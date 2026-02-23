@@ -54,19 +54,6 @@ export function GlobalShortcuts() {
 }
 
 /**
- * Read text from clipboard
- */
-async function readClipboard(): Promise<string> {
-  try {
-    const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
-    return await readText();
-  } catch (error) {
-    console.error('[Clipboard] Failed to read:', error);
-    return '';
-  }
-}
-
-/**
  * Toggle capture window visibility - show target window and hide others
  */
 async function toggleCaptureWindow() {
@@ -76,11 +63,14 @@ async function toggleCaptureWindow() {
     const { PhysicalPosition } = await import('@tauri-apps/api/dpi');
     const windows = await getAllWebviewWindows();
 
-    console.log('[Window] Available windows:', windows.map(w => w.label));
+    console.log(
+      '[Window] Available windows:',
+      windows.map((w) => w.label)
+    );
     console.log('[Window] Target: capture');
 
     // Find and show capture window
-    let captureWindow = windows.find(w => w.label === 'capture');
+    const captureWindow = windows.find((w) => w.label === 'capture');
 
     // Get current mouse position for window placement
     const mousePos = await cursorPosition();
@@ -123,11 +113,11 @@ async function toggleCaptureWindow() {
         console.error('[Window] Failed to create capture window');
       });
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
     }
 
     // Hide main window if it's visible
-    const mainWindow = windows.find(w => w.label === 'main');
+    const mainWindow = windows.find((w) => w.label === 'main');
     if (mainWindow) {
       console.log('[Window] Hiding main window');
       await mainWindow.hide();
@@ -146,7 +136,7 @@ async function showMainWindow() {
     const windows = await getAllWebviewWindows();
 
     // Find main window (label is 'main' by default in Tauri)
-    let mainWindow = windows.find(w => w.label === 'main');
+    const mainWindow = windows.find((w) => w.label === 'main');
 
     if (mainWindow) {
       await mainWindow.show();
@@ -161,7 +151,8 @@ async function showMainWindow() {
 
 async function registerShortcut(shortcut: string, callback: () => void) {
   try {
-    const { register, isRegistered, unregister } = await import('@tauri-apps/plugin-global-shortcut');
+    const { register, isRegistered, unregister } =
+      await import('@tauri-apps/plugin-global-shortcut');
 
     console.log('[GlobalShortcut] Attempting to register:', shortcut);
 
@@ -183,7 +174,11 @@ async function registerShortcut(shortcut: string, callback: () => void) {
     if (isNowRegistered) {
       console.log('[GlobalShortcut] ✓ Successfully registered:', shortcut);
     } else {
-      console.error('[GlobalShortcut] ✗ Failed to register:', shortcut, '- Registration check failed');
+      console.error(
+        '[GlobalShortcut] ✗ Failed to register:',
+        shortcut,
+        '- Registration check failed'
+      );
     }
   } catch (error) {
     console.error('[GlobalShortcut] ✗ Failed to register shortcut:', shortcut, error);

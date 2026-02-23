@@ -56,8 +56,8 @@ export function CardPreview({ note }: CardPreviewProps) {
 
   const getPronunciationPath = () => {
     if (!note.pronunciation) return null;
-    return typeof note.pronunciation === 'string' 
-      ? note.pronunciation 
+    return typeof note.pronunciation === 'string'
+      ? note.pronunciation
       : (note.pronunciation as Audio).file_path;
   };
 
@@ -67,8 +67,8 @@ export function CardPreview({ note }: CardPreviewProps) {
       className={cn(
         'bg-card border rounded-lg p-5 cursor-pointer transition-all duration-200',
         'hover:shadow-lg hover:border-primary/50',
-        isSelected 
-          ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary ring-offset-2' 
+        isSelected
+          ? 'border-primary bg-primary/5 shadow-md ring-2 ring-primary ring-offset-2'
           : 'border-border'
       )}
       role="article"
@@ -85,18 +85,12 @@ export function CardPreview({ note }: CardPreviewProps) {
       <div className="mb-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h3 className="text-xl font-bold text-foreground break-words">
-              {note.lemma}
-            </h3>
+            <h3 className="text-xl font-bold text-foreground break-words">{note.lemma}</h3>
             {note.phonetics && (
-              <p className="text-sm text-muted-foreground font-mono mt-1">
-                /{note.phonetics}/
-              </p>
+              <p className="text-sm text-muted-foreground font-mono mt-1">/{note.phonetics}/</p>
             )}
             {note.comment && (
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                {note.comment}
-              </p>
+              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{note.comment}</p>
             )}
           </div>
           {getPronunciationPath() && (
@@ -121,9 +115,7 @@ export function CardPreview({ note }: CardPreviewProps) {
       {/* Definition - Full display */}
       {note.definition && (
         <div className="mb-4 p-3 bg-muted/50 rounded-lg">
-          <p className="text-sm text-foreground leading-relaxed break-words">
-            {note.definition}
-          </p>
+          <p className="text-sm text-foreground leading-relaxed break-words">{note.definition}</p>
         </div>
       )}
 
@@ -180,7 +172,13 @@ export function CardPreview({ note }: CardPreviewProps) {
       {/* Footer: Deck, Created, Updated */}
       <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            className="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
           </svg>
@@ -188,9 +186,7 @@ export function CardPreview({ note }: CardPreviewProps) {
         </span>
         <div className="flex items-center gap-3">
           <span>Created: {formatDate(note.created_at)}</span>
-          {note.updated_at && (
-            <span>Updated: {formatDate(note.updated_at)}</span>
-          )}
+          {note.updated_at && <span>Updated: {formatDate(note.updated_at)}</span>}
         </div>
       </div>
 

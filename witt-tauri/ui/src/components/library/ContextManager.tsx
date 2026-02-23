@@ -121,9 +121,7 @@ function ContextEditor({
 }: ContextEditorProps) {
   const [wordForm, setWordForm] = useState(context?.word_form || '');
   const [sentence, setSentence] = useState(context?.sentence || '');
-  const [sourceType, setSourceType] = useState<Source['type']>(
-    context?.source?.type || 'web'
-  );
+  const [sourceType, setSourceType] = useState<Source['type']>(context?.source?.type || 'web');
   const [sourceData, setSourceData] = useState({
     title: '',
     url: '',
@@ -209,9 +207,7 @@ function ContextEditor({
               </span>
               <span className="font-medium text-foreground">{context.word_form}</span>
             </div>
-            <p className="text-sm text-muted-foreground line-clamp-2 ml-7">
-              {context.sentence}
-            </p>
+            <p className="text-sm text-muted-foreground line-clamp-2 ml-7">{context.sentence}</p>
           </div>
           <div className="flex items-center gap-2">
             <SourceBadge source={context.source} />
@@ -233,16 +229,12 @@ function ContextEditor({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            Ctrl/Cmd + Enter to save
-          </span>
+          <span className="text-xs text-muted-foreground">Ctrl/Cmd + Enter to save</span>
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-1">
-          Word Form
-        </label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Word Form</label>
         <input
           type="text"
           value={wordForm}
@@ -254,9 +246,7 @@ function ContextEditor({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-1">
-          Sentence
-        </label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Sentence</label>
         <textarea
           ref={textareaRef}
           value={sentence}
@@ -269,9 +259,7 @@ function ContextEditor({
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-muted-foreground mb-1">
-          Source Type
-        </label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Source Type</label>
         <div className="flex gap-2">
           {(['web', 'video', 'pdf', 'app'] as const).map((type) => (
             <button

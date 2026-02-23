@@ -174,7 +174,8 @@ export function CapturePopup() {
   const cycleFocus = (direction: number) => {
     const fields = ['context', 'word', 'lemma', 'language', 'tags', 'notes', 'actions'];
     const currentIndex = fields.indexOf(focusedField);
-    const nextIndex = ((currentIndex + direction) % fields.length + fields.length) % fields.length;
+    const nextIndex =
+      (((currentIndex + direction) % fields.length) + fields.length) % fields.length;
     setFocusedField(fields[nextIndex]);
 
     // Focus the actual element
@@ -274,7 +275,13 @@ export function CapturePopup() {
             title="Close (Esc)"
             disabled={loading}
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
           </button>
@@ -296,17 +303,19 @@ export function CapturePopup() {
           {/* Context Editor */}
           <ContextEditor
             value={currentCapture.context?.sentence || ''}
-            onChange={(sentence) => updateCapture({
-              context: {
-                id: currentCapture.context?.id || crypto.randomUUID(),
-                word_form: currentCapture.context?.word_form || '',
-                sentence,
-                audio: currentCapture.context?.audio,
-                image: currentCapture.context?.image,
-                source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
-                created_at: currentCapture.context?.created_at || new Date().toISOString(),
-              }
-            })}
+            onChange={(sentence) =>
+              updateCapture({
+                context: {
+                  id: currentCapture.context?.id || crypto.randomUUID(),
+                  word_form: currentCapture.context?.word_form || '',
+                  sentence,
+                  audio: currentCapture.context?.audio,
+                  image: currentCapture.context?.image,
+                  source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
+                  created_at: currentCapture.context?.created_at || new Date().toISOString(),
+                },
+              })
+            }
             source={currentCapture.context?.source}
             isFocused={focusedField === 'context'}
             onFocus={() => setFocusedField('context')}
@@ -316,17 +325,19 @@ export function CapturePopup() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <WordField
               value={currentCapture.context?.word_form || ''}
-              onChange={(word_form) => updateCapture({
-                context: {
-                  id: currentCapture.context?.id || crypto.randomUUID(),
-                  word_form,
-                  sentence: currentCapture.context?.sentence || '',
-                  audio: currentCapture.context?.audio,
-                  image: currentCapture.context?.image,
-                  source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
-                  created_at: currentCapture.context?.created_at || new Date().toISOString(),
-                }
-              })}
+              onChange={(word_form) =>
+                updateCapture({
+                  context: {
+                    id: currentCapture.context?.id || crypto.randomUUID(),
+                    word_form,
+                    sentence: currentCapture.context?.sentence || '',
+                    audio: currentCapture.context?.audio,
+                    image: currentCapture.context?.image,
+                    source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
+                    created_at: currentCapture.context?.created_at || new Date().toISOString(),
+                  },
+                })
+              }
               isFocused={focusedField === 'word'}
               onFocus={() => setFocusedField('word')}
             />

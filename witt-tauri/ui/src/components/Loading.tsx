@@ -22,10 +22,7 @@ export function LoadingOverlay({ children }: LoadingOverlayProps) {
         <Spinner size="large" />
         {currentProgress && (
           <div className="loading-progress">
-            <ProgressBar 
-              current={currentProgress.current} 
-              total={currentProgress.total} 
-            />
+            <ProgressBar current={currentProgress.current} total={currentProgress.total} />
             {currentProgress.message && (
               <p className="loading-message">{currentProgress.message}</p>
             )}
@@ -52,24 +49,20 @@ export function Spinner({ size = 'medium', className = '' }: SpinnerProps) {
   };
 
   return (
-    <div 
-      className={`spinner ${sizeClasses[size]} ${className}`}
-      role="status"
-      aria-label="Loading"
-    >
+    <div className={`spinner ${sizeClasses[size]} ${className}`} role="status" aria-label="Loading">
       <svg className="animate-spin" viewBox="0 0 24 24">
-        <circle 
-          className="opacity-25" 
-          cx="12" 
-          cy="12" 
-          r="10" 
-          stroke="currentColor" 
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
           strokeWidth="4"
           fill="none"
         />
-        <path 
-          className="opacity-75" 
-          fill="currentColor" 
+        <path
+          className="opacity-75"
+          fill="currentColor"
           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
         />
       </svg>
@@ -87,19 +80,19 @@ interface ProgressBarProps {
 /**
  * Progress bar component
  */
-export function ProgressBar({ 
-  current, 
-  total, 
+export function ProgressBar({
+  current,
+  total,
   showPercentage = true,
-  className = '' 
+  className = '',
 }: ProgressBarProps) {
   const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
 
   return (
     <div className={`progress-bar ${className}`}>
       <div className="progress-bar-track">
-        <div 
-          className="progress-bar-fill" 
+        <div
+          className="progress-bar-fill"
           style={{ width: `${percentage}%` }}
           role="progressbar"
           aria-valuenow={percentage}
@@ -107,9 +100,7 @@ export function ProgressBar({
           aria-valuemax={100}
         />
       </div>
-      {showPercentage && (
-        <span className="progress-bar-label">{percentage}%</span>
-      )}
+      {showPercentage && <span className="progress-bar-label">{percentage}%</span>}
     </div>
   );
 }
@@ -180,9 +171,7 @@ export function ProgressCard({
         </span>
       </div>
       <ProgressBar current={progress.current} total={progress.total} />
-      {progress.message && (
-        <p className="progress-message">{progress.message}</p>
-      )}
+      {progress.message && <p className="progress-message">{progress.message}</p>}
       {estimatedTimeRemaining !== null && estimatedTimeRemaining !== undefined && (
         <p className="progress-eta">
           Estimated time remaining: {formatTime(estimatedTimeRemaining)}
@@ -223,18 +212,18 @@ export function InlineLoading({ text = 'Loading...' }: { text?: string }) {
 /**
  * Skeleton loader for content placeholders
  */
-export function SkeletonLoader({ 
-  lines = 3, 
-  className = '' 
-}: { 
+export function SkeletonLoader({
+  lines = 3,
+  className = '',
+}: {
   lines?: number;
   className?: string;
 }) {
   return (
     <div className={`skeleton-loader ${className}`}>
       {Array.from({ length: lines }).map((_, i) => (
-        <div 
-          key={i} 
+        <div
+          key={i}
           className="skeleton-line"
           style={{ width: i === lines - 1 ? '60%' : '100%' }}
         />

@@ -20,7 +20,7 @@ interface VideoPlayerProps {
 export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const {
     isPlaying,
     currentTime,
@@ -31,7 +31,7 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
     setCurrentTime,
     setDuration,
   } = useVideoStore();
-  
+
   const { openPopup } = useCaptureStore();
   const [currentSubtitle, setCurrentSubtitle] = useState<Subtitle | null>(null);
 
@@ -42,9 +42,7 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
       return;
     }
 
-    const subtitle = subtitles.find(
-      (s) => currentTime >= s.start && currentTime <= s.end
-    );
+    const subtitle = subtitles.find((s) => currentTime >= s.start && currentTime <= s.end);
     setCurrentSubtitle(subtitle || null);
   }, [currentTime, subtitles]);
 
@@ -80,11 +78,14 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
   }, [isPlaying, setIsPlaying]);
 
   // Handle seek
-  const handleSeek = useCallback((time: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = time;
-    setCurrentTime(time);
-  }, [setCurrentTime]);
+  const handleSeek = useCallback(
+    (time: number) => {
+      if (!videoRef.current) return;
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    },
+    [setCurrentTime]
+  );
 
   // Handle volume change
   const handleVolumeChange = useCallback((newVolume: number) => {
@@ -178,7 +179,16 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlay, handleSeek, handleVolumeChange, toggleFullscreen, handleCapture, currentTime, duration, volume]);
+  }, [
+    togglePlay,
+    handleSeek,
+    handleVolumeChange,
+    toggleFullscreen,
+    handleCapture,
+    currentTime,
+    duration,
+    volume,
+  ]);
 
   // Listen for fullscreen changes
   useEffect(() => {

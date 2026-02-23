@@ -15,20 +15,20 @@ export async function generateAPKG(notes: Note[]): Promise<Blob> {
 
   // For now, export as simplified APKG structure
   // In production, you would create proper SQLite database
-  
+
   const exportData = {
     version: 1,
     exportedAt: new Date().toISOString(),
     format: 'apkg',
     notesCount: notes.length,
-    notes: notes.map(note => ({
+    notes: notes.map((note) => ({
       guid: generateGUID(),
       mid: '1',
       flds: [
         note.lemma,
         note.phonetics || '',
         note.definition,
-        note.contexts.map(ctx => `${ctx.word_form}: ${ctx.sentence}`).join('<br>'),
+        note.contexts.map((ctx) => `${ctx.word_form}: ${ctx.sentence}`).join('<br>'),
       ],
       tags: note.tags,
       deck: note.deck,
@@ -37,12 +37,13 @@ export async function generateAPKG(notes: Note[]): Promise<Blob> {
 
   // Add collection.json (for debugging/inspection)
   zip.file('collection.json', JSON.stringify(exportData, null, 2));
-  
+
   // Add media.json mapping
   const mediaMap: Record<string, string> = {};
   notes.forEach((note, idx) => {
     if (note.pronunciation) {
-      const path = typeof note.pronunciation === 'string' ? note.pronunciation : note.pronunciation.file_path;
+      const path =
+        typeof note.pronunciation === 'string' ? note.pronunciation : note.pronunciation.file_path;
       mediaMap[idx.toString()] = path;
     }
   });
@@ -56,8 +57,7 @@ export async function generateAPKG(notes: Note[]): Promise<Blob> {
  * Generate unique GUID for Anki notes
  */
 function generateGUID(): string {
-  return Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 15);
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
 /**

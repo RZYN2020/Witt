@@ -7,32 +7,32 @@ interface SettingsSlice {
   // Appearance
   theme: 'light' | 'dark' | 'system';
   appLanguage: 'en' | 'zh' | 'ja' | 'ko' | 'de';
-  
+
   // Capture settings
   captureHotkey: string;
   libraryHotkey: string;
   hotkeyEnabled: boolean;
   autoFetchDefinitions: boolean;
   includeScreenshots: boolean;
-  
+
   // Note-Context model settings
   defaultDeck: string;
   defaultTags: string[];
   maxContextsPerNote: number; // Maximum 5 per design
   autoConsolidateDuplicates: boolean;
-  
+
   // Anki integration settings
   ankiEnabled: boolean;
   ankiConnectUrl: string;
   autoSyncToAnki: boolean;
   ankiNoteType: string;
   ankiFieldMapping: Record<string, string>;
-  
+
   // Data management
   dataDirectory: string;
   backupEnabled: boolean;
   backupInterval: 'daily' | 'weekly' | 'monthly';
-  
+
   // Actions
   setTheme: (theme: 'light' | 'dark' | 'system') => void;
   setAppLanguage: (language: 'en' | 'zh' | 'ja' | 'ko' | 'de') => void;
@@ -66,13 +66,13 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
   hotkeyEnabled: true,
   autoFetchDefinitions: true,
   includeScreenshots: false,
-  
+
   // Note-Context model settings
   defaultDeck: 'Default',
   defaultTags: [],
   maxContextsPerNote: 5, // Per design spec
   autoConsolidateDuplicates: true,
-  
+
   // Anki integration settings
   ankiEnabled: false,
   ankiConnectUrl: 'http://localhost:8765',
@@ -86,7 +86,7 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
     contexts: 'Contexts',
     comment: 'Comment',
   },
-  
+
   // Data management
   dataDirectory: '',
   backupEnabled: true,
@@ -196,7 +196,7 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
  */
 function applyTheme(theme: 'light' | 'dark' | 'system') {
   const root = document.documentElement;
-  
+
   if (theme === 'system') {
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
       ? 'dark'
@@ -217,8 +217,20 @@ try {
     }
 
     // Migrate old shortcut keys to new defaults
-    const oldCaptureHotkeys = ['CommandOrControl+Shift+C', 'CommandOrControl+G', 'Super+G', 'Command+G', 'Command+Shift+X'];
-    const oldLibraryHotkeys = ['CommandOrControl+Shift+L', 'CommandOrControl+L', 'Super+L', 'Command+L', 'Command+Shift+V'];
+    const oldCaptureHotkeys = [
+      'CommandOrControl+Shift+C',
+      'CommandOrControl+G',
+      'Super+G',
+      'Command+G',
+      'Command+Shift+X',
+    ];
+    const oldLibraryHotkeys = [
+      'CommandOrControl+Shift+L',
+      'CommandOrControl+L',
+      'Super+L',
+      'Command+L',
+      'Command+Shift+V',
+    ];
     const newCaptureHotkey = 'CmdOrCtrl+G';
     const newLibraryHotkey = 'CmdOrCtrl+L';
 
@@ -259,7 +271,13 @@ try {
       useSettingsStore.getState().includeScreenshots = savedScreenshots === 'true';
     }
 
-    const savedLanguage = localStorage.getItem('witt:appLanguage') as 'en' | 'zh' | 'ja' | 'ko' | 'de' | null;
+    const savedLanguage = localStorage.getItem('witt:appLanguage') as
+      | 'en'
+      | 'zh'
+      | 'ja'
+      | 'ko'
+      | 'de'
+      | null;
     if (savedLanguage) {
       useSettingsStore.getState().appLanguage = savedLanguage;
     }
@@ -270,11 +288,9 @@ try {
 
 // Listen for system theme changes
 if (typeof window !== 'undefined' && window.matchMedia) {
-  window
-    .matchMedia('(prefers-color-scheme: dark)')
-    .addEventListener('change', () => {
-      if (useSettingsStore.getState().theme === 'system') {
-        applyTheme('system');
-      }
-    });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (useSettingsStore.getState().theme === 'system') {
+      applyTheme('system');
+    }
+  });
 }

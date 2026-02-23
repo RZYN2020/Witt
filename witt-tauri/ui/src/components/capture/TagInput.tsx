@@ -21,18 +21,33 @@ export function TagInput({ value, onChange, isFocused, onFocus }: TagInputProps)
 
   // Mock suggestions - in real app, fetch from backend
   const allSuggestions = [
-    'finance', 'movement', 'river', 'geography', 'nature',
-    'food', 'building', 'business', 'technology', 'science',
-    'art', 'music', 'literature', 'history', 'philosophy',
-    'emotion', 'action', 'description', 'abstract', 'concrete'
+    'finance',
+    'movement',
+    'river',
+    'geography',
+    'nature',
+    'food',
+    'building',
+    'business',
+    'technology',
+    'science',
+    'art',
+    'music',
+    'literature',
+    'history',
+    'philosophy',
+    'emotion',
+    'action',
+    'description',
+    'abstract',
+    'concrete',
   ];
 
   useEffect(() => {
     if (inputValue.trim()) {
       const filtered = allSuggestions
-        .filter((tag) =>
-          tag.toLowerCase().startsWith(inputValue.toLowerCase()) &&
-          !value.includes(tag)
+        .filter(
+          (tag) => tag.toLowerCase().startsWith(inputValue.toLowerCase()) && !value.includes(tag)
         )
         .slice(0, 5);
       setSuggestions(filtered);

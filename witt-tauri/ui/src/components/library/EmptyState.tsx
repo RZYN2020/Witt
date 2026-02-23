@@ -9,20 +9,15 @@ export function EmptyState() {
   const { openPopup } = useCaptureStore();
 
   const hasActiveFilters =
-    (filter.time_range && filter.time_range !== 'all') ||
-    filter.source ||
-    searchQuery;
+    (filter.time_range && filter.time_range !== 'all') || filter.source || searchQuery;
 
   if (notes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <div className="text-6xl mb-4">🎉</div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          Start Your Collection
-        </h2>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Start Your Collection</h2>
         <p className="text-muted-foreground max-w-md mb-6">
-          You haven't captured any words yet. Start building your personal
-          language asset library!
+          You haven't captured any words yet. Start building your personal language asset library!
         </p>
         <button
           onClick={() =>
@@ -47,9 +42,7 @@ export function EmptyState() {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <div className="text-6xl mb-4">🔍</div>
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          No Results Found
-        </h2>
+        <h2 className="text-2xl font-bold text-foreground mb-2">No Results Found</h2>
         <p className="text-muted-foreground max-w-md mb-6">
           {searchQuery
             ? `No cards match your search for "${searchQuery}"`
@@ -70,8 +63,7 @@ export function EmptyState() {
       <div className="text-6xl mb-4">📚</div>
       <h2 className="text-2xl font-bold text-foreground mb-2">No Cards</h2>
       <p className="text-muted-foreground max-w-md">
-        No cards match your current view. Try adjusting your filters or capture
-        some new words!
+        No cards match your current view. Try adjusting your filters or capture some new words!
       </p>
     </div>
   );

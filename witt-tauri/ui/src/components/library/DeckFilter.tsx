@@ -10,9 +10,7 @@ export function DeckFilter() {
 
   return (
     <div className="flex items-center gap-2">
-      <label className="text-xs font-medium text-muted-foreground">
-        Deck:
-      </label>
+      <label className="text-xs font-medium text-muted-foreground">Deck:</label>
       <select
         value={deckFilter}
         onChange={(e) => setDeckFilter(e.target.value as string | 'all')}

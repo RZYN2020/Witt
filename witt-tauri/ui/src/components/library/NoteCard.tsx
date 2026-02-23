@@ -13,7 +13,13 @@ interface NoteCardProps {
  * Note card component displaying Note-Context relationship
  * Shows the lemma as primary with context previews
  */
-export function NoteCard({ note, isSelected = false, onClick, onDelete, viewMode = 'grid' }: NoteCardProps) {
+export function NoteCard({
+  note,
+  isSelected = false,
+  onClick,
+  onDelete,
+  viewMode = 'grid',
+}: NoteCardProps) {
   const contextCount = note.contexts.length;
   const maxPreviewContexts = viewMode === 'grid' ? 2 : 3;
   const previewContexts = note.contexts.slice(0, maxPreviewContexts);
@@ -69,7 +75,13 @@ export function NoteCard({ note, isSelected = false, onClick, onDelete, viewMode
                 title="Delete note"
                 aria-label="Delete note"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  className="w-4 h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                 </svg>
               </button>
@@ -77,9 +89,7 @@ export function NoteCard({ note, isSelected = false, onClick, onDelete, viewMode
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-          {note.definition}
-        </p>
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{note.definition}</p>
 
         {/* Tags */}
         {note.tags.length > 0 && (
@@ -124,21 +134,15 @@ export function NoteCard({ note, isSelected = false, onClick, onDelete, viewMode
           )}
 
           {contextCount === 0 && (
-            <p className="text-xs text-muted-foreground italic py-2">
-              No contexts added yet
-            </p>
+            <p className="text-xs text-muted-foreground italic py-2">No contexts added yet</p>
           )}
         </div>
       </div>
 
       {/* Note Footer - Deck and metadata */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-        <span className="text-xs text-muted-foreground">
-          {note.deck}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {formatDate(note.created_at)}
-        </span>
+        <span className="text-xs text-muted-foreground">{note.deck}</span>
+        <span className="text-xs text-muted-foreground">{formatDate(note.created_at)}</span>
       </div>
     </div>
   );
@@ -155,10 +159,7 @@ function ContextPreview({ context }: ContextPreviewProps) {
   const hasMedia = context.audio || context.image;
 
   return (
-    <div
-      className="context-preview p-2 bg-muted/50 rounded text-xs space-y-1"
-      role="listitem"
-    >
+    <div className="context-preview p-2 bg-muted/50 rounded text-xs space-y-1" role="listitem">
       <div className="flex items-center justify-between">
         <span className="font-medium text-foreground">{context.word_form}</span>
         {hasMedia && (
@@ -176,15 +177,11 @@ function ContextPreview({ context }: ContextPreviewProps) {
           </div>
         )}
       </div>
-      <p className="text-muted-foreground line-clamp-2">
-        {context.sentence}
-      </p>
+      <p className="text-muted-foreground line-clamp-2">{context.sentence}</p>
       {context.source && (
         <div className="flex items-center gap-1 text-muted-foreground">
           <SourceIcon sourceType={context.source.type} />
-          <span className="truncate max-w-[100px]">
-            {getSourceLabel(context.source)}
-          </span>
+          <span className="truncate max-w-[100px]">{getSourceLabel(context.source)}</span>
         </div>
       )}
     </div>
@@ -199,21 +196,39 @@ function SourceIcon({ sourceType }: SourceIconProps) {
   switch (sourceType) {
     case 'web':
       return (
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-3 h-3"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <circle cx="12" cy="12" r="10" />
           <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
         </svg>
       );
     case 'video':
       return (
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-3 h-3"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <polygon points="23 7 16 12 23 17 23 7" />
           <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
         </svg>
       );
     case 'pdf':
       return (
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-3 h-3"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
           <line x1="16" y1="13" x2="8" y2="13" />
@@ -222,7 +237,13 @@ function SourceIcon({ sourceType }: SourceIconProps) {
       );
     case 'app':
       return (
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-3 h-3"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
           <circle cx="8.5" cy="8.5" r="1.5" />
           <polyline points="21 15 16 10 5 21" />

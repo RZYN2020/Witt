@@ -29,10 +29,7 @@ export function VideoControls({
   return (
     <div className="flex items-center gap-2 px-4 py-3">
       {/* Play/Pause */}
-      <button
-        onClick={onTogglePlay}
-        className="p-2 hover:bg-white/20 rounded transition-colors"
-      >
+      <button onClick={onTogglePlay} className="p-2 hover:bg-white/20 rounded transition-colors">
         {isPlaying ? (
           <Pause className="w-5 h-5 text-white" />
         ) : (
@@ -106,7 +103,13 @@ export function VideoControls({
         onClick={onToggleFullscreen}
         className="p-2 hover:bg-white/20 rounded transition-colors"
       >
-        <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg
+          className="w-5 h-5 text-white"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
           <path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
         </svg>
       </button>

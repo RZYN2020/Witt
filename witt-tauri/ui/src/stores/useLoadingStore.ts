@@ -4,13 +4,13 @@ import type { LoadingIndicator, LoadingState, ProgressInfo } from '@/lib/loading
 interface LoadingStateSlice {
   // Global loading state
   isLoading: boolean;
-  
+
   // Active loading indicators
   indicators: Map<string, LoadingIndicator>;
-  
+
   // Current operation progress
   currentProgress: ProgressInfo | null;
-  
+
   // Actions
   setLoading: (loading: boolean) => void;
   addIndicator: (indicator: LoadingIndicator) => void;
@@ -41,7 +41,7 @@ export const useLoadingStore = create<LoadingStateSlice>((set) => ({
     set((state) => {
       const newIndicators = new Map(state.indicators);
       newIndicators.delete(id);
-      return { 
+      return {
         indicators: newIndicators,
         isLoading: newIndicators.size > 0,
       };
@@ -64,7 +64,7 @@ export const useLoadingStore = create<LoadingStateSlice>((set) => ({
   },
 
   clearIndicators: () => {
-    set({ 
+    set({
       indicators: new Map(),
       isLoading: false,
       currentProgress: null,

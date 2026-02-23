@@ -134,6 +134,23 @@ export async function getTagSuggestions(prefix: string): Promise<string[]> {
   return invokeWithErrorHandling<string[]>('get_tag_suggestions', { prefix });
 }
 
+/**
+ * Best-effort: simulate a system copy shortcut to capture current selection.
+ * macOS requires Accessibility permission.
+ */
+export async function simulateCopyShortcut(): Promise<boolean> {
+  return invokeWithErrorHandling<boolean>('simulate_copy_shortcut');
+}
+
+export type GlobalCursorPosition = { x: number; y: number };
+
+/**
+ * Get system/global cursor position in screen coordinates.
+ */
+export async function getGlobalCursorPosition(): Promise<GlobalCursorPosition> {
+  return invokeWithErrorHandling<GlobalCursorPosition>('get_global_cursor_position');
+}
+
 // ============================================================================
 // Optimized Response Format Commands
 // ============================================================================

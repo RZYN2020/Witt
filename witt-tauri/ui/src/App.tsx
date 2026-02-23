@@ -75,6 +75,23 @@ function App() {
     if (isCaptureWindow) {
       const openCapturePopup = async () => {
         try {
+          // Prefer pending capture text prepared by the main window (selection capture).
+          try {
+            const pending = localStorage.getItem('witt:pendingCapture');
+            if (pending) {
+              localStorage.removeItem('witt:pendingCapture');
+              const parsed = JSON.parse(pending) as { text?: string; source?: any };
+              const text = (parsed.text || '').trim();
+              if (text) {
+                openPopup(text, parsed.source || { type: 'app', name: 'Text Selection' });
+                return;
+              }
+            }
+          } catch {
+            // ignore
+          }
+
+          // Fallback: clipboard
           const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
           const clipboardText = await readText();
           if (clipboardText) {

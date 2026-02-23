@@ -35,6 +35,8 @@ fn main() {
             commands::get_definitions,
             commands::get_lemma,
             commands::get_tag_suggestions,
+            commands::simulate_copy_shortcut,
+            commands::get_global_cursor_position,
             // Optimized response commands
             commands::get_notes_paginated,
             commands::batch_save_notes,

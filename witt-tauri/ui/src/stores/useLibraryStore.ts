@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Note, NoteFilter, Context } from '@/types';
+import type { Note, NoteFilter } from '@/types';
 import * as commands from '@/lib/commands';
 import { useToastStore } from './useToastStore';
 import { useLoadingStore } from './useLoadingStore';
@@ -63,11 +63,19 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
         { minDisplayTime: 150 }
       );
 
+      const effectiveFilter = filter || get().filter;
+      const filteredNotes = computeFilteredNotes(
+        notes,
+        effectiveFilter,
+        get().searchQuery,
+        get().deckFilter
+      );
+
       set({
         notes,
-        filteredNotes: notes,
+        filteredNotes,
         isLoading: false,
-        filter: filter || get().filter,
+        filter: effectiveFilter,
       });
       useLoadingStore.getState().setLoading(false);
     } catch (error) {
@@ -93,32 +101,62 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
   },
 
   setFilter: (filter: Partial<NoteFilter>) => {
-    const newFilter = { ...get().filter, ...filter };
-    set({ filter: newFilter });
-    applyFilters(newFilter, get().searchQuery);
+    set((state) => {
+      const newFilter = { ...state.filter, ...filter };
+      return {
+        filter: newFilter,
+        filteredNotes: computeFilteredNotes(
+          state.notes,
+          newFilter,
+          state.searchQuery,
+          state.deckFilter
+        ),
+      };
+    });
   },
 
   setSearchQuery: (query: string) => {
-    set({ searchQuery: query });
-    applyFilters(get().filter, query);
+    set((state) => ({
+      searchQuery: query,
+      filteredNotes: computeFilteredNotes(state.notes, state.filter, query, state.deckFilter),
+    }));
   },
 
   setViewMode: (mode) => {
     set({ viewMode: mode });
     // Persist to localStorage
-    localStorage.setItem('witt:viewMode', mode);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:viewMode', mode);
+      }
+    } catch {
+      // ignore storage errors (e.g. in tests)
+    }
   },
 
   setDisplayMode: (mode) => {
     set({ displayMode: mode });
-    localStorage.setItem('witt:displayMode', mode);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:displayMode', mode);
+      }
+    } catch {
+      // ignore storage errors (e.g. in tests)
+    }
   },
 
   setDeckFilter: (deck) => {
-    set({ deckFilter: deck });
-    localStorage.setItem('witt:deckFilter', deck);
-    // Re-apply filters when deck changes
-    applyFilters(get().filter, get().searchQuery);
+    set((state) => ({
+      deckFilter: deck,
+      filteredNotes: computeFilteredNotes(state.notes, state.filter, state.searchQuery, deck),
+    }));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:deckFilter', deck);
+      }
+    } catch {
+      // ignore storage errors (e.g. in tests)
+    }
   },
 
   selectNote: (lemma: string, multi?: boolean) => {
@@ -193,11 +231,15 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
   },
 
   clearFilters: () => {
-    set({
-      filter: { time_range: 'all' },
-      searchQuery: '',
+    set((state) => {
+      const resetFilter: NoteFilter = { time_range: 'all' };
+      return {
+        filter: resetFilter,
+        searchQuery: '',
+        deckFilter: 'all',
+        filteredNotes: computeFilteredNotes(state.notes, resetFilter, '', 'all'),
+      };
     });
-    applyFilters({ time_range: 'all' }, '');
   },
 
   addNote: (note: Note) => {
@@ -214,15 +256,36 @@ export const useLibraryStore = create<LibrarySlice>((set, get) => ({
   },
 }));
 
-/**
- * Apply filters to the note list
- */
-async function applyFilters(filter: NoteFilter, searchQuery: string) {
-  const { notes } = useLibraryStore.getState();
-
+function computeFilteredNotes(
+  notes: Note[],
+  filter: NoteFilter,
+  searchQuery: string,
+  deckFilter: string | 'all'
+): Note[] {
   let filtered = [...notes];
 
-  // Apply time range filter
+  // Deck filter
+  if (deckFilter && deckFilter !== 'all') {
+    filtered = filtered.filter((note) => note.deck === deckFilter);
+  }
+
+  // Source filter (by Source.type: web/video/pdf/app)
+  if (filter.source) {
+    const source = String(filter.source).toLowerCase();
+    filtered = filtered.filter((note) =>
+      note.contexts.some((ctx) => String(ctx.source?.type).toLowerCase() === source)
+    );
+  }
+
+  // Tags filter (require all selected tags)
+  if (filter.tags && filter.tags.length > 0) {
+    const tags = filter.tags.map((t) => t.toLowerCase());
+    filtered = filtered.filter((note) =>
+      tags.every((t) => note.tags.some((nt) => nt.toLowerCase() === t))
+    );
+  }
+
+  // Time range filter
   if (filter.time_range && filter.time_range !== 'all') {
     const cutoffDate = new Date();
 
@@ -234,37 +297,38 @@ async function applyFilters(filter: NoteFilter, searchQuery: string) {
       cutoffDate.setDate(cutoffDate.getDate() - 30);
     }
 
-    filtered = filtered.filter((note: Note) => {
-      const noteDate = new Date(note.created_at);
-      return noteDate >= cutoffDate;
-    });
+    filtered = filtered.filter((note) => new Date(note.created_at) >= cutoffDate);
   }
 
-  // Apply search query
+  // Search query
   if (searchQuery) {
     const query = searchQuery.toLowerCase();
     filtered = filtered.filter(
-      (note: Note) =>
+      (note) =>
         note.lemma.toLowerCase().includes(query) ||
         note.definition.toLowerCase().includes(query) ||
         note.contexts.some(
-          (ctx: Context) =>
-            ctx.word_form.toLowerCase().includes(query) ||
-            ctx.sentence.toLowerCase().includes(query)
+          (ctx) =>
+            ctx.word_form.toLowerCase().includes(query) || ctx.sentence.toLowerCase().includes(query)
         ) ||
-        note.tags.some((tag: string) => tag.toLowerCase().includes(query))
+        note.tags.some((tag) => tag.toLowerCase().includes(query))
     );
   }
 
-  useLibraryStore.getState().filteredNotes = filtered;
+  return filtered;
 }
 
 // Load saved view mode on initialization
 try {
-  if (typeof localStorage !== 'undefined' && localStorage) {
+  if (typeof localStorage?.getItem === 'function') {
     const savedViewMode = localStorage.getItem('witt:viewMode') as 'grid' | 'list' | null;
     if (savedViewMode) {
       useLibraryStore.getState().viewMode = savedViewMode;
+    }
+
+    const savedDeckFilter = localStorage.getItem('witt:deckFilter') as string | null;
+    if (savedDeckFilter) {
+      useLibraryStore.getState().deckFilter = savedDeckFilter as any;
     }
   }
 } catch (error) {

@@ -23,7 +23,18 @@ pub async fn init_core(state: State<'_, WittCoreState>) -> Result<(), String> {
     let mut core = state.core.lock().await;
     if core.is_none() {
         let config = WittConfig::default();
-        *core = Some(WittCore::new_with_config(config).await.map_err(|e| e.to_string())?);
+        *core = Some(
+            WittCore::new_with_config(config.clone())
+                .await
+                .map_err(|e| {
+                    format!(
+                        "{} (db_path: {}, media_dir: {})",
+                        e,
+                        config.db_path.display(),
+                        config.media_dir.display()
+                    )
+                })?,
+        );
     }
     Ok(())
 }
@@ -49,9 +60,36 @@ pub async fn get_notes(
                     note.created_at >= now - chrono::Duration::weeks(1)
                 }
                 TimeRange::ThisMonth => {
-                    note.created_at >= now - chrono::Duration::weeks(4)
+                    // Spec expects 30 days
+                    note.created_at >= now - chrono::Duration::days(30)
                 }
                 TimeRange::All => true,
+            });
+        }
+
+        // Filter by source type (web/video/pdf/app)
+        if let Some(source_filter) = f.source.as_ref() {
+            let wanted = source_filter.to_lowercase();
+            notes.retain(|note| {
+                note.contexts.iter().any(|ctx| {
+                    let ty = match &ctx.source {
+                        witt_core::note::Source::Web { .. } => "web",
+                        witt_core::note::Source::Video { .. } => "video",
+                        witt_core::note::Source::Pdf { .. } => "pdf",
+                        witt_core::note::Source::App { .. } => "app",
+                    };
+                    ty == wanted
+                })
+            });
+        }
+
+        // Filter by tags (require all selected tags)
+        if !f.tags.is_empty() {
+            let wanted_tags: Vec<String> = f.tags.iter().map(|t| t.to_lowercase()).collect();
+            notes.retain(|note| {
+                wanted_tags
+                    .iter()
+                    .all(|t| note.tags.iter().any(|nt| nt.to_lowercase() == *t))
             });
         }
 
@@ -274,6 +312,56 @@ pub async fn get_tag_suggestions(
     }
     tags.sort();
     Ok(tags)
+}
+
+/// Best-effort: simulate a system copy shortcut to capture current selection.
+///
+/// - macOS: sends Cmd+C via AppleScript (requires Accessibility permission)
+/// - other platforms: returns Ok(false)
+#[tauri::command]
+pub async fn simulate_copy_shortcut() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+
+        let status = Command::new("osascript")
+            .arg("-e")
+            .arg("tell application \"System Events\" to keystroke \"c\" using {command down}")
+            .status()
+            .map_err(|e| format!("failed to run osascript: {}", e))?;
+
+        if status.success() {
+            Ok(true)
+        } else {
+            Err(format!("osascript failed with status: {}", status))
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(false)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalCursorPosition {
+    pub x: i32,
+    pub y: i32,
+}
+
+/// Get system/global cursor position in screen coordinates.
+///
+/// Used for positioning the capture popup near the mouse even when the app is not focused.
+#[tauri::command]
+pub async fn get_global_cursor_position() -> Result<GlobalCursorPosition, String> {
+    use device_query::{DeviceQuery, DeviceState};
+
+    let device_state = DeviceState::new();
+    let mouse = device_state.get_mouse();
+    Ok(GlobalCursorPosition {
+        x: mouse.coords.0,
+        y: mouse.coords.1,
+    })
 }
 
 // ============================================================================

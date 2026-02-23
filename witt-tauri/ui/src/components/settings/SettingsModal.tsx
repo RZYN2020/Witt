@@ -298,6 +298,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       onChange={(value) => useSettingsStore.getState().setLibraryHotkey(value)}
                       defaultHotkey="CommandOrControl+L"
                     />
+
+                    <ShortcutInput
+                      label="Inbox Quick Capture"
+                      description="Quick-capture context into Inbox"
+                      value={useSettingsStore.getState().inboxHotkey}
+                      onChange={(value) => useSettingsStore.getState().setInboxHotkey(value)}
+                      defaultHotkey="CommandOrControl+Alt+I"
+                    />
                   </div>
                 </SettingsSection>
               </div>

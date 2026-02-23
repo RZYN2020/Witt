@@ -70,7 +70,22 @@ export function createError(
  * Classify an error from Tauri invoke call
  */
 export function classifyError(error: unknown): WittError {
-  const errorMessage = error instanceof Error ? error.message : String(error);
+  if (isWittError(error)) return error;
+
+  const errorMessage =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as any).message)
+          : (() => {
+              try {
+                return JSON.stringify(error);
+              } catch {
+                return String(error);
+              }
+            })();
 
   // Network/IPC errors
   if (errorMessage.includes('failed to fetch') || errorMessage.includes('network')) {

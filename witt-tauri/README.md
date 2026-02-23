@@ -53,6 +53,7 @@ witt-tauri/
 
 - 🎯 **Capture Popup** - Global hotkey trigger, editable context, auto-fetch definitions
 - 📚 **Library View** - Browse, filter, search captured cards
+- 📥 **Inbox** - Quick-capture contexts, batch-process into notes
 - 🎬 **Video Player** - Watch with subtitles, frame-accurate capture
 - 💾 **SQLite Backend** - Persistent storage with full CRUD operations
 
@@ -68,8 +69,9 @@ witt-tauri/
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+Alt+C` | Open capture popup |
-| `Ctrl+Alt+L` | Open library |
+| `Cmd+G` (macOS) / `Ctrl+G` (Windows/Linux) | Open capture popup |
+| `Cmd+Alt+I` (macOS) / `Ctrl+Alt+I` (Windows/Linux) | Inbox quick capture |
+| `Cmd+L` (macOS) / `Ctrl+L` (Windows/Linux) | Open library |
 | `Tab` | Next field (in popup) |
 | `Enter` | Save & Close |
 | `Ctrl+Enter` | Save & Next |

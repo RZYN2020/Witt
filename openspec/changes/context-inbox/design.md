@@ -145,6 +145,13 @@ CREATE INDEX IF NOT EXISTS idx_context_note_lemma ON context_note_associations(l
 CREATE INDEX IF NOT EXISTS idx_context_note_context ON context_note_associations(context_id);
 ```
 
+### 2.4 Context 复用策略（本次实现）
+
+本次实现选择“允许重复 Context”，不做“跨 Note 共享同一个 Context”的强约束：
+
+- 当用户在 Inbox 里为同一段 `context` 选择多个 `lemma` 时，会为每个 `lemma` **各自创建一条 contexts 记录**（因此 sentence/source 可能重复）。
+- `context_note_associations` 作为可选的关联记录保留，用于未来的统计/审计/迁移，但当前 UI/核心查询不依赖它来实现共享。
+
 ## 3. 核心功能实现
 
 ### 3.1 Inbox 管理
@@ -341,7 +348,7 @@ impl SqliteDb {
                 None => Note::new(lemma.to_string(), "".to_string()), // 空定义，后续用户可编辑
             };
 
-            // 创建 Context
+            // 创建 Context（允许重复：每个 lemma 都会生成自己的 contexts 记录）
             let context = crate::note::Context {
                 id: Uuid::new_v4(),
                 word_form: extract_word_form(item.context.as_str(), lemma), // 简单提取

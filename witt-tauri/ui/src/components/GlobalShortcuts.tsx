@@ -6,7 +6,7 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
  * Registers system-wide keyboard shortcuts
  */
 export function GlobalShortcuts() {
-  const { captureHotkey, libraryHotkey, hotkeyEnabled } = useSettingsStore();
+  const { captureHotkey, libraryHotkey, inboxHotkey, hotkeyEnabled } = useSettingsStore();
   const registeredShortcuts = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -24,9 +24,22 @@ export function GlobalShortcuts() {
         registeredShortcuts,
         onTrigger: async () => {
           console.log('[GlobalShortcut] Capture shortcut triggered');
-          await toggleCaptureWindow();
+          await toggleCaptureWindow({ mode: 'capture' });
         },
         onPersistShortcut: (value) => useSettingsStore.getState().setCaptureHotkey(value),
+      });
+    }
+
+    if (inboxHotkey) {
+      void ensureShortcutRegistered({
+        kind: 'inbox',
+        preferredShortcut: inboxHotkey,
+        registeredShortcuts,
+        onTrigger: async () => {
+          console.log('[GlobalShortcut] Inbox shortcut triggered');
+          await toggleCaptureWindow({ mode: 'inbox' });
+        },
+        onPersistShortcut: (value) => useSettingsStore.getState().setInboxHotkey(value),
       });
     }
 
@@ -48,7 +61,7 @@ export function GlobalShortcuts() {
       unregisterAllShortcuts();
       registeredShortcuts.current.clear();
     };
-  }, [captureHotkey, libraryHotkey, hotkeyEnabled]);
+  }, [captureHotkey, inboxHotkey, libraryHotkey, hotkeyEnabled]);
 
   return null;
 }
@@ -97,7 +110,7 @@ function buildFallbackShortcuts(preferredShortcut: string): string[] {
 }
 
 async function ensureShortcutRegistered(opts: {
-  kind: 'capture' | 'library';
+  kind: 'capture' | 'inbox' | 'library';
   preferredShortcut: string;
   registeredShortcuts: MutableRefObject<Set<string>>;
   onTrigger: () => Promise<void>;
@@ -120,7 +133,7 @@ async function ensureShortcutRegistered(opts: {
       if (shortcut !== normalizedPreferred) {
         opts.onPersistShortcut(shortcut);
         await toastHotkeyInfo(
-          `${opts.kind === 'capture' ? '捕获' : '打开库'}快捷键“${normalizedPreferred}”可能与系统/其它应用冲突，已自动切换为“${shortcut}”。可在 Settings 里修改。`
+          `${opts.kind === 'capture' ? '捕获' : opts.kind === 'inbox' ? 'Inbox' : '打开库'}快捷键“${normalizedPreferred}”可能与系统/其它应用冲突，已自动切换为“${shortcut}”。可在 Settings 里修改。`
         );
       }
       return;
@@ -141,15 +154,22 @@ async function ensureShortcutRegistered(opts: {
 /**
  * Toggle capture window visibility - show target window and hide others
  */
-async function toggleCaptureWindow() {
+async function toggleCaptureWindow(opts?: { mode?: 'capture' | 'inbox' }) {
   try {
     const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
     const { PhysicalPosition } = await import('@tauri-apps/api/dpi');
     const windows = await getAllWebviewWindows();
 
+    const mode = opts?.mode === 'inbox' ? 'inbox' : 'capture';
+    try {
+      localStorage.setItem('witt:captureMode', mode);
+    } catch {
+      // ignore
+    }
+
     // Best-effort: capture selected text from the currently focused app.
     // Store it for the capture window to consume.
-    await preparePendingCaptureText();
+    await preparePendingCaptureText(mode === 'inbox' ? 'witt:pendingInboxCapture' : 'witt:pendingCapture');
 
     console.log(
       '[Window] Available windows:',
@@ -170,12 +190,17 @@ async function toggleCaptureWindow() {
       console.log('[Window] Showing existing capture window');
       // Make it visible across Spaces (macOS) so it can show over the currently active app.
       try {
-        await captureWindow.setVisibleOnAllWorkspaces(true);
+        await (captureWindow as any).setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       } catch {
         // ignore
       }
       try {
         await captureWindow.setAlwaysOnTop(true);
+      } catch {
+        // ignore
+      }
+      try {
+        await captureWindow.setSkipTaskbar(true);
       } catch {
         // ignore
       }
@@ -190,7 +215,7 @@ async function toggleCaptureWindow() {
       console.log('[Window] Creating new capture window');
       const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
       const newWindow = new WebviewWindow('capture', {
-        title: 'Capture Context',
+        title: mode === 'inbox' ? 'Inbox Quick Capture' : 'Capture Context',
         width: 650,
         height: 750,
         minWidth: 550,
@@ -210,6 +235,23 @@ async function toggleCaptureWindow() {
       // Handle window creation errors
       newWindow.once('tauri://created', () => {
         console.log('[Window] Capture window created successfully');
+        void (async () => {
+          try {
+            await (newWindow as any).setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+          } catch {
+            // ignore
+          }
+          try {
+            await newWindow.setAlwaysOnTop(true);
+          } catch {
+            // ignore
+          }
+          try {
+            await newWindow.setSkipTaskbar(true);
+          } catch {
+            // ignore
+          }
+        })();
       });
 
       newWindow.once('tauri://creation-error', () => {
@@ -249,7 +291,7 @@ async function getGlobalMousePosition(): Promise<{ x: number; y: number }> {
   }
 }
 
-async function preparePendingCaptureText() {
+async function preparePendingCaptureText(storageKey: string) {
   try {
     const { readText, writeText } = await import('@tauri-apps/plugin-clipboard-manager');
     const previous = (await readText()) || '';
@@ -272,7 +314,7 @@ async function preparePendingCaptureText() {
       // Provide pending capture to the capture window
       try {
         localStorage.setItem(
-          'witt:pendingCapture',
+          storageKey,
           JSON.stringify({
             text: selected,
             source: { type: 'app', name: 'Text Selection' },

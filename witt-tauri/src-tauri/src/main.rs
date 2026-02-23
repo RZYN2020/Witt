@@ -43,6 +43,18 @@ fn main() {
             commands::get_note_summaries,
             commands::bulk_delete_notes,
             commands::get_stats,
+            // Context Inbox commands
+            commands::add_to_inbox,
+            commands::get_inbox_items,
+            commands::get_inbox_count,
+            commands::process_inbox_item,
+            commands::delete_inbox_item,
+            commands::set_inbox_item_processed,
+            commands::mark_inbox_item_processed,
+            commands::clear_processed_inbox_items,
+            commands::clear_processed_items,
+            commands::extract_words,
+            commands::extract_words_with_frequency,
             // AnkiConnect commands
             commands::check_anki_connect,
             commands::get_anki_decks,

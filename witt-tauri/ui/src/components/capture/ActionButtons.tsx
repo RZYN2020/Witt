@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 interface ActionButtonsProps {
   onSave: () => Promise<string | null>;
   onSaveAndNext: () => Promise<boolean>;
+  onSaveToInbox?: () => Promise<void>;
   onDiscard: () => void;
   isLoading: boolean;
   isDisabled: boolean;
@@ -14,6 +15,7 @@ interface ActionButtonsProps {
 export function ActionButtons({
   onSave,
   onSaveAndNext,
+  onSaveToInbox,
   onDiscard,
   isLoading,
   isDisabled,
@@ -26,6 +28,12 @@ export function ActionButtons({
   const handleSaveAndNext = async () => {
     if (isDisabled || isLoading) return;
     await onSaveAndNext();
+  };
+
+  const handleSaveToInbox = async () => {
+    if (!onSaveToInbox) return;
+    if (isLoading) return;
+    await onSaveToInbox();
   };
 
   return (
@@ -45,6 +53,20 @@ export function ActionButtons({
 
       {/* Action buttons */}
       <div className="flex items-center gap-2">
+        {onSaveToInbox && (
+          <button
+            onClick={handleSaveToInbox}
+            disabled={isLoading}
+            className={cn(
+              'px-4 py-2 text-sm rounded-md transition-all',
+              'bg-accent text-accent-foreground hover:bg-accent/80',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'flex items-center gap-2'
+            )}
+          >
+            📥 Inbox
+          </button>
+        )}
         <button
           onClick={handleSaveAndNext}
           disabled={isDisabled || isLoading}

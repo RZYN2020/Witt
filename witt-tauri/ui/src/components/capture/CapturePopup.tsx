@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useCaptureStore } from '@/stores/useCaptureStore';
 import { useLoadingStore } from '@/stores/useLoadingStore';
+import { useInboxStore } from '@/stores/useInboxStore';
 import * as commands from '@/lib/commands';
 import type { NoteRequest } from '@/types';
 import { ContextEditor } from './ContextEditor';
@@ -33,6 +34,8 @@ export function CapturePopup() {
     saveAndNext,
     discardCapture,
   } = useCaptureStore();
+
+  const { addToInbox } = useInboxStore();
 
   const { isLoading: isGlobalLoading } = useLoadingStore();
   const popupRef = useRef<HTMLDivElement>(null);
@@ -201,6 +204,18 @@ export function CapturePopup() {
     setIsSaving(true);
     await saveAndNext();
     setIsSaving(false);
+  };
+
+  const handleSaveToInbox = async () => {
+    if (isSaving) return;
+    const sentence = currentCapture?.context?.sentence || '';
+    const source = currentCapture?.context?.source;
+    if (!sentence.trim() || !source) return;
+
+    setIsSaving(true);
+    await addToInbox(sentence, source);
+    setIsSaving(false);
+    closePopup();
   };
 
   const handleRefreshDefinitions = async () => {
@@ -390,6 +405,7 @@ export function CapturePopup() {
           <ActionButtons
             onSave={saveCapture}
             onSaveAndNext={saveAndNext}
+            onSaveToInbox={handleSaveToInbox}
             onDiscard={discardCapture}
             isLoading={loading}
             isDisabled={isDisabled || loading}

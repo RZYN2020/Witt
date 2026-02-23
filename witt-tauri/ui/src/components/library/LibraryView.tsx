@@ -9,38 +9,44 @@ import { FilterBadges } from './FilterBadges';
 import { EmptyState } from './EmptyState';
 import { SelectionToolbar } from './SelectionToolbar';
 import { VideoLibrary } from '@/components/video/VideoLibrary';
+import { InboxPage } from '@/components/inbox';
 import { useLibraryStore } from '@/stores/useLibraryStore';
+import { useInboxStore } from '@/stores/useInboxStore';
 import type { Note } from '@/types';
 import { ViewModeToggle } from './ViewModeToggle';
 import { DeckFilter } from './DeckFilter';
 import { Button } from '@/components/ui/Button';
 import { Upload } from 'lucide-react';
 
-type CurrentTab = 'inbox' | 'video';
+type CurrentTab = 'library' | 'inbox' | 'video';
 
 /**
  * Main library view with sidebar navigation
  */
 export function LibraryView() {
-  const [currentTab, setCurrentTab] = useState<CurrentTab>('inbox');
+  const [currentTab, setCurrentTab] = useState<CurrentTab>('library');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [ankiSyncOpen, setAnkiSyncOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
   const { filteredNotes, isLoading, selectedNotes, loadNotes } = useLibraryStore();
+  const { loadItems, refreshUnprocessedCount } = useInboxStore();
 
   // Load notes on mount
   useEffect(() => {
     loadNotes();
-  }, [loadNotes]);
+    void loadItems({ page: 0 });
+    void refreshUnprocessedCount();
+  }, [loadNotes, loadItems, refreshUnprocessedCount]);
 
   // Render content based on current tab
   const renderContent = () => {
     switch (currentTab) {
+      case 'inbox':
+        return <InboxPage />;
       case 'video':
         return <VideoLibrary />;
-      case 'inbox':
       default:
         return (
           <>

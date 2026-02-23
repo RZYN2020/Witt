@@ -29,6 +29,15 @@ export interface Context {
   updated_at?: string;
 }
 
+export interface InboxItem {
+  id: string;
+  context: string;
+  source: Source;
+  captured_at: string;
+  processed: boolean;
+  processing_notes?: string | null;
+}
+
 /** Audio file reference */
 export interface Audio {
   file_path: string;
@@ -85,6 +94,12 @@ export interface NoteRequest {
   deck?: string;
   context: Context;
   definitions?: Definition[];
+}
+
+export interface CaptureRequest {
+  text: string;
+  source: Source;
+  mode?: 'capture' | 'inbox';
 }
 
 /** Note update request */

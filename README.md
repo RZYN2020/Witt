@@ -81,15 +81,17 @@ The app now runs with:
 - ✅ Real dictionary API (Free Dictionary API)
 - ✅ Real lemma extraction (rust-stemmers)
 - ✅ Full CRUD operations
-- 🚧 Capture popup
-- 🚧 Library view
-- 🚧 Video player
+- ✅ Capture popup
+- ✅ Library view
+- ✅ Inbox (context backlog + batch processing)
+- ✅ Video player
 
 ## 🎹 Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | `Cmd+G` (macOS) / `Ctrl+G` (Windows/Linux) | Open capture popup |
+| `Cmd+Alt+I` (macOS) / `Ctrl+Alt+I` (Windows/Linux) | Inbox quick capture |
 | `Cmd+L` (macOS) / `Ctrl+L` (Windows/Linux) | Open library |
 | `Tab` | Next field (in popup) |
 | `Enter` | Save & Close |
@@ -98,7 +100,13 @@ The app now runs with:
 
 > **Note for macOS users**: If shortcuts don't work, go to **System Settings → Privacy & Security → Accessibility** and enable Witt.
 
-## 📖 Features (Planned)
+## 📖 Features
+
+### Inbox
+- Quick-capture raw context into Inbox (global shortcut)
+- Browse/search/filter contexts (full-text when available)
+- Process one item into multiple lemmas (creates/updates notes)
+- Help dialog with best practices and the current “duplicate context” strategy
 
 ### Capture Popup
 - Global hotkey trigger from any app
@@ -120,6 +128,19 @@ The app now runs with:
 - Frame-accurate capture
 - Timeline with subtitle markers
 - Keyboard shortcuts for workflow
+
+## 🚢 Deployment
+
+### Tauri App
+
+```bash
+cargo tauri dev
+cargo tauri build
+```
+
+### Notes
+- Global shortcuts may require OS permissions (especially on macOS).
+- Local data is stored in SQLite; verify read/write permissions in your target environment.
 
 ## 🛠️ Tech Stack
 

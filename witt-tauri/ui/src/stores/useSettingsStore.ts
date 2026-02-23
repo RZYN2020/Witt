@@ -11,6 +11,7 @@ interface SettingsSlice {
   // Capture settings
   captureHotkey: string;
   libraryHotkey: string;
+  inboxHotkey: string;
   hotkeyEnabled: boolean;
   autoFetchDefinitions: boolean;
   includeScreenshots: boolean;
@@ -38,6 +39,7 @@ interface SettingsSlice {
   setAppLanguage: (language: 'en' | 'zh' | 'ja' | 'ko' | 'de') => void;
   setCaptureHotkey: (hotkey: string) => void;
   setLibraryHotkey: (hotkey: string) => void;
+  setInboxHotkey: (hotkey: string) => void;
   setHotkeyEnabled: (enabled: boolean) => void;
   setAutoFetchDefinitions: (enabled: boolean) => void;
   setIncludeScreenshots: (enabled: boolean) => void;
@@ -64,6 +66,7 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
   // Default: Cmd+G / Cmd+L (CmdOrCtrl on non-macOS)
   captureHotkey: 'CommandOrControl+G',
   libraryHotkey: 'CommandOrControl+L',
+  inboxHotkey: 'CommandOrControl+Alt+I',
   hotkeyEnabled: true,
   autoFetchDefinitions: true,
   includeScreenshots: false,
@@ -132,6 +135,17 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
     try {
       if (typeof localStorage?.setItem === 'function') {
         localStorage.setItem('witt:libraryHotkey', hotkey);
+      }
+    } catch {
+      // ignore
+    }
+  },
+
+  setInboxHotkey: (hotkey) => {
+    set({ inboxHotkey: hotkey });
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:inboxHotkey', hotkey);
       }
     } catch {
       // ignore
@@ -352,6 +366,7 @@ try {
     ];
     const newCaptureHotkey = 'CommandOrControl+G';
     const newLibraryHotkey = 'CommandOrControl+L';
+    const newInboxHotkey = 'CommandOrControl+Alt+I';
 
     const savedCaptureHotkey = localStorage.getItem('witt:captureHotkey');
     if (savedCaptureHotkey) {
@@ -372,6 +387,17 @@ try {
         useSettingsStore.getState().libraryHotkey = newLibraryHotkey;
       } else {
         useSettingsStore.getState().libraryHotkey = savedLibraryHotkey;
+      }
+    }
+
+    const oldInboxHotkeys = ['Ctrl+Alt+I'];
+    const savedInboxHotkey = localStorage.getItem('witt:inboxHotkey');
+    if (savedInboxHotkey) {
+      if (oldInboxHotkeys.includes(savedInboxHotkey)) {
+        localStorage.setItem('witt:inboxHotkey', newInboxHotkey);
+        useSettingsStore.getState().inboxHotkey = newInboxHotkey;
+      } else {
+        useSettingsStore.getState().inboxHotkey = savedInboxHotkey;
       }
     }
 

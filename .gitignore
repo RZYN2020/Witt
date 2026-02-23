@@ -38,9 +38,6 @@ dist-ssr/
 
 # Tauri
 **/tauri.conf.json.bak
-**/icons/*.icns
-**/icons/*.ico
-**/icons/*.png
 
 # Database
 *.db

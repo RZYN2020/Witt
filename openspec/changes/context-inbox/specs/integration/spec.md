@@ -24,6 +24,10 @@ Context Inbox 功能需要与系统的其他组件进行深度集成，包括用
   - `inbox_items`：存储 Inbox 项
   - `context_note_associations`：存储 Context 与 Note 的关联关系
 
+- **本次实现的 Context 策略**：
+  - 允许重复 Context：当一个 Inbox 项被多个 lemma 处理时，会为每个 lemma 创建一条新的 `contexts` 记录（sentence/source 可重复）
+  - `context_note_associations` 作为可选关联记录保留，用于未来统计/审计/迁移，不要求实现“共享同一个 Context”
+
 - **数据访问**：
   - 使用 sqlx 进行数据库操作
   - 集成迁移系统

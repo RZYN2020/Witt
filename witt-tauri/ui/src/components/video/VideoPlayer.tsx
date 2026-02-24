@@ -10,6 +10,7 @@ import type { Subtitle } from '@/types/video';
 
 interface VideoPlayerProps {
   src?: string;
+  filename?: string;
   subtitles?: Subtitle[];
   onCapture?: (context: string, timestamp: string) => void;
 }
@@ -17,7 +18,7 @@ interface VideoPlayerProps {
 /**
  * HTML5 video player with custom controls and subtitle overlay
  */
-export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps) {
+export function VideoPlayer({ src, filename, subtitles = [], onCapture }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -42,8 +43,15 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
       return;
     }
 
-    const subtitle = subtitles.find((s) => currentTime >= s.start && currentTime <= s.end);
-    setCurrentSubtitle(subtitle || null);
+    const active = subtitles.filter((s) => currentTime >= s.start && currentTime <= s.end);
+    if (active.length === 0) {
+      setCurrentSubtitle(null);
+      return;
+    }
+
+    // If overlapping, show the most recent (largest start time)
+    const latest = active.reduce((best, s) => (!best || s.start > best.start ? s : best), null as Subtitle | null);
+    setCurrentSubtitle(latest);
   }, [currentTime, subtitles]);
 
   // Handle video time update
@@ -119,7 +127,7 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
 
     openPopup(context, {
       type: 'video',
-      filename: src || 'unknown.mp4',
+      filename: filename || 'unknown.mp4',
       timestamp,
     });
 
@@ -132,13 +140,66 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
     if (onCapture) {
       onCapture(context, timestamp);
     }
-  }, [currentSubtitle, currentTime, src, openPopup, setIsPlaying, onCapture]);
+  }, [currentSubtitle, currentTime, filename, openPopup, setIsPlaying, onCapture]);
+
+  const seekToNextSubtitle = useCallback(() => {
+    if (!subtitles || subtitles.length === 0) return;
+    const epsilon = 0.001;
+    const next = subtitles
+      .filter((s) => s.start > currentTime + epsilon)
+      .reduce(
+        (best, s) => (!best || s.start < best.start ? s : best),
+        null as Subtitle | null
+      );
+    if (!next) return;
+    handleSeek(next.start);
+    // Pause and stay paused
+    if (videoRef.current) videoRef.current.pause();
+    setIsPlaying(false);
+  }, [subtitles, currentTime, handleSeek, setIsPlaying]);
+
+  const seekToPrevSubtitle = useCallback(() => {
+    if (!subtitles || subtitles.length === 0) return;
+    const epsilon = 0.001;
+    const prev = subtitles
+      .filter((s) => s.start < currentTime - epsilon)
+      .reduce(
+        (best, s) => (!best || s.start > best.start ? s : best),
+        null as Subtitle | null
+      );
+    if (!prev) return;
+    handleSeek(prev.start);
+    // Pause and stay paused
+    if (videoRef.current) videoRef.current.pause();
+    setIsPlaying(false);
+  }, [subtitles, currentTime, handleSeek, setIsPlaying]);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle if video container is focused or user is interacting with video
       if (!containerRef.current?.contains(document.activeElement)) return;
+
+      const key = e.key.toLowerCase();
+
+      // Ctrl/Cmd shortcuts for subtitle navigation & capture
+      if (e.ctrlKey || e.metaKey) {
+        if (key === 'n') {
+          e.preventDefault();
+          seekToNextSubtitle();
+          return;
+        }
+        if (key === 'p') {
+          e.preventDefault();
+          seekToPrevSubtitle();
+          return;
+        }
+        if (key === 'c') {
+          e.preventDefault();
+          handleCapture();
+          return;
+        }
+      }
 
       switch (e.key) {
         case ' ':
@@ -168,6 +229,7 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
           e.preventDefault();
           toggleFullscreen();
           break;
+        // Keep plain "c" as a convenience (spec uses Ctrl+C)
         case 'c':
           if (!e.shiftKey) {
             e.preventDefault();
@@ -185,6 +247,8 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
     handleVolumeChange,
     toggleFullscreen,
     handleCapture,
+    seekToNextSubtitle,
+    seekToPrevSubtitle,
     currentTime,
     duration,
     volume,
@@ -206,6 +270,8 @@ export function VideoPlayer({ src, subtitles = [], onCapture }: VideoPlayerProps
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="relative bg-black rounded-lg overflow-hidden group"
+      tabIndex={0}
+      role="application"
     >
       {/* Video element */}
       <video

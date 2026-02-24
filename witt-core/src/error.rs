@@ -19,6 +19,22 @@ pub enum WittCoreError {
     #[error("Max contexts (5) reached for lemma: {0}")]
     MaxContextsReached(String),
 
+    /// Error when an Inbox item is not found.
+    #[error("Inbox item not found: {0}")]
+    InboxItemNotFound(String),
+
+    /// Error when a requested inbox page is out of range.
+    #[error("Inbox page out of range")]
+    InboxPageOutOfRange,
+
+    /// Error when word extraction fails.
+    #[error("Failed to extract words from context: {0}")]
+    WordExtractionError(String),
+
+    /// Error when processing is requested with no selected words.
+    #[error("No words selected to process context")]
+    NoWordsSelected,
+
     /// Error from the database layer
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),

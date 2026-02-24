@@ -1,4 +1,5 @@
 import { CapturePopup } from './components/capture';
+import { InboxCapturePopup } from './components/inbox';
 import { Toaster } from './components/Toaster';
 import { LibraryView } from './components/library/LibraryView';
 import { GlobalShortcuts } from './components/GlobalShortcuts';
@@ -16,6 +17,7 @@ function App() {
   const { openPopup } = useCaptureStore();
   const [initialized, setInitialized] = useState(false);
   const [isCaptureWindow, setIsCaptureWindow] = useState(false);
+  const [captureMode, setCaptureMode] = useState<'capture' | 'inbox'>('capture');
 
   // Determine if we're in the capture window
   useEffect(() => {
@@ -25,6 +27,14 @@ function App() {
         const currentWindow = getCurrentWebviewWindow();
         console.log('[App] Current window label:', currentWindow.label);
         setIsCaptureWindow(currentWindow.label === 'capture');
+        if (currentWindow.label === 'capture') {
+          try {
+            const mode = localStorage.getItem('witt:captureMode');
+            setCaptureMode(mode === 'inbox' ? 'inbox' : 'capture');
+          } catch {
+            setCaptureMode('capture');
+          }
+        }
       } catch (error) {
         console.error('[App] Failed to get window label:', error);
         setIsCaptureWindow(false);
@@ -72,9 +82,26 @@ function App() {
 
   // Auto-open capture popup if we're in capture window
   useEffect(() => {
-    if (isCaptureWindow) {
-      const openCapturePopup = async () => {
+    if (isCaptureWindow && captureMode === 'capture') {
+      const consumePending = async () => {
         try {
+          // Prefer pending capture text prepared by the main window (selection capture).
+          try {
+            const pending = localStorage.getItem('witt:pendingCapture');
+            if (pending) {
+              localStorage.removeItem('witt:pendingCapture');
+              const parsed = JSON.parse(pending) as { text?: string; source?: any };
+              const text = (parsed.text || '').trim();
+              if (text) {
+                openPopup(text, parsed.source || { type: 'app', name: 'Text Selection' });
+                return;
+              }
+            }
+          } catch {
+            // ignore
+          }
+
+          // Fallback: clipboard
           const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
           const clipboardText = await readText();
           if (clipboardText) {
@@ -88,9 +115,39 @@ function App() {
         }
       };
 
-      openCapturePopup();
+      void consumePending();
     }
-  }, [isCaptureWindow, openPopup]);
+  }, [isCaptureWindow, captureMode, openPopup]);
+
+  useEffect(() => {
+    if (!isCaptureWindow) return;
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'witt:captureMode') {
+        setCaptureMode(e.newValue === 'inbox' ? 'inbox' : 'capture');
+        return;
+      }
+
+      if (e.key === 'witt:pendingCapture') {
+        if (captureMode !== 'capture') return;
+        try {
+          const pending = localStorage.getItem('witt:pendingCapture');
+          if (!pending) return;
+          localStorage.removeItem('witt:pendingCapture');
+          const parsed = JSON.parse(pending) as { text?: string; source?: any };
+          const text = (parsed.text || '').trim();
+          if (text) {
+            openPopup(text, parsed.source || { type: 'app', name: 'Text Selection' });
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [isCaptureWindow, captureMode, openPopup]);
 
   // Show loading state while initializing
   if (!initialized) {
@@ -108,7 +165,7 @@ function App() {
   if (isCaptureWindow) {
     return (
       <div className="min-h-screen bg-background">
-        <CapturePopup />
+        {captureMode === 'inbox' ? <InboxCapturePopup /> : <CapturePopup />}
         <Toaster />
       </div>
     );

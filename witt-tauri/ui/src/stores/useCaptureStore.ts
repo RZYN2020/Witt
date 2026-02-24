@@ -6,6 +6,7 @@ import { useLoadingStore } from './useLoadingStore';
 import { useLibraryStore } from './useLibraryStore';
 import { classifyError, getUserFriendlyMessage, logError } from '@/lib/errors';
 import { withLoading, LoadingState } from '@/lib/loading';
+import { showCaptureWindow } from '@/lib/captureWindow';
 
 /**
  * Capture slice state and actions
@@ -18,10 +19,17 @@ interface CaptureSlice {
   error: string | null;
   lastDiscardedCapture: Partial<NoteRequest> | null;
 
+  // Capture helper state
+  language: string;
+  autoWordForm: boolean;
+
   // Actions
   openPopup: (context: string, source: Source) => void;
   closePopup: () => void;
   updateCapture: (updates: Partial<NoteRequest>) => void;
+  setSentence: (sentence: string) => void;
+  setWordForm: (wordForm: string) => void;
+  setLanguage: (language: string) => void;
   saveCapture: () => Promise<string | null>;
   saveAndNext: () => Promise<boolean>;
   discardCapture: () => void;
@@ -36,54 +44,80 @@ const initialState = {
   isLoading: false,
   error: null,
   lastDiscardedCapture: null,
+  language: 'en',
+  autoWordForm: true,
 };
 
 export const useCaptureStore = create<CaptureSlice>((set, get) => ({
   ...initialState,
 
   openPopup: (context: string, source: Source) => {
-    set({
-      currentCapture: {
-        context: {
-          id: crypto.randomUUID(),
-          word_form: '',
-          sentence: context,
-          audio: undefined,
-          image: undefined,
-          source,
-          created_at: new Date().toISOString(),
+    const applyInWindow = () => {
+      const sentence = context;
+      const wordForm = extractCandidateWord(sentence);
+      const ctxId = crypto.randomUUID();
+
+      set({
+        currentCapture: {
+          context: {
+            id: ctxId,
+            word_form: wordForm,
+            sentence,
+            audio: undefined,
+            image: undefined,
+            source,
+            created_at: new Date().toISOString(),
+          },
+          lemma: '',
+          definition: '',
+          pronunciation: undefined,
+          phonetics: '',
+          tags: [],
+          comment: '',
+          deck: 'Default',
+          definitions: [],
         },
-        lemma: '',
-        definition: '',
-        pronunciation: undefined,
-        phonetics: '',
-        tags: [],
-        comment: '',
-        deck: 'Default',
-        definitions: [],
-      },
-      isPopupOpen: true,
-      error: null,
-    });
+        isPopupOpen: true,
+        error: null,
+        autoWordForm: true,
+      });
 
-    // Auto-extract word from context (simple: first word)
-    const firstWord = context.trim().split(/\s+/)[0] || '';
-    get().updateCapture({
-      context: {
-        id: crypto.randomUUID(),
-        word_form: firstWord,
-        sentence: context,
-        audio: undefined,
-        image: undefined,
-        source,
-        created_at: new Date().toISOString(),
-      },
-    });
+      const lang = get().language || 'en';
+      setTimeout(() => {
+        if (wordForm) {
+          fetchLemmaAndDefinitions(wordForm, lang);
+        }
+      }, 100);
+    };
 
-    // Fetch lemma and definitions
-    setTimeout(() => {
-      fetchLemmaAndDefinitions(firstWord, 'en');
-    }, 100);
+    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+    if (!isTauri) {
+      applyInWindow();
+      return;
+    }
+
+    void (async () => {
+      try {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const label = getCurrentWebviewWindow().label;
+        if (label !== 'capture') {
+          try {
+            localStorage.setItem(
+              'witt:pendingCapture',
+              JSON.stringify({ text: context, source })
+            );
+          } catch {
+            void 0;
+          }
+          await showCaptureWindow({ mode: 'capture' });
+          return;
+        }
+      } catch {
+        void 0;
+      }
+
+      applyInWindow();
+    })();
   },
 
   closePopup: () => {
@@ -98,6 +132,81 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
     set((state) => ({
       currentCapture: state.currentCapture ? { ...state.currentCapture, ...updates } : updates,
     }));
+  },
+
+  setSentence: (sentence: string) => {
+    set((state) => {
+      const current = state.currentCapture;
+      if (!current?.context) {
+        return {
+          currentCapture: {
+            ...current,
+            context: {
+              id: crypto.randomUUID(),
+              word_form: '',
+              sentence,
+              source: { type: 'app', name: 'Manual' } as any,
+              created_at: new Date().toISOString(),
+            } as any,
+          },
+        };
+      }
+
+      let nextWordForm = current.context.word_form || '';
+      if (state.autoWordForm) {
+        const candidate = extractCandidateWord(sentence);
+        if (candidate) nextWordForm = candidate;
+      }
+
+      return {
+        currentCapture: {
+          ...current,
+          context: {
+            ...current.context,
+            sentence,
+            word_form: nextWordForm,
+          },
+        },
+      };
+    });
+
+    // If we are still auto-selecting word, refresh lemma/definitions
+    if (get().autoWordForm) {
+      const word = get().currentCapture?.context?.word_form || '';
+      if (word) {
+        fetchLemmaAndDefinitions(word, get().language || 'en');
+      }
+    }
+  },
+
+  setWordForm: (wordForm: string) => {
+    set((state) => {
+      const current = state.currentCapture;
+      if (!current?.context) return { autoWordForm: false };
+      return {
+        autoWordForm: false,
+        currentCapture: {
+          ...current,
+          context: {
+            ...current.context,
+            word_form: wordForm,
+          },
+        },
+      };
+    });
+
+    const word = wordForm.trim();
+    if (word) {
+      fetchLemmaAndDefinitions(word, get().language || 'en');
+    }
+  },
+
+  setLanguage: (language: string) => {
+    set({ language });
+    const word = get().currentCapture?.context?.word_form?.trim();
+    if (word) {
+      fetchLemmaAndDefinitions(word, language);
+    }
   },
 
   saveCapture: async () => {
@@ -202,6 +311,7 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
         },
         isPopupOpen: true,
         error: null,
+        autoWordForm: true,
       });
       return true;
     }
@@ -291,4 +401,24 @@ async function fetchLemmaAndDefinitions(word: string, language: string) {
     // as they are non-critical and the user can still manually enter data
     console.warn('Failed to fetch lemma/definitions, continuing with manual entry');
   }
+}
+
+function extractCandidateWord(sentence: string): string {
+  const text = sentence.trim();
+  if (!text) return '';
+
+  // If it's a single token, use it
+  const tokens = text
+    .split(/\s+/)
+    .map((t) => t.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+    .filter(Boolean);
+
+  if (tokens.length === 0) return '';
+  if (tokens.length === 1) return tokens[0];
+
+  // Heuristic: pick the longest alphabetic token
+  const alpha = tokens.filter((t) => /\p{L}/u.test(t));
+  const candidates = alpha.length > 0 ? alpha : tokens;
+  candidates.sort((a, b) => b.length - a.length);
+  return candidates[0] || tokens[0];
 }

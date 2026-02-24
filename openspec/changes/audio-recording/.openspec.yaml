@@ -1,0 +1,9 @@
+name: audio-recording
+specifications:
+  - specs/audio-upload/spec.md
+  - specs/transcript-editor/spec.md
+  - specs/recording-capture/spec.md
+  - specs/word-extraction/spec.md
+dependencies:
+  - core-infrastructure
+  - context-inbox

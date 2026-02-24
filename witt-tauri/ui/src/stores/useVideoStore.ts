@@ -60,7 +60,7 @@ export const useVideoStore = create<VideoSlice>((set, get) => ({
 
   loadSubtitles: async (file: File) => {
     const text = await file.text();
-    const subtitles = parseSubRip(text);
+    const subtitles = parseSubtitles(text, file.name);
     set({ subtitles });
   },
 
@@ -178,11 +178,23 @@ export const useVideoStore = create<VideoSlice>((set, get) => ({
 }));
 
 /**
- * Parse SRT subtitle format
+ * Parse subtitles from SRT/VTT
  */
+function parseSubtitles(text: string, filename?: string): Subtitle[] {
+  const trimmed = text.trimStart();
+  const lowerName = (filename || '').toLowerCase();
+
+  if (lowerName.endsWith('.vtt') || trimmed.startsWith('WEBVTT')) {
+    return parseWebVtt(text);
+  }
+
+  return parseSubRip(text);
+}
+
 function parseSubRip(text: string): Subtitle[] {
   const subtitles: Subtitle[] = [];
-  const blocks = text.trim().split(/\n\s*\n/);
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = normalized.trim().split(/\n\s*\n/);
 
   for (const block of blocks) {
     const lines = block.split('\n');
@@ -190,25 +202,14 @@ function parseSubRip(text: string): Subtitle[] {
 
     // Skip index line
     const timeLine = lines[1];
-    const match = timeLine.match(
-      /(\d{2}):(\d{2}):(\d{2}),(\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2}),(\d{3})/
-    );
-
+    const match = timeLine.match(/(.+?)\s*-->\s*(.+)/);
     if (!match) continue;
 
-    const start =
-      parseInt(match[1]) * 3600 +
-      parseInt(match[2]) * 60 +
-      parseInt(match[3]) +
-      parseInt(match[4]) / 1000;
+    const start = parseSubtitleTimestamp(match[1]);
+    const end = parseSubtitleTimestamp(match[2]);
+    if (start === null || end === null) continue;
 
-    const end =
-      parseInt(match[5]) * 3600 +
-      parseInt(match[6]) * 60 +
-      parseInt(match[7]) +
-      parseInt(match[8]) / 1000;
-
-    const text = lines
+    const cueText = lines
       .slice(2)
       .join('\n')
       .replace(/<[^>]*>/g, '');
@@ -217,10 +218,78 @@ function parseSubRip(text: string): Subtitle[] {
       id: crypto.randomUUID(),
       start,
       end,
-      text,
+      text: cueText,
       position: 'bottom',
     });
   }
 
   return subtitles;
+}
+
+function parseWebVtt(text: string): Subtitle[] {
+  const subtitles: Subtitle[] = [];
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Remove WEBVTT header (and any metadata until first blank line)
+  const withoutHeader = normalized.replace(/^WEBVTT[^\n]*\n(?:[^\n]*\n)*?\n\s*\n/i, '');
+  const blocks = withoutHeader.trim().split(/\n\s*\n/);
+
+  for (const block of blocks) {
+    const lines = block.split('\n').filter(Boolean);
+    if (lines.length < 2) continue;
+
+    // VTT cue can be:
+    // [optional identifier]
+    // 00:00:01.000 --> 00:00:04.000 [settings]
+    let timeLineIndex = 0;
+    const firstLine = lines[0];
+    if (!firstLine.includes('-->') && lines[1]?.includes('-->')) {
+      timeLineIndex = 1;
+    }
+
+    const timeLine = lines[timeLineIndex];
+    const match = timeLine.match(/(.+?)\s*-->\s*(.+)/);
+    if (!match) continue;
+
+    const start = parseSubtitleTimestamp(match[1]);
+    const end = parseSubtitleTimestamp(match[2]);
+    if (start === null || end === null) continue;
+
+    const cueText = lines
+      .slice(timeLineIndex + 1)
+      .join('\n')
+      .replace(/<[^>]*>/g, '');
+
+    subtitles.push({
+      id: crypto.randomUUID(),
+      start,
+      end,
+      text: cueText,
+      position: 'bottom',
+    });
+  }
+
+  return subtitles;
+}
+
+function parseSubtitleTimestamp(raw: string): number | null {
+  // Remove cue settings (VTT) and trim.
+  const timeStr = raw.trim().split(/\s+/)[0].replace(',', '.');
+
+  // Support HH:MM:SS.mmm or MM:SS.mmm
+  const parts = timeStr.split(':');
+  if (parts.length < 2 || parts.length > 3) return null;
+
+  const [secPart, msPart = '0'] = (parts[parts.length - 1] || '0').split('.');
+  const seconds = Number(secPart);
+  const millis = Number(msPart.padEnd(3, '0').slice(0, 3));
+  if (Number.isNaN(seconds) || Number.isNaN(millis)) return null;
+
+  const minutes = Number(parts[parts.length - 2]);
+  if (Number.isNaN(minutes)) return null;
+
+  const hours = parts.length === 3 ? Number(parts[0]) : 0;
+  if (Number.isNaN(hours)) return null;
+
+  return hours * 3600 + minutes * 60 + seconds + millis / 1000;
 }

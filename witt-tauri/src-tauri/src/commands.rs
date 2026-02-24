@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use uuid::Uuid;
-use witt_core::{WittCore, WittConfig, Note, note::Context, note::NoteUpdate};
+use witt_core::{WittCore, WittConfig, Note, InboxItem, note::Context, note::NoteUpdate};
 
 pub struct WittCoreState {
     pub core: tokio::sync::Mutex<Option<WittCore>>,
@@ -23,7 +23,18 @@ pub async fn init_core(state: State<'_, WittCoreState>) -> Result<(), String> {
     let mut core = state.core.lock().await;
     if core.is_none() {
         let config = WittConfig::default();
-        *core = Some(WittCore::new_with_config(config).await.map_err(|e| e.to_string())?);
+        *core = Some(
+            WittCore::new_with_config(config.clone())
+                .await
+                .map_err(|e| {
+                    format!(
+                        "{} (db_path: {}, media_dir: {})",
+                        e,
+                        config.db_path.display(),
+                        config.media_dir.display()
+                    )
+                })?,
+        );
     }
     Ok(())
 }
@@ -49,9 +60,36 @@ pub async fn get_notes(
                     note.created_at >= now - chrono::Duration::weeks(1)
                 }
                 TimeRange::ThisMonth => {
-                    note.created_at >= now - chrono::Duration::weeks(4)
+                    // Spec expects 30 days
+                    note.created_at >= now - chrono::Duration::days(30)
                 }
                 TimeRange::All => true,
+            });
+        }
+
+        // Filter by source type (web/video/pdf/app)
+        if let Some(source_filter) = f.source.as_ref() {
+            let wanted = source_filter.to_lowercase();
+            notes.retain(|note| {
+                note.contexts.iter().any(|ctx| {
+                    let ty = match &ctx.source {
+                        witt_core::note::Source::Web { .. } => "web",
+                        witt_core::note::Source::Video { .. } => "video",
+                        witt_core::note::Source::Pdf { .. } => "pdf",
+                        witt_core::note::Source::App { .. } => "app",
+                    };
+                    ty == wanted
+                })
+            });
+        }
+
+        // Filter by tags (require all selected tags)
+        if !f.tags.is_empty() {
+            let wanted_tags: Vec<String> = f.tags.iter().map(|t| t.to_lowercase()).collect();
+            notes.retain(|note| {
+                wanted_tags
+                    .iter()
+                    .all(|t| note.tags.iter().any(|nt| nt.to_lowercase() == *t))
             });
         }
 
@@ -274,6 +312,56 @@ pub async fn get_tag_suggestions(
     }
     tags.sort();
     Ok(tags)
+}
+
+/// Best-effort: simulate a system copy shortcut to capture current selection.
+///
+/// - macOS: sends Cmd+C via AppleScript (requires Accessibility permission)
+/// - other platforms: returns Ok(false)
+#[tauri::command]
+pub async fn simulate_copy_shortcut() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+
+        let status = Command::new("osascript")
+            .arg("-e")
+            .arg("tell application \"System Events\" to keystroke \"c\" using {command down}")
+            .status()
+            .map_err(|e| format!("failed to run osascript: {}", e))?;
+
+        if status.success() {
+            Ok(true)
+        } else {
+            Err(format!("osascript failed with status: {}", status))
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(false)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalCursorPosition {
+    pub x: i32,
+    pub y: i32,
+}
+
+/// Get system/global cursor position in screen coordinates.
+///
+/// Used for positioning the capture popup near the mouse even when the app is not focused.
+#[tauri::command]
+pub async fn get_global_cursor_position() -> Result<GlobalCursorPosition, String> {
+    use device_query::{DeviceQuery, DeviceState};
+
+    let device_state = DeviceState::new();
+    let mouse = device_state.get_mouse();
+    Ok(GlobalCursorPosition {
+        x: mouse.coords.0,
+        y: mouse.coords.1,
+    })
 }
 
 // ============================================================================
@@ -659,6 +747,138 @@ pub async fn get_stats(
         unique_tags: unique_tags.len(),
         notes_with_contexts: notes.iter().filter(|n| !n.contexts.is_empty()).count(),
     })
+}
+
+#[tauri::command]
+pub async fn add_to_inbox(
+    state: State<'_, WittCoreState>,
+    context: String,
+    source: witt_core::note::Source,
+) -> Result<InboxItem, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+
+    let item = InboxItem::new(context, source);
+    core.db().add_inbox_item(&item).await.map_err(|e| e.to_string())?;
+    Ok(item)
+}
+
+#[tauri::command]
+pub async fn get_inbox_items(
+    state: State<'_, WittCoreState>,
+    page: usize,
+    page_size: usize,
+    search: Option<String>,
+    source_type: Option<String>,
+    processed: Option<bool>,
+    captured_after: Option<String>,
+    captured_before: Option<String>,
+) -> Result<PaginatedResponse<InboxItem>, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+
+    let (items, total) = core
+        .db()
+        .get_inbox_items_page(
+            page,
+            page_size,
+            search.as_deref(),
+            source_type.as_deref(),
+            processed,
+            captured_after.as_deref(),
+            captured_before.as_deref(),
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(PaginatedResponse::new(items, total, page, page_size))
+}
+
+#[tauri::command]
+pub async fn get_inbox_count(
+    state: State<'_, WittCoreState>,
+    processed: Option<bool>,
+) -> Result<usize, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+    core.db().count_inbox_items(processed).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn process_inbox_item(
+    state: State<'_, WittCoreState>,
+    item_id: String,
+    lemmas: Vec<String>,
+) -> Result<Vec<Note>, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+    let item_uuid = uuid::Uuid::parse_str(&item_id).map_err(|e| e.to_string())?;
+    core.db().process_inbox_item(&item_uuid, lemmas).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_inbox_item(
+    state: State<'_, WittCoreState>,
+    item_id: String,
+) -> Result<bool, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+    let item_uuid = uuid::Uuid::parse_str(&item_id).map_err(|e| e.to_string())?;
+    core.db().delete_inbox_item(&item_uuid).await.map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn set_inbox_item_processed(
+    state: State<'_, WittCoreState>,
+    item_id: String,
+    processed: bool,
+    notes: Option<String>,
+) -> Result<bool, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+    let item_uuid = uuid::Uuid::parse_str(&item_id).map_err(|e| e.to_string())?;
+    core.db()
+        .set_inbox_item_processed(&item_uuid, processed, notes.as_deref())
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn mark_inbox_item_processed(
+    state: State<'_, WittCoreState>,
+    item_id: String,
+    notes: Option<String>,
+) -> Result<bool, String> {
+    set_inbox_item_processed(state, item_id, true, notes).await
+}
+
+#[tauri::command]
+pub async fn clear_processed_inbox_items(
+    state: State<'_, WittCoreState>,
+) -> Result<bool, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+    core.db().clear_processed_inbox_items().await.map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
+pub async fn clear_processed_items(
+    state: State<'_, WittCoreState>,
+) -> Result<bool, String> {
+    clear_processed_inbox_items(state).await
+}
+
+#[tauri::command]
+pub async fn extract_words(context: String) -> Result<Vec<String>, String> {
+    Ok(witt_core::extraction::extract_words(&context))
+}
+
+#[tauri::command]
+pub async fn extract_words_with_frequency(context: String) -> Result<Vec<(String, usize)>, String> {
+    Ok(witt_core::extraction::extract_words_with_frequency(&context))
 }
 
 /// Application statistics

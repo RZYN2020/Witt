@@ -37,6 +37,7 @@
         "decorations": true,
         "transparent": false,
         "alwaysOnTop": true,
+        "visibleOnAllWorkspaces": true,
         "visible": false,
         "center": true,
         "skipTaskbar": true,

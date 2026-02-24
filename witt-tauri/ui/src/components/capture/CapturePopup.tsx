@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { useCaptureStore } from '@/stores/useCaptureStore';
 import { useLoadingStore } from '@/stores/useLoadingStore';
+import { useInboxStore } from '@/stores/useInboxStore';
 import * as commands from '@/lib/commands';
 import type { NoteRequest } from '@/types';
 import { ContextEditor } from './ContextEditor';
@@ -25,10 +26,16 @@ export function CapturePopup() {
     error,
     closePopup,
     updateCapture,
+    setSentence,
+    setWordForm,
+    language,
+    setLanguage,
     saveCapture,
     saveAndNext,
     discardCapture,
   } = useCaptureStore();
+
+  const { addToInbox } = useInboxStore();
 
   const { isLoading: isGlobalLoading } = useLoadingStore();
   const popupRef = useRef<HTMLDivElement>(null);
@@ -199,6 +206,18 @@ export function CapturePopup() {
     setIsSaving(false);
   };
 
+  const handleSaveToInbox = async () => {
+    if (isSaving) return;
+    const sentence = currentCapture?.context?.sentence || '';
+    const source = currentCapture?.context?.source;
+    if (!sentence.trim() || !source) return;
+
+    setIsSaving(true);
+    await addToInbox(sentence, source);
+    setIsSaving(false);
+    closePopup();
+  };
+
   const handleRefreshDefinitions = async () => {
     const word = currentCapture?.lemma || currentCapture?.context?.word_form;
     if (!word) return;
@@ -206,8 +225,8 @@ export function CapturePopup() {
     setIsFetchingDefinitions(true);
     try {
       const [lemma, definitions] = await Promise.all([
-        commands.getLemma({ word, language: 'en' }),
-        commands.getDefinitions({ word, language: 'en' }),
+        commands.getLemma({ word, language }),
+        commands.getDefinitions({ word, language }),
       ]);
       updateCapture({ lemma, definitions } as Partial<NoteRequest>);
     } catch (error) {
@@ -223,7 +242,7 @@ export function CapturePopup() {
 
     setIsFetchingLemma(true);
     try {
-      const lemma = await commands.getLemma({ word, language: 'en' });
+      const lemma = await commands.getLemma({ word, language });
       updateCapture({ lemma });
     } catch (error) {
       console.warn('Failed to fetch lemma:', error);
@@ -303,19 +322,7 @@ export function CapturePopup() {
           {/* Context Editor */}
           <ContextEditor
             value={currentCapture.context?.sentence || ''}
-            onChange={(sentence) =>
-              updateCapture({
-                context: {
-                  id: currentCapture.context?.id || crypto.randomUUID(),
-                  word_form: currentCapture.context?.word_form || '',
-                  sentence,
-                  audio: currentCapture.context?.audio,
-                  image: currentCapture.context?.image,
-                  source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
-                  created_at: currentCapture.context?.created_at || new Date().toISOString(),
-                },
-              })
-            }
+            onChange={setSentence}
             source={currentCapture.context?.source}
             isFocused={focusedField === 'context'}
             onFocus={() => setFocusedField('context')}
@@ -325,19 +332,7 @@ export function CapturePopup() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <WordField
               value={currentCapture.context?.word_form || ''}
-              onChange={(word_form) =>
-                updateCapture({
-                  context: {
-                    id: currentCapture.context?.id || crypto.randomUUID(),
-                    word_form,
-                    sentence: currentCapture.context?.sentence || '',
-                    audio: currentCapture.context?.audio,
-                    image: currentCapture.context?.image,
-                    source: currentCapture.context?.source || { type: 'app', name: 'Manual' },
-                    created_at: currentCapture.context?.created_at || new Date().toISOString(),
-                  },
-                })
-              }
+              onChange={setWordForm}
               isFocused={focusedField === 'word'}
               onFocus={() => setFocusedField('word')}
             />
@@ -351,8 +346,8 @@ export function CapturePopup() {
               word={currentCapture?.context?.word_form}
             />
             <LanguageSelector
-              value="en"
-              onChange={() => {}}
+              value={language}
+              onChange={(lang) => setLanguage(lang)}
               isFocused={focusedField === 'language'}
               onFocus={() => setFocusedField('language')}
             />
@@ -410,6 +405,7 @@ export function CapturePopup() {
           <ActionButtons
             onSave={saveCapture}
             onSaveAndNext={saveAndNext}
+            onSaveToInbox={handleSaveToInbox}
             onDiscard={discardCapture}
             isLoading={loading}
             isDisabled={isDisabled || loading}

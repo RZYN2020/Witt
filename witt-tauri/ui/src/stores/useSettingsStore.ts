@@ -11,6 +11,7 @@ interface SettingsSlice {
   // Capture settings
   captureHotkey: string;
   libraryHotkey: string;
+  inboxHotkey: string;
   hotkeyEnabled: boolean;
   autoFetchDefinitions: boolean;
   includeScreenshots: boolean;
@@ -38,6 +39,7 @@ interface SettingsSlice {
   setAppLanguage: (language: 'en' | 'zh' | 'ja' | 'ko' | 'de') => void;
   setCaptureHotkey: (hotkey: string) => void;
   setLibraryHotkey: (hotkey: string) => void;
+  setInboxHotkey: (hotkey: string) => void;
   setHotkeyEnabled: (enabled: boolean) => void;
   setAutoFetchDefinitions: (enabled: boolean) => void;
   setIncludeScreenshots: (enabled: boolean) => void;
@@ -61,8 +63,10 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
   appLanguage: 'en',
 
   // Capture settings
-  captureHotkey: 'CmdOrCtrl+G',
-  libraryHotkey: 'CmdOrCtrl+L',
+  // Default: Cmd+; / Cmd+' / Cmd+, (CmdOrCtrl on non-macOS)
+  captureHotkey: 'CommandOrControl+;',
+  libraryHotkey: "CommandOrControl+'",
+  inboxHotkey: 'CommandOrControl+,',
   hotkeyEnabled: true,
   autoFetchDefinitions: true,
   includeScreenshots: false,
@@ -94,100 +98,225 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
 
   setTheme: (theme) => {
     set({ theme });
-    localStorage.setItem('witt:theme', theme);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:theme', theme);
+      }
+    } catch {
+      // ignore
+    }
     applyTheme(theme);
   },
 
   setAppLanguage: (language) => {
     set({ appLanguage: language });
-    localStorage.setItem('witt:appLanguage', language);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:appLanguage', language);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setCaptureHotkey: (hotkey) => {
     set({ captureHotkey: hotkey });
-    localStorage.setItem('witt:captureHotkey', hotkey);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:captureHotkey', hotkey);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setLibraryHotkey: (hotkey) => {
     set({ libraryHotkey: hotkey });
-    localStorage.setItem('witt:libraryHotkey', hotkey);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:libraryHotkey', hotkey);
+      }
+    } catch {
+      // ignore
+    }
+  },
+
+  setInboxHotkey: (hotkey) => {
+    set({ inboxHotkey: hotkey });
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:inboxHotkey', hotkey);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setHotkeyEnabled: (enabled) => {
     set({ hotkeyEnabled: enabled });
-    localStorage.setItem('witt:hotkeyEnabled', String(enabled));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:hotkeyEnabled', String(enabled));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setAutoFetchDefinitions: (enabled) => {
     set({ autoFetchDefinitions: enabled });
-    localStorage.setItem('witt:autoFetchDefinitions', String(enabled));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:autoFetchDefinitions', String(enabled));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setIncludeScreenshots: (enabled) => {
     set({ includeScreenshots: enabled });
-    localStorage.setItem('witt:includeScreenshots', String(enabled));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:includeScreenshots', String(enabled));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setDefaultDeck: (deck) => {
     set({ defaultDeck: deck });
-    localStorage.setItem('witt:defaultDeck', deck);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:defaultDeck', deck);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setDefaultTags: (tags) => {
     set({ defaultTags: tags });
-    localStorage.setItem('witt:defaultTags', JSON.stringify(tags));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:defaultTags', JSON.stringify(tags));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setMaxContextsPerNote: (max) => {
     // Enforce maximum of 5 per design spec
     const clampedMax = Math.min(Math.max(1, max), 5);
     set({ maxContextsPerNote: clampedMax });
-    localStorage.setItem('witt:maxContextsPerNote', String(clampedMax));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:maxContextsPerNote', String(clampedMax));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setAutoConsolidateDuplicates: (enabled) => {
     set({ autoConsolidateDuplicates: enabled });
-    localStorage.setItem('witt:autoConsolidateDuplicates', String(enabled));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:autoConsolidateDuplicates', String(enabled));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setAnkiEnabled: (enabled) => {
     set({ ankiEnabled: enabled });
-    localStorage.setItem('witt:ankiEnabled', String(enabled));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:ankiEnabled', String(enabled));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setAnkiConnectUrl: (url) => {
     set({ ankiConnectUrl: url });
-    localStorage.setItem('witt:ankiConnectUrl', url);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:ankiConnectUrl', url);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setAutoSyncToAnki: (enabled) => {
     set({ autoSyncToAnki: enabled });
-    localStorage.setItem('witt:autoSyncToAnki', String(enabled));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:autoSyncToAnki', String(enabled));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setAnkiNoteType: (type) => {
     set({ ankiNoteType: type });
-    localStorage.setItem('witt:ankiNoteType', type);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:ankiNoteType', type);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setAnkiFieldMapping: (mapping) => {
     set({ ankiFieldMapping: mapping });
-    localStorage.setItem('witt:ankiFieldMapping', JSON.stringify(mapping));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:ankiFieldMapping', JSON.stringify(mapping));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setDataDirectory: (dir) => {
     set({ dataDirectory: dir });
-    localStorage.setItem('witt:dataDirectory', dir);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:dataDirectory', dir);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setBackupEnabled: (enabled) => {
     set({ backupEnabled: enabled });
-    localStorage.setItem('witt:backupEnabled', String(enabled));
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:backupEnabled', String(enabled));
+      }
+    } catch {
+      // ignore
+    }
   },
 
   setBackupInterval: (interval) => {
     set({ backupInterval: interval });
-    localStorage.setItem('witt:backupInterval', interval);
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:backupInterval', interval);
+      }
+    } catch {
+      // ignore
+    }
   },
 }));
 
@@ -209,51 +338,26 @@ function applyTheme(theme: 'light' | 'dark' | 'system') {
 
 // Load saved settings on initialization
 try {
-  if (typeof localStorage !== 'undefined' && localStorage) {
+  if (typeof localStorage?.getItem === 'function' && typeof localStorage?.setItem === 'function') {
     const savedTheme = localStorage.getItem('witt:theme') as 'light' | 'dark' | 'system' | null;
     if (savedTheme) {
       useSettingsStore.getState().theme = savedTheme;
       applyTheme(savedTheme);
     }
 
-    // Migrate old shortcut keys to new defaults
-    const oldCaptureHotkeys = [
-      'CommandOrControl+Shift+C',
-      'CommandOrControl+G',
-      'Super+G',
-      'Command+G',
-      'Command+Shift+X',
-    ];
-    const oldLibraryHotkeys = [
-      'CommandOrControl+Shift+L',
-      'CommandOrControl+L',
-      'Super+L',
-      'Command+L',
-      'Command+Shift+V',
-    ];
-    const newCaptureHotkey = 'CmdOrCtrl+G';
-    const newLibraryHotkey = 'CmdOrCtrl+L';
-
     const savedCaptureHotkey = localStorage.getItem('witt:captureHotkey');
     if (savedCaptureHotkey) {
-      // Migrate old default to new default
-      if (oldCaptureHotkeys.includes(savedCaptureHotkey)) {
-        localStorage.setItem('witt:captureHotkey', newCaptureHotkey);
-        useSettingsStore.getState().captureHotkey = newCaptureHotkey;
-      } else {
-        useSettingsStore.getState().captureHotkey = savedCaptureHotkey;
-      }
+      useSettingsStore.getState().captureHotkey = savedCaptureHotkey;
     }
 
     const savedLibraryHotkey = localStorage.getItem('witt:libraryHotkey');
     if (savedLibraryHotkey) {
-      // Migrate old default to new default
-      if (oldLibraryHotkeys.includes(savedLibraryHotkey)) {
-        localStorage.setItem('witt:libraryHotkey', newLibraryHotkey);
-        useSettingsStore.getState().libraryHotkey = newLibraryHotkey;
-      } else {
-        useSettingsStore.getState().libraryHotkey = savedLibraryHotkey;
-      }
+      useSettingsStore.getState().libraryHotkey = savedLibraryHotkey;
+    }
+
+    const savedInboxHotkey = localStorage.getItem('witt:inboxHotkey');
+    if (savedInboxHotkey) {
+      useSettingsStore.getState().inboxHotkey = savedInboxHotkey;
     }
 
     const savedHotkeyEnabled = localStorage.getItem('witt:hotkeyEnabled');

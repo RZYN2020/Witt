@@ -32,7 +32,7 @@ export function EmptyState() {
           Capture Your First Word
         </button>
         <p className="text-xs text-muted-foreground mt-4">
-          Or press Ctrl+Alt+C to capture from anywhere
+          Or press Cmd+G to capture from anywhere
         </p>
       </div>
     );

@@ -20,6 +20,10 @@ pub mod media;
 pub mod search;
 pub mod db;
 pub mod anki;
+/// Inbox data model and processing helpers.
+pub mod inbox;
+/// Word extraction utilities used by Inbox processing.
+pub mod extraction;
 
 pub use config::WittConfig;
 pub use error::WittCoreError;
@@ -30,6 +34,7 @@ pub use media::MediaManager;
 pub use search::SearchQuery;
 pub use db::SqliteDb;
 pub use anki::AnkiClient;
+pub use inbox::InboxItem;
 
 /// Main entry point for using WittCore
 pub struct WittCore {

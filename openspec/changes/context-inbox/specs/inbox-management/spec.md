@@ -57,6 +57,10 @@ Inbox Management 是 Context Inbox 功能的核心管理模块，负责未处理
   - `lemmas`：字符串数组，要关联的单词原型列表
 - **返回值**：创建或更新的 Note 对象数组
 
+**实现约束（本次版本）**：
+- 允许重复 Context：当一个 Inbox 项被多个 lemma 处理时，会为每个 lemma 创建一条新的 `contexts` 记录（sentence/source 可重复）
+- 不要求“共享同一个 Context”跨 Note 复用
+
 #### 2.2 单词提取
 - **描述**：从上下文中自动提取可能的单词
 - **API**：`extract_words(context)`

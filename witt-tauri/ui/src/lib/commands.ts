@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type {
   Note,
   Context,
+  InboxItem,
   NoteRequest,
   NoteUpdate,
   NoteFilter,
@@ -17,6 +18,7 @@ import type {
   BatchNoteRequest,
   BatchResult,
   AppStats,
+  Source,
 } from '@/types';
 import { classifyError, logError, ErrorType, type WittError } from './errors';
 
@@ -134,6 +136,23 @@ export async function getTagSuggestions(prefix: string): Promise<string[]> {
   return invokeWithErrorHandling<string[]>('get_tag_suggestions', { prefix });
 }
 
+/**
+ * Best-effort: simulate a system copy shortcut to capture current selection.
+ * macOS requires Accessibility permission.
+ */
+export async function simulateCopyShortcut(): Promise<boolean> {
+  return invokeWithErrorHandling<boolean>('simulate_copy_shortcut');
+}
+
+export type GlobalCursorPosition = { x: number; y: number };
+
+/**
+ * Get system/global cursor position in screen coordinates.
+ */
+export async function getGlobalCursorPosition(): Promise<GlobalCursorPosition> {
+  return invokeWithErrorHandling<GlobalCursorPosition>('get_global_cursor_position');
+}
+
 // ============================================================================
 // Optimized Response Format Commands
 // ============================================================================
@@ -179,6 +198,68 @@ export async function bulkDeleteNotes(lemmas: string[]): Promise<BatchResult> {
  */
 export async function getStats(): Promise<AppStats> {
   return invokeWithErrorHandling<AppStats>('get_stats');
+}
+
+export async function addToInbox(context: string, source: Source): Promise<InboxItem> {
+  return invokeWithErrorHandling<InboxItem>('add_to_inbox', { context, source });
+}
+
+export async function getInboxItems(
+  page: number,
+  pageSize: number,
+  search?: string,
+  sourceType?: string,
+  processed?: boolean,
+  capturedAfter?: string,
+  capturedBefore?: string
+): Promise<PaginatedResponse<InboxItem>> {
+  return invokeWithErrorHandling<PaginatedResponse<InboxItem>>('get_inbox_items', {
+    page,
+    pageSize,
+    search: search ?? null,
+    sourceType: sourceType ?? null,
+    processed: processed ?? null,
+    capturedAfter: capturedAfter ?? null,
+    capturedBefore: capturedBefore ?? null,
+  });
+}
+
+export async function getInboxCount(processed?: boolean): Promise<number> {
+  return invokeWithErrorHandling<number>('get_inbox_count', { processed: processed ?? null });
+}
+
+export async function processInboxItem(itemId: string, lemmas: string[]): Promise<Note[]> {
+  return invokeWithErrorHandling<Note[]>('process_inbox_item', { itemId, lemmas });
+}
+
+export async function deleteInboxItem(itemId: string): Promise<boolean> {
+  return invokeWithErrorHandling<boolean>('delete_inbox_item', { itemId });
+}
+
+export async function setInboxItemProcessed(
+  itemId: string,
+  processed: boolean,
+  notes?: string
+): Promise<boolean> {
+  return invokeWithErrorHandling<boolean>('set_inbox_item_processed', {
+    itemId,
+    processed,
+    notes: notes ?? null,
+  });
+}
+
+export async function clearProcessedInboxItems(): Promise<boolean> {
+  return invokeWithErrorHandling<boolean>('clear_processed_inbox_items');
+}
+
+export async function extractWords(context: string): Promise<string[]> {
+  return invokeWithErrorHandling<string[]>('extract_words', { context });
+}
+
+export type WordFrequency = [string, number];
+
+export async function extractWordsWithFrequency(context: string): Promise<WordFrequency[]> {
+  return invokeWithErrorHandling<WordFrequency[]>('extract_words_with_frequency', { context });
 }
 
 /**

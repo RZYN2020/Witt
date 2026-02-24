@@ -1,15 +1,16 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLibraryStore } from '@/stores/useLibraryStore';
+import { useInboxStore } from '@/stores/useInboxStore';
 import { cn } from '@/lib/utils';
-import { Inbox, Video, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
+import { Inbox, Video, ChevronLeft, ChevronRight, Settings, BookOpen } from 'lucide-react';
 import type { Note, Context } from '@/types';
 
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onOpenSettings: () => void;
-  currentTab: 'inbox' | 'video';
-  onTabChange: (tab: 'inbox' | 'video') => void;
+  currentTab: 'library' | 'inbox' | 'video';
+  onTabChange: (tab: 'library' | 'inbox' | 'video') => void;
 }
 
 export function Sidebar({
@@ -20,17 +21,24 @@ export function Sidebar({
   onTabChange,
 }: SidebarProps) {
   const { notes } = useLibraryStore();
+  const { unprocessedCount, refreshUnprocessedCount } = useInboxStore();
+
+  useEffect(() => {
+    void refreshUnprocessedCount();
+  }, [refreshUnprocessedCount]);
 
   const counts = useMemo(() => {
     return {
-      inbox: notes.length,
+      library: notes.length,
+      inbox: unprocessedCount,
       video: notes.filter((n: Note) => n.contexts.some((c: Context) => c.source.type === 'video'))
         .length,
     };
-  }, [notes]);
+  }, [notes, unprocessedCount]);
 
   const tabs = [
-    { id: 'inbox' as const, icon: Inbox, label: '收集箱', count: counts.inbox },
+    { id: 'library' as const, icon: BookOpen, label: '词库', count: counts.library },
+    { id: 'inbox' as const, icon: Inbox, label: 'Inbox', count: counts.inbox },
     { id: 'video' as const, icon: Video, label: '视频', count: counts.video },
   ];
 

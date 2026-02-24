@@ -1,5 +1,6 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { useHotkeyToastStore } from '@/stores/useHotkeyToastStore';
 import type { Source } from '@/types';
 import { showCaptureWindow } from '@/lib/captureWindow';
 
@@ -9,12 +10,14 @@ import { showCaptureWindow } from '@/lib/captureWindow';
  */
 export function GlobalShortcuts() {
   const { captureHotkey, libraryHotkey, inboxHotkey, hotkeyEnabled } = useSettingsStore();
+  const { show } = useHotkeyToastStore();
   const registeredShortcuts = useRef<Set<string>>(new Set());
   const registeredByKind = useRef<Record<'capture' | 'inbox' | 'library', string | null>>({
     capture: null,
     inbox: null,
     library: null,
   });
+  const isProcessing = useRef<boolean>(false); // 防止重复处理
 
   useEffect(() => {
     return () => {
@@ -27,78 +30,95 @@ export function GlobalShortcuts() {
   }, []);
 
   useEffect(() => {
-    if (!hotkeyEnabled) {
-      unregisterAllShortcuts();
-      registeredShortcuts.current.clear();
-      registeredByKind.current.capture = null;
-      registeredByKind.current.inbox = null;
-      registeredByKind.current.library = null;
-      return;
-    }
+    // 防止重复处理
+    if (isProcessing.current) return;
+    isProcessing.current = true;
 
-    if (captureHotkey) {
-      void ensureShortcutRegistered({
-        kind: 'capture',
-        preferredShortcut: captureHotkey,
-        registeredShortcuts,
-        registeredByKind,
-        onTrigger: async () => {
-          console.log('[GlobalShortcut] Capture shortcut triggered');
-          const clipboardText = await tryGetClipboardText();
-          if (clipboardText) {
-            try {
-              localStorage.setItem(
-                'witt:pendingCapture',
-                JSON.stringify({ text: clipboardText, source: { type: 'app', name: 'Clipboard' } })
-              );
-            } catch {
-              void 0;
+    const processShortcuts = async () => {
+      if (!hotkeyEnabled) {
+        unregisterAllShortcuts();
+        registeredShortcuts.current.clear();
+        registeredByKind.current.capture = null;
+        registeredByKind.current.inbox = null;
+        registeredByKind.current.library = null;
+        isProcessing.current = false;
+        return;
+      }
+
+      if (captureHotkey) {
+        await ensureShortcutRegistered({
+          kind: 'capture',
+          preferredShortcut: captureHotkey,
+          registeredShortcuts,
+          registeredByKind,
+          onTrigger: async () => {
+            console.log('[GlobalShortcut] Capture shortcut triggered');
+            show('Capture window opened');
+            const clipboardText = await tryGetClipboardText();
+            if (clipboardText) {
+              try {
+                localStorage.setItem(
+                  'witt:pendingCapture',
+                  JSON.stringify({ text: clipboardText, source: { type: 'app', name: 'Clipboard' } })
+                );
+              } catch {
+                void 0;
+              }
+            } else {
+              await preparePendingCaptureText('witt:pendingCapture');
             }
-          } else {
-            await preparePendingCaptureText('witt:pendingCapture');
-          }
-          await showCaptureWindow({ mode: 'capture' });
-        },
-        onPersistShortcut: (value) => useSettingsStore.getState().setCaptureHotkey(value),
-      });
-    } else {
-      void unregisterKind('capture', registeredByKind, registeredShortcuts);
-    }
+            await showCaptureWindow({ mode: 'capture' });
+          },
+          onPersistShortcut: (value) => useSettingsStore.getState().setCaptureHotkey(value),
+        });
+      } else {
+        await unregisterKind('capture', registeredByKind, registeredShortcuts);
+      }
 
-    if (inboxHotkey) {
-      void ensureShortcutRegistered({
-        kind: 'inbox',
-        preferredShortcut: inboxHotkey,
-        registeredShortcuts,
-        registeredByKind,
-        onTrigger: async () => {
-          console.log('[GlobalShortcut] Inbox shortcut triggered');
-          const saved = await trySaveSelectionToInbox();
-          if (!saved) {
-            await showCaptureWindow({ mode: 'inbox' });
-          }
-        },
-        onPersistShortcut: (value) => useSettingsStore.getState().setInboxHotkey(value),
-      });
-    } else {
-      void unregisterKind('inbox', registeredByKind, registeredShortcuts);
-    }
+      if (inboxHotkey) {
+        await ensureShortcutRegistered({
+          kind: 'inbox',
+          preferredShortcut: inboxHotkey,
+          registeredShortcuts,
+          registeredByKind,
+          onTrigger: async () => {
+            console.log('[GlobalShortcut] Inbox shortcut triggered');
+            show('Inbox capture triggered');
+            const saved = await trySaveSelectionToInbox();
+            if (!saved) {
+              await showCaptureWindow({ mode: 'inbox' });
+            }
+          },
+          onPersistShortcut: (value) => useSettingsStore.getState().setInboxHotkey(value),
+        });
+      } else {
+        await unregisterKind('inbox', registeredByKind, registeredShortcuts);
+      }
 
-    if (libraryHotkey) {
-      void ensureShortcutRegistered({
-        kind: 'library',
-        preferredShortcut: libraryHotkey,
-        registeredShortcuts,
-        registeredByKind,
-        onTrigger: async () => {
-          console.log('[GlobalShortcut] Library shortcut triggered');
-          await showMainWindow();
-        },
-        onPersistShortcut: (value) => useSettingsStore.getState().setLibraryHotkey(value),
-      });
-    } else {
-      void unregisterKind('library', registeredByKind, registeredShortcuts);
-    }
+      if (libraryHotkey) {
+        await ensureShortcutRegistered({
+          kind: 'library',
+          preferredShortcut: libraryHotkey,
+          registeredShortcuts,
+          registeredByKind,
+          onTrigger: async () => {
+            console.log('[GlobalShortcut] Library shortcut triggered');
+            show('Library window opened');
+            await showMainWindow();
+          },
+          onPersistShortcut: (value) => useSettingsStore.getState().setLibraryHotkey(value),
+        });
+      } else {
+        await unregisterKind('library', registeredByKind, registeredShortcuts);
+      }
+
+      isProcessing.current = false;
+    };
+
+    processShortcuts().catch((error) => {
+      console.error('[GlobalShortcut] Error processing shortcuts:', error);
+      isProcessing.current = false;
+    });
   }, [captureHotkey, inboxHotkey, libraryHotkey, hotkeyEnabled]);
 
   return null;
@@ -135,16 +155,36 @@ function buildFallbackShortcuts(preferredShortcut: string): string[] {
     `Control+Alt+${key}`,
   ];
 
-  // De-dup while keeping order
+  // De-dup while keeping order and validate each candidate
   const seen = new Set<string>();
   const uniq: string[] = [];
+
   for (const c of candidates) {
-    if (!seen.has(c)) {
+    // 确保候选快捷键有效且不重复
+    if (!seen.has(c) && isValidShortcut(c)) {
       seen.add(c);
       uniq.push(c);
     }
   }
+
   return uniq;
+}
+
+function isValidShortcut(shortcut: string): boolean {
+  // 验证快捷键格式是否有效
+  if (!shortcut || shortcut.length === 0) return false;
+
+  const parts = shortcut.split('+').map(p => p.trim()).filter(Boolean);
+
+  // 至少需要一个修饰键和一个非修饰键
+  const hasModifier = parts.some(p =>
+    p === 'CommandOrControl' || p === 'Control' || p === 'Alt' || p === 'Shift'
+  );
+  const hasNonModifier = parts.some(p =>
+    p !== 'CommandOrControl' && p !== 'Control' && p !== 'Alt' && p !== 'Shift'
+  );
+
+  return hasModifier && hasNonModifier;
 }
 
 type ShortcutKind = 'capture' | 'inbox' | 'library';
@@ -200,7 +240,7 @@ async function ensureShortcutRegistered(opts: {
       // If we had to fall back, persist and inform user.
       const normalizedPreferred = normalizeShortcut(opts.preferredShortcut);
       if (shortcut !== normalizedPreferred) {
-        opts.onPersistShortcut(shortcut);
+        // 避免无限循环：不自动更新用户设置，只显示提示
         await toastHotkeyInfo(
           `${opts.kind === 'capture' ? '捕获' : opts.kind === 'inbox' ? 'Inbox' : '打开库'}快捷键“${normalizedPreferred}”可能与系统/其它应用冲突，已自动切换为“${shortcut}”。可在 Settings 里修改。`
         );
@@ -254,11 +294,17 @@ async function preparePendingCaptureText(storageKey?: string): Promise<string | 
     if (selected) {
       if (storageKey) {
         try {
+          const { useSettingsStore } = await import('@/stores/useSettingsStore');
+          const { getCurrentWindowTitle } = await import('@/utils/getCurrentWindowTitle');
+          const settings = useSettingsStore.getState();
+          const sourceName = settings.useCurrentWindowTitle
+            ? await getCurrentWindowTitle()
+            : (settings.textSelectionSource || 'Text Selection');
           localStorage.setItem(
             storageKey,
             JSON.stringify({
               text: selected,
-              source: { type: 'app', name: 'Text Selection' },
+              source: { type: 'app', name: sourceName },
             })
           );
         } catch {
@@ -285,9 +331,21 @@ async function trySaveSelectionToInbox(): Promise<boolean> {
   const selected = await preparePendingCaptureText();
   if (!selected) return false;
 
-  const source: Source = { type: 'app', name: 'Text Selection' };
+  const { useSettingsStore } = await import('@/stores/useSettingsStore');
+  const { getCurrentWindowTitle } = await import('@/utils/getCurrentWindowTitle');
+  const settings = useSettingsStore.getState();
+  const sourceName = settings.useCurrentWindowTitle
+    ? await getCurrentWindowTitle()
+    : (settings.textSelectionSource || 'Text Selection');
+  const source: Source = { type: 'app', name: sourceName };
+
   const { useInboxStore } = await import('@/stores/useInboxStore');
   await useInboxStore.getState().addToInbox(selected, source);
+
+  // 显示系统通知，确保在所有桌面上可见
+  const { showInboxSuccessNotification } = await import('@/lib/notifications');
+  void showInboxSuccessNotification(selected);
+
   return true;
 }
 

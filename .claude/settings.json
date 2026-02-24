@@ -10,7 +10,10 @@
       "Bash(npm run test:*)",
       "Bash(npm run lint:*)",
       "Bash(npx eslint:*)",
-      "Bash(npm run format)"
+      "Bash(npm run format)",
+      "Bash(cargo doc:*)",
+      "Read(//Users/eka/.cargo/registry/src/**)",
+      "Bash(sh -x bundle_dmg.sh)"
     ]
   }
 }

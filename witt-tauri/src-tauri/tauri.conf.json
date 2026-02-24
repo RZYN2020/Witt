@@ -23,7 +23,8 @@
         "decorations": true,
         "transparent": false,
         "center": true,
-        "visible": true
+        "visible": true,
+        "visibleOnAllWorkspaces": true
       },
       {
         "label": "capture",
@@ -52,7 +53,9 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/icon.svg"
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
     ],
     "category": "Education",
     "shortDescription": "Personal language asset engine",

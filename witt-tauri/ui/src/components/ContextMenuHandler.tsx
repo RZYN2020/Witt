@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useCaptureStore } from '@/stores/useCaptureStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
+import { getCurrentWindowTitle } from '@/utils/getCurrentWindowTitle';
 
 /**
  * Context menu handler for text selection
@@ -42,14 +44,18 @@ async function showCaptureOption(
   event.preventDefault();
 
   // Show native context menu after a short delay
-  setTimeout(() => {
+  setTimeout(async () => {
     // Show confirmation dialog
     const confirmed = window.confirm(
       `Capture this text to Witt?\n\n"${selectedText.substring(0, 100)}${selectedText.length > 100 ? '...' : ''}"`
     );
 
     if (confirmed) {
-      openPopup(selectedText, { type: 'app', name: 'Text Selection' });
+      const { textSelectionSource, useCurrentWindowTitle } = useSettingsStore.getState();
+      const sourceName = useCurrentWindowTitle
+        ? await getCurrentWindowTitle()
+        : (textSelectionSource || 'Text Selection');
+      openPopup(selectedText, { type: 'app', name: sourceName });
     }
   }, 10);
 }

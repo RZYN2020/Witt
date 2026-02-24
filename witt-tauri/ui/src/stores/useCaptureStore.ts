@@ -7,6 +7,7 @@ import { useLibraryStore } from './useLibraryStore';
 import { classifyError, getUserFriendlyMessage, logError } from '@/lib/errors';
 import { withLoading, LoadingState } from '@/lib/loading';
 import { showCaptureWindow } from '@/lib/captureWindow';
+import { showCaptureSuccessNotification } from '@/lib/notifications';
 
 /**
  * Capture slice state and actions
@@ -259,6 +260,11 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
         type: 'success',
         duration: 2000,
       });
+
+      // Show system notification (visible on all desktops)
+      const capturedWord = request.context?.word_form || request.lemma;
+      const capturedContext = request.context?.sentence || '';
+      void showCaptureSuccessNotification(capturedContext, capturedWord);
 
       return request.lemma;
     } catch (error) {

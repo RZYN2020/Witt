@@ -29,6 +29,10 @@ interface SettingsSlice {
   ankiNoteType: string;
   ankiFieldMapping: Record<string, string>;
 
+  // Text Selection settings
+  textSelectionSource: string;
+  useCurrentWindowTitle: boolean;
+
   // Data management
   dataDirectory: string;
   backupEnabled: boolean;
@@ -95,6 +99,10 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
   dataDirectory: '',
   backupEnabled: true,
   backupInterval: 'daily',
+
+  // Text Selection settings
+  textSelectionSource: 'Text Selection',
+  useCurrentWindowTitle: false,
 
   setTheme: (theme) => {
     set({ theme });
@@ -318,6 +326,28 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
       // ignore
     }
   },
+
+  setTextSelectionSource: (source: string) => {
+    set({ textSelectionSource: source });
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:textSelectionSource', source);
+      }
+    } catch {
+      // ignore
+    }
+  },
+
+  setUseCurrentWindowTitle: (use: boolean) => {
+    set({ useCurrentWindowTitle: use });
+    try {
+      if (typeof localStorage?.setItem === 'function') {
+        localStorage.setItem('witt:useCurrentWindowTitle', String(use));
+      }
+    } catch {
+      // ignore
+    }
+  },
 }));
 
 /**
@@ -384,6 +414,16 @@ try {
       | null;
     if (savedLanguage) {
       useSettingsStore.getState().appLanguage = savedLanguage;
+    }
+
+    const savedTextSelectionSource = localStorage.getItem('witt:textSelectionSource');
+    if (savedTextSelectionSource) {
+      useSettingsStore.getState().textSelectionSource = savedTextSelectionSource;
+    }
+
+    const savedUseCurrentWindowTitle = localStorage.getItem('witt:useCurrentWindowTitle');
+    if (savedUseCurrentWindowTitle !== null) {
+      useSettingsStore.getState().useCurrentWindowTitle = savedUseCurrentWindowTitle === 'true';
     }
   }
 } catch (error) {

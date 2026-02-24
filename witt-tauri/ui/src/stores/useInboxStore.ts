@@ -6,6 +6,7 @@ import { useLoadingStore } from './useLoadingStore';
 import { useLibraryStore } from './useLibraryStore';
 import { classifyError, getUserFriendlyMessage, logError } from '@/lib/errors';
 import { withLoading, LoadingState } from '@/lib/loading';
+import { showInboxSuccessNotification } from '@/lib/notifications';
 
 interface InboxSlice {
   items: InboxItem[];
@@ -41,12 +42,14 @@ interface InboxSlice {
   select: (id: string, multi?: boolean) => void;
   deselect: (id: string) => void;
   clearSelection: () => void;
+  selectAll: () => void;
 
   addToInbox: (context: string, source: Source) => Promise<void>;
   extractWords: (context: string) => Promise<string[]>;
   extractWordsWithFrequency: (context: string) => Promise<Array<{ word: string; count: number }>>;
   processItem: (itemId: string, lemmas: string[]) => Promise<void>;
   deleteItem: (itemId: string) => Promise<void>;
+  deleteItems: (itemIds: string[]) => Promise<void>;
   setProcessed: (itemId: string, processed: boolean, notes?: string) => Promise<void>;
   clearProcessed: () => Promise<void>;
 }
@@ -233,6 +236,11 @@ export const useInboxStore = create<InboxSlice>((set, get) => ({
   },
 
   clearSelection: () => set({ selected: new Set() }),
+  selectAll: () => {
+    const { items } = get();
+    const allIds = items.map(item => item.id);
+    set({ selected: new Set(allIds) });
+  },
 
   addToInbox: async (context: string, source: Source) => {
     const trimmed = context.trim();
@@ -261,6 +269,10 @@ export const useInboxStore = create<InboxSlice>((set, get) => ({
         type: 'success',
         duration: 2000,
       });
+
+      // Show system notification (visible on all desktops)
+      void showInboxSuccessNotification(trimmed);
+
       await get().loadItems({ page: 0 });
       void get().refreshUnprocessedCount();
     } catch (error) {
@@ -374,6 +386,40 @@ export const useInboxStore = create<InboxSlice>((set, get) => ({
     } catch (error) {
       const classifiedError = classifyError(error);
       logError(classifiedError, 'deleteInboxItem');
+      const userMessage = getUserFriendlyMessage(classifiedError);
+      useLoadingStore.getState().updateIndicator(operationId, {
+        type: LoadingState.ERROR,
+        message: userMessage,
+      });
+      useToastStore.getState().addToast({
+        message: userMessage,
+        type: 'error',
+        duration: 4000,
+      });
+    }
+  },
+  deleteItems: async (itemIds: string[]) => {
+    const operationId = 'delete-multiple';
+    useLoadingStore.getState().addIndicator({
+      id: operationId,
+      type: LoadingState.LOADING,
+      message: 'Deleting selected items...',
+      createdAt: Date.now(),
+    });
+
+    try {
+      await commands.deleteInboxItems(itemIds);
+      useLoadingStore.getState().removeIndicator(operationId);
+      useToastStore.getState().addToast({
+        message: 'Deleted selected items',
+        type: 'success',
+        duration: 2000,
+      });
+      await get().loadItems();
+      void get().refreshUnprocessedCount();
+    } catch (error) {
+      const classifiedError = classifyError(error);
+      logError(classifiedError, 'deleteInboxItems');
       const userMessage = getUserFriendlyMessage(classifiedError);
       useLoadingStore.getState().updateIndicator(operationId, {
         type: LoadingState.ERROR,

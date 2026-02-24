@@ -236,6 +236,10 @@ export async function deleteInboxItem(itemId: string): Promise<boolean> {
   return invokeWithErrorHandling<boolean>('delete_inbox_item', { itemId });
 }
 
+export async function deleteInboxItems(itemIds: string[]): Promise<boolean> {
+  return invokeWithErrorHandling<boolean>('delete_inbox_items', { itemIds });
+}
+
 export async function setInboxItemProcessed(
   itemId: string,
   processed: boolean,

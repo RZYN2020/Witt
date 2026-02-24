@@ -1,13 +1,18 @@
 import { CapturePopup } from './components/capture';
 import { InboxCapturePopup } from './components/inbox';
 import { Toaster } from './components/Toaster';
+import { GlobalHotkeyToast } from './components/GlobalHotkeyToast';
+import { GlobalCaptureToast } from './components/GlobalCaptureToast';
 import { LibraryView } from './components/library/LibraryView';
 import { GlobalShortcuts } from './components/GlobalShortcuts';
 import { ContextMenuHandler } from './components/ContextMenuHandler';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import { getCurrentWindowTitle } from '@/utils/getCurrentWindowTitle';
 import { useCaptureStore } from '@/stores/useCaptureStore';
+import { useHotkeyToastStore } from '@/stores/useHotkeyToastStore';
 import { useEffect, useState } from 'react';
 import * as commands from './lib/commands';
+import { initNotifications } from '@/lib/notifications';
 
 /**
  * Main application component
@@ -15,6 +20,7 @@ import * as commands from './lib/commands';
 function App() {
   const { theme } = useSettingsStore();
   const { openPopup } = useCaptureStore();
+  const { isVisible, message, hide } = useHotkeyToastStore();
   const [initialized, setInitialized] = useState(false);
   const [isCaptureWindow, setIsCaptureWindow] = useState(false);
   const [captureMode, setCaptureMode] = useState<'capture' | 'inbox'>('capture');
@@ -44,12 +50,14 @@ function App() {
     checkWindowLabel();
   }, []);
 
-  // Initialize WittCore on mount
+  // Initialize WittCore and notifications on mount
   useEffect(() => {
     const init = async () => {
       try {
         await commands.initCore();
         console.log('[App] WittCore initialized successfully');
+        // Initialize notifications (request permission)
+        await initNotifications();
         setInitialized(true);
       } catch (error) {
         console.error('[App] Failed to initialize WittCore:', error);
@@ -93,7 +101,22 @@ function App() {
               const parsed = JSON.parse(pending) as { text?: string; source?: any };
               const text = (parsed.text || '').trim();
               if (text) {
-                openPopup(text, parsed.source || { type: 'app', name: 'Text Selection' });
+                const source = parsed.source || { type: 'app', name: 'Text Selection' };
+            // 如果是默认的 Text Selection，根据设置决定使用什么名称
+            if (source.name === 'Text Selection') {
+              const { textSelectionSource, useCurrentWindowTitle } = useSettingsStore.getState();
+              if (useCurrentWindowTitle) {
+                try {
+                  const currentTitle = await getCurrentWindowTitle();
+                  source.name = currentTitle;
+                } catch {
+                  source.name = textSelectionSource;
+                }
+              } else {
+                source.name = textSelectionSource;
+              }
+            }
+            openPopup(text, source);
                 return;
               }
             }
@@ -122,7 +145,7 @@ function App() {
   useEffect(() => {
     if (!isCaptureWindow) return;
 
-    const onStorage = (e: StorageEvent) => {
+    const onStorage = async (e: StorageEvent) => {
       if (e.key === 'witt:captureMode') {
         setCaptureMode(e.newValue === 'inbox' ? 'inbox' : 'capture');
         return;
@@ -137,7 +160,22 @@ function App() {
           const parsed = JSON.parse(pending) as { text?: string; source?: any };
           const text = (parsed.text || '').trim();
           if (text) {
-            openPopup(text, parsed.source || { type: 'app', name: 'Text Selection' });
+            const source = parsed.source || { type: 'app', name: 'Text Selection' };
+            // 如果是默认的 Text Selection，根据设置决定使用什么名称
+            if (source.name === 'Text Selection') {
+              const { textSelectionSource, useCurrentWindowTitle } = useSettingsStore.getState();
+              if (useCurrentWindowTitle) {
+                try {
+                  const currentTitle = await getCurrentWindowTitle();
+                  source.name = currentTitle;
+                } catch {
+                  source.name = textSelectionSource;
+                }
+              } else {
+                source.name = textSelectionSource;
+              }
+            }
+            openPopup(text, source);
           }
         } catch {
           // ignore
@@ -167,6 +205,12 @@ function App() {
       <div className="min-h-screen bg-background">
         {captureMode === 'inbox' ? <InboxCapturePopup /> : <CapturePopup />}
         <Toaster />
+        <GlobalHotkeyToast
+          open={isVisible}
+          message={message}
+          onClose={hide}
+        />
+        <GlobalCaptureToast />
       </div>
     );
   }
@@ -182,6 +226,13 @@ function App() {
 
       {/* Toast Notifications */}
       <Toaster />
+
+      {/* Global Hotkey Toast */}
+      <GlobalHotkeyToast
+        open={isVisible}
+        message={message}
+        onClose={hide}
+      />
 
       {/* Main Library View */}
       <LibraryView />

@@ -87,7 +87,9 @@ export function InboxPage() {
     select,
     deselect,
     clearSelection,
+    selectAll,
     deleteItem,
+    deleteItems,
     setProcessed,
     clearProcessed,
   } = useInboxStore();
@@ -110,9 +112,7 @@ export function InboxPage() {
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
 
   const bulkDelete = async () => {
-    for (const id of selectedIds) {
-      await deleteItem(id);
-    }
+    await deleteItems(selectedIds);
     clearSelection();
   };
 
@@ -207,11 +207,25 @@ export function InboxPage() {
           </div>
         </div>
 
-        {selectedIds.length > 0 && (
-          <div className="flex items-center justify-between bg-muted/40 border border-border rounded-md px-3 py-2">
+        <div className="flex items-center justify-between bg-muted/40 border border-border rounded-md px-3 py-2">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              className="h-4 w-4"
+              checked={selected.size === items.length && items.length > 0}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  selectAll();
+                } else {
+                  clearSelection();
+                }
+              }}
+            />
             <div className="text-xs text-muted-foreground">
-              Selected: {selectedIds.length}
+              {selected.size > 0 ? `Selected: ${selectedIds.length}` : 'Select all'}
             </div>
+          </div>
+          {selectedIds.length > 0 && (
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={clearSelection}>
                 Clear selection
@@ -220,8 +234,8 @@ export function InboxPage() {
                 Delete selected
               </Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">

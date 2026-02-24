@@ -905,6 +905,22 @@ impl SqliteDb {
         Ok(())
     }
 
+    /// Delete multiple inbox items by their ids.
+    pub async fn delete_inbox_items(&self, ids: &[Uuid]) -> Result<(), crate::WittCoreError> {
+        let id_strs = ids.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+        let placeholders = (0..ids.len()).map(|_| "?").collect::<Vec<_>>().join(",");
+        let query = format!(r#"DELETE FROM inbox_items WHERE id IN ({})"#, placeholders);
+
+        let mut sqlx_query = sqlx::query(&query);
+        for id_str in id_strs {
+            sqlx_query = sqlx_query.bind(id_str);
+        }
+
+        sqlx_query.execute(&self.pool).await?;
+
+        Ok(())
+    }
+
     /// Delete all processed inbox items.
     pub async fn clear_processed_inbox_items(&self) -> Result<(), crate::WittCoreError> {
         sqlx::query(r#"DELETE FROM inbox_items WHERE processed = 1"#)

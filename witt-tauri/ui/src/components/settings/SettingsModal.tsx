@@ -10,8 +10,8 @@ import {
   Keyboard,
   Bell,
   Globe,
-  ChevronDown,
-  ChevronUp,
+  Database,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -111,8 +111,17 @@ const TRANSLATIONS = {
   },
 } as const;
 
+const SETTINGS_TABS = [
+  { id: 'appearance', icon: Palette, titleKey: 'appearance' },
+  { id: 'language', icon: Globe, titleKey: 'language' },
+  { id: 'preferences', icon: Bell, titleKey: 'preferences' },
+  { id: 'shortcuts', icon: Keyboard, titleKey: 'shortcuts' },
+  { id: 'data', icon: Database, title: 'Data' },
+  { id: 'anki', icon: Download, title: 'Anki' },
+];
+
 /**
- * Settings modal - Typeless style floating window
+ * Settings modal - Typeless style floating window with tabs
  */
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const {
@@ -132,22 +141,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     setInboxHotkey,
   } = useSettingsStore();
 
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    appearance: true,
-    language: false,
-    preferences: false,
-    shortcuts: false,
-  });
-
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  };
+  const [activeTab, setActiveTab] = useState('appearance');
 
   // Get translations for current language
   const t = TRANSLATIONS[appLanguage as keyof typeof TRANSLATIONS] || TRANSLATIONS.en;
+
   const defaultHotkeys = useMemo(
     () => ({
       capture: 'CommandOrControl+;',
@@ -156,6 +154,136 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     }),
     []
   );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'appearance':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <ThemeOption
+                value="light"
+                icon={Sun}
+                label={t.light}
+                current={theme}
+                onChange={setTheme}
+              />
+              <ThemeOption
+                value="dark"
+                icon={Moon}
+                label={t.dark}
+                current={theme}
+                onChange={setTheme}
+              />
+              <ThemeOption
+                value="system"
+                icon={Monitor}
+                label={t.system}
+                current={theme}
+                onChange={setTheme}
+              />
+            </div>
+          </div>
+        );
+
+      case 'language':
+        return (
+          <div className="grid grid-cols-2 gap-3">
+            {LANGUAGES.map((lang) => (
+              <button
+                key={lang.value}
+                onClick={() => setAppLanguage(lang.value)}
+                className={cn(
+                  'flex items-center gap-3 p-3 rounded-xl border transition-all',
+                  appLanguage === lang.value
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border bg-card hover:border-ring'
+                )}
+              >
+                <span className="text-2xl">{lang.flag}</span>
+                <span className="flex-1 text-left text-sm font-medium text-foreground">
+                  {lang.label}
+                </span>
+                {appLanguage === lang.value && (
+                  <span className="text-primary text-lg font-bold">✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+        );
+
+      case 'preferences':
+        return (
+          <div className="space-y-3">
+            <SettingToggle
+              label={t.autoFetchDefinitions}
+              description={t.autoFetchDesc}
+              checked={autoFetchDefinitions}
+              onChange={setAutoFetchDefinitions}
+            />
+            <SettingToggle
+              label={t.includeScreenshots}
+              description={t.screenshotsDesc}
+              checked={includeScreenshots}
+              onChange={setIncludeScreenshots}
+            />
+          </div>
+        );
+
+      case 'shortcuts':
+        return (
+          <div className="space-y-2">
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/30">
+              <p className="text-sm text-primary font-medium mb-2">🎯 Global Shortcuts</p>
+              <p className="text-xs text-muted-foreground">
+                Use these shortcuts from any application to quickly capture words.
+              </p>
+            </div>
+
+            <ShortcutInput
+              label="Capture"
+              description="Copy text → press hotkey → show capture window"
+              value={captureHotkey}
+              onChange={setCaptureHotkey}
+              defaultHotkey={defaultHotkeys.capture}
+            />
+
+            <ShortcutInput
+              label="Library"
+              description="Show the main window"
+              value={libraryHotkey}
+              onChange={setLibraryHotkey}
+              defaultHotkey={defaultHotkeys.library}
+            />
+
+            <ShortcutInput
+              label="Inbox"
+              description="Save selection into Inbox"
+              value={inboxHotkey}
+              onChange={setInboxHotkey}
+              defaultHotkey={defaultHotkeys.inbox}
+            />
+          </div>
+        );
+
+      case 'data':
+        return (
+          <div className="p-4 text-sm text-muted-foreground">
+            Data management settings will be available soon.
+          </div>
+        );
+
+      case 'anki':
+        return (
+          <div className="p-4 text-sm text-muted-foreground">
+            Anki integration settings will be available soon.
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -178,7 +306,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
           >
-            <div className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto mx-4">
+            <div className="w-[800px] h-[600px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
                 <h2 className="text-xl font-semibold text-foreground">{t.title}</h2>
@@ -191,193 +319,52 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-4 min-h-0">
-                {/* Appearance Section */}
-                <SettingsSection
-                  id="appearance"
-                  title={t.appearance}
-                  icon={Palette}
-                  isExpanded={expandedSections.appearance}
-                  onToggle={() => toggleSection('appearance')}
-                >
-                  <div className="grid grid-cols-3 gap-3">
-                    <ThemeOption
-                      value="light"
-                      icon={Sun}
-                      label={t.light}
-                      current={theme}
-                      onChange={setTheme}
-                    />
-                    <ThemeOption
-                      value="dark"
-                      icon={Moon}
-                      label={t.dark}
-                      current={theme}
-                      onChange={setTheme}
-                    />
-                    <ThemeOption
-                      value="system"
-                      icon={Monitor}
-                      label={t.system}
-                      current={theme}
-                      onChange={setTheme}
-                    />
-                  </div>
-                </SettingsSection>
+              <div className="flex-1 flex overflow-hidden">
+                {/* Left sidebar - Tabs */}
+                <div className="w-64 bg-muted/30 border-r border-border overflow-y-auto p-2 flex-shrink-0">
+                  {SETTINGS_TABS.map((tab) => {
+                    const Icon = tab.icon;
+                    const tabTitle = tab.titleKey ? t[tab.titleKey as keyof typeof t] : tab.title;
 
-                {/* Language Section */}
-                <SettingsSection
-                  id="language"
-                  title={t.language}
-                  icon={Globe}
-                  isExpanded={expandedSections.language}
-                  onToggle={() => toggleSection('language')}
-                >
-                  <div className="grid grid-cols-2 gap-3">
-                    {LANGUAGES.map((lang) => (
+                    return (
                       <button
-                        key={lang.value}
-                        onClick={() => setAppLanguage(lang.value)}
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
                         className={cn(
-                          'flex items-center gap-3 p-3 rounded-xl border transition-all',
-                          appLanguage === lang.value
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border bg-card hover:border-ring'
+                          'w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-colors text-sm font-medium',
+                          activeTab === tab.id
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                         )}
                       >
-                        <span className="text-2xl">{lang.flag}</span>
-                        <span className="flex-1 text-left text-sm font-medium text-foreground">
-                          {lang.label}
-                        </span>
-                        {appLanguage === lang.value && (
-                          <span className="text-primary text-lg font-bold">✓</span>
-                        )}
+                        <Icon className="w-4 h-4 flex-shrink-0" />
+                        <span>{tabTitle}</span>
                       </button>
-                    ))}
-                  </div>
-                </SettingsSection>
+                    );
+                  })}
+                </div>
 
-                {/* Preferences Section */}
-                <SettingsSection
-                  id="preferences"
-                  title={t.preferences}
-                  icon={Bell}
-                  isExpanded={expandedSections.preferences}
-                  onToggle={() => toggleSection('preferences')}
-                >
-                  <div className="space-y-3">
-                    <SettingToggle
-                      label={t.autoFetchDefinitions}
-                      description={t.autoFetchDesc}
-                      checked={autoFetchDefinitions}
-                      onChange={setAutoFetchDefinitions}
-                    />
-                    <SettingToggle
-                      label={t.includeScreenshots}
-                      description={t.screenshotsDesc}
-                      checked={includeScreenshots}
-                      onChange={setIncludeScreenshots}
-                    />
-                  </div>
-                </SettingsSection>
-
-                {/* Keyboard Shortcuts Section */}
-                <SettingsSection
-                  id="shortcuts"
-                  title={t.shortcuts}
-                  icon={Keyboard}
-                  isExpanded={expandedSections.shortcuts}
-                  onToggle={() => toggleSection('shortcuts')}
-                >
-                  <div className="space-y-2">
-                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/30">
-                      <p className="text-sm text-primary font-medium mb-2">🎯 Global Shortcuts</p>
-                      <p className="text-xs text-muted-foreground">
-                        Use these shortcuts from any application to quickly capture words.
-                      </p>
-                    </div>
-
-                    <ShortcutInput
-                      label="Capture"
-                      description="Copy text → press hotkey → show capture window"
-                      value={captureHotkey}
-                      onChange={setCaptureHotkey}
-                      defaultHotkey={defaultHotkeys.capture}
-                    />
-
-                    <ShortcutInput
-                      label="Library"
-                      description="Show the main window"
-                      value={libraryHotkey}
-                      onChange={setLibraryHotkey}
-                      defaultHotkey={defaultHotkeys.library}
-                    />
-
-                    <ShortcutInput
-                      label="Inbox"
-                      description="Save selection into Inbox"
-                      value={inboxHotkey}
-                      onChange={setInboxHotkey}
-                      defaultHotkey={defaultHotkeys.inbox}
-                    />
-                  </div>
-                </SettingsSection>
+                {/* Right content - Tab content */}
+                <div className="flex-1 overflow-y-auto p-6 relative">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeTab}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute inset-6"
+                    >
+                      {renderTabContent()}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </motion.div>
         </>
       )}
     </AnimatePresence>
-  );
-}
-
-interface SettingsSectionProps {
-  id: string;
-  title: string;
-  icon: React.ComponentType<{ className?: string }>;
-  isExpanded: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}
-
-function SettingsSection({
-  title,
-  icon: Icon,
-  isExpanded,
-  onToggle,
-  children,
-}: SettingsSectionProps) {
-  return (
-    <div className="border border-border rounded-xl mb-3 overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Icon className="w-5 h-5 text-muted-foreground" />
-          <span className="text-base font-medium text-foreground">{title}</span>
-        </div>
-        {isExpanded ? (
-          <ChevronUp className="w-5 h-5 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-muted-foreground" />
-        )}
-      </button>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden"
-          >
-            <div className="p-3 pt-0 border-t border-border">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
 

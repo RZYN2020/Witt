@@ -829,6 +829,24 @@ pub async fn delete_inbox_item(
 }
 
 #[tauri::command]
+pub async fn delete_inbox_items(
+    state: State<'_, WittCoreState>,
+    item_ids: Vec<String>,
+) -> Result<bool, String> {
+    let core = state.core.lock().await;
+    let core = core.as_ref().ok_or_else(|| "WittCore not initialized".to_string())?;
+
+    let mut uuids = Vec::new();
+    for item_id in item_ids {
+        let uuid = uuid::Uuid::parse_str(&item_id).map_err(|e| e.to_string())?;
+        uuids.push(uuid);
+    }
+
+    core.db().delete_inbox_items(&uuids).await.map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
+#[tauri::command]
 pub async fn set_inbox_item_processed(
     state: State<'_, WittCoreState>,
     item_id: String,
@@ -888,4 +906,20 @@ pub struct AppStats {
     pub total_contexts: usize,
     pub unique_tags: usize,
     pub notes_with_contexts: usize,
+}
+
+/// Set popup window level and collection behavior for macOS
+/// This makes the window appear on all spaces and float above other windows
+#[tauri::command]
+pub async fn set_popup_window_level(app: tauri::AppHandle, label: String) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos_window::set_popup_window_level(&app, &label);
+        Ok(true)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, label);
+        Ok(false)
+    }
 }

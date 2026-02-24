@@ -4,6 +4,7 @@ export async function showCaptureWindow(opts?: { mode?: 'capture' | 'inbox' }) {
       '@tauri-apps/api/webviewWindow'
     );
     const { PhysicalPosition } = await import('@tauri-apps/api/dpi');
+    const { invoke } = await import('@tauri-apps/api/core');
 
     const mode = opts?.mode === 'inbox' ? 'inbox' : 'capture';
     try {
@@ -29,6 +30,12 @@ export async function showCaptureWindow(opts?: { mode?: 'capture' | 'inbox' }) {
       }
       try {
         await win.setSkipTaskbar(true);
+      } catch {
+        void 0;
+      }
+      // Call Rust command to set proper macOS window level
+      try {
+        await invoke('set_popup_window_level', { label: 'capture' });
       } catch {
         void 0;
       }

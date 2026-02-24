@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Context, Source } from '@/types';
 import { cn } from '@/lib/utils';
+import { useInboxStore } from '@/stores/useInboxStore';
 
 interface ContextManagerProps {
   contexts: Context[];
@@ -19,6 +20,11 @@ export function ContextManager({
 }: ContextManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    context: Context;
+  } | null>(null);
   const contextCount = contexts.length;
   const hasEmptySlots = contextCount < maxContexts;
 
@@ -30,6 +36,35 @@ export function ContextManager({
   const handleUpdate = (contextId: string, updates: Partial<Context>) => {
     onUpdateContext(contextId, updates);
     setEditingId(null);
+  };
+
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const onMouseDown = () => setContextMenu(null);
+    const onScroll = () => setContextMenu(null);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null);
+    };
+
+    window.addEventListener('mousedown', onMouseDown, true);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      window.removeEventListener('mousedown', onMouseDown, true);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [contextMenu]);
+
+  const handleContextMenu = (e: React.MouseEvent, context: Context) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, context });
+  };
+
+  const handleSendToInbox = async (context: Context) => {
+    await useInboxStore.getState().addToInbox(context.sentence, context.source);
+    setContextMenu(null);
   };
 
   return (
@@ -71,6 +106,7 @@ export function ContextManager({
             onSave={(updates) => handleUpdate(context.id, updates)}
             onCancel={() => setEditingId(null)}
             onDelete={() => onDeleteContext(context.id)}
+            onContextMenu={handleContextMenu}
           />
         ))}
 
@@ -96,6 +132,22 @@ export function ContextManager({
           </div>
         )}
       </div>
+
+      {contextMenu && (
+        <div
+          className="fixed z-50 min-w-[180px] rounded-md border border-border bg-popover p-1 shadow-lg"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          role="menu"
+        >
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+            onClick={() => void handleSendToInbox(contextMenu.context)}
+          >
+            发送到 Inbox
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -108,6 +160,7 @@ interface ContextEditorProps {
   onSave: (context: Context) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  onContextMenu?: (e: React.MouseEvent, context: Context) => void;
 }
 
 function ContextEditor({
@@ -118,6 +171,7 @@ function ContextEditor({
   onSave,
   onCancel,
   onDelete,
+  onContextMenu,
 }: ContextEditorProps) {
   const [wordForm, setWordForm] = useState(context?.word_form || '');
   const [sentence, setSentence] = useState(context?.sentence || '');
@@ -190,6 +244,7 @@ function ContextEditor({
       <div
         className="context-item p-4 border border-border rounded-lg hover:border-primary/50 transition-colors cursor-pointer"
         onClick={onEdit}
+        onContextMenu={(e) => onContextMenu?.(e, context)}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {

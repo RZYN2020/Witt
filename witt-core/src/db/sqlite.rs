@@ -4,12 +4,110 @@ SQLite database access layer for WittCore
 
 use crate::*;
 use chrono::{DateTime, Utc};
-use sqlx::{Pool, Sqlite};
-use sqlx::Row;
+use sqlx::{Pool, Row, Sqlite};
 use sqlx::sqlite::SqliteConnectOptions;
 use uuid::Uuid;
 use crate::note::{Audio, Image, Context};
 use crate::inbox::InboxItem;
+
+const DEFAULT_DECK: &str = "Default";
+
+fn source_to_type_and_data(source: &crate::note::Source) -> (String, String) {
+    let source_type = match source {
+        crate::note::Source::Web { .. } => "web",
+        crate::note::Source::Video { .. } => "video",
+        crate::note::Source::Pdf { .. } => "pdf",
+        crate::note::Source::App { .. } => "app",
+    };
+    let source_data = serde_json::to_string(source).unwrap_or_default();
+    (source_type.to_string(), source_data)
+}
+
+fn parse_source_from_data(source_data: &str) -> Result<crate::note::Source, crate::WittCoreError> {
+    serde_json::from_str(source_data).map_err(|e| {
+        crate::WittCoreError::InvalidData(format!("Invalid source data: {}", e))
+    })
+}
+
+fn map_row_to_note(
+    row: &sqlx::sqlite::SqliteRow,
+    contexts: Vec<crate::note::Context>,
+) -> Result<Note, crate::WittCoreError> {
+    let lemma: String = row.try_get("lemma")?;
+    let definition: String = row.try_get("definition")?;
+    let pronunciation: Option<String> = row.try_get("pronunciation")?;
+    let phonetics: Option<String> = row.try_get("phonetics")?;
+    let tags_json: Option<String> = row.try_get("tags")?;
+    let comment: Option<String> = row.try_get("comment")?;
+    let deck: String = row.try_get("deck")?;
+    let created_at: String = row.try_get("created_at")?;
+    let updated_at: Option<String> = row.try_get("updated_at")?;
+
+    let tags: Vec<String> = parse_tags_json(tags_json);
+    let pronunciation = pronunciation.map(|p| Audio { file_path: p });
+
+    Ok(Note {
+        lemma,
+        definition,
+        pronunciation,
+        phonetics,
+        tags,
+        comment: comment.unwrap_or_default(),
+        deck: if deck.is_empty() { DEFAULT_DECK.to_string() } else { deck },
+        contexts,
+        created_at: parse_rfc3339(&created_at)?,
+        updated_at: parse_opt_rfc3339(updated_at),
+    })
+}
+
+fn map_row_to_context(row: &sqlx::sqlite::SqliteRow) -> Result<crate::note::Context, crate::WittCoreError> {
+    let id: String = row.try_get("id")?;
+    let id = Uuid::parse_str(&id).map_err(|e| {
+        crate::WittCoreError::InvalidData(format!("Invalid UUID: {}", e))
+    })?;
+
+    let audio: Option<String> = row.try_get("audio")?;
+    let image: Option<String> = row.try_get("image")?;
+    let audio = audio.map(|a| Audio { file_path: a });
+    let image = image.map(|i| Image { file_path: i });
+    let source_data: String = row.try_get("source_data")?;
+    let source = parse_source_from_data(&source_data)?;
+
+    let created_at: String = row.try_get("created_at")?;
+    let updated_at: Option<String> = row.try_get("updated_at")?;
+
+    Ok(crate::note::Context {
+        id,
+        word_form: row.try_get("word_form")?,
+        sentence: row.try_get("sentence")?,
+        audio,
+        image,
+        source,
+        created_at: parse_rfc3339(&created_at)?,
+        updated_at: parse_opt_rfc3339(updated_at),
+    })
+}
+
+fn map_row_to_inbox_item(row: &sqlx::sqlite::SqliteRow) -> Result<InboxItem, crate::WittCoreError> {
+    let raw_id: String = row.try_get("id")?;
+    let id = Uuid::parse_str(&raw_id).map_err(|e| {
+        crate::WittCoreError::InvalidData(format!("Invalid UUID: {}", e))
+    })?;
+    let source_data: String = row.try_get("source_data")?;
+    let source = parse_source_from_data(&source_data)?;
+    let captured_at: String = row.try_get("captured_at")?;
+    let processed_i: i64 = row.try_get("processed")?;
+    let processing_notes: Option<String> = row.try_get("processing_notes")?;
+
+    Ok(InboxItem {
+        id,
+        context: row.try_get("context")?,
+        source,
+        captured_at: parse_rfc3339(&captured_at)?,
+        processed: processed_i != 0,
+        processing_notes,
+    })
+}
 
 /// SQLite database connection for WittCore
 #[derive(Debug, Clone)]
@@ -195,41 +293,27 @@ impl SqliteDb {
 
     /// Gets all notes from the database
     pub async fn get_all_notes(&self) -> Result<Vec<Note>, crate::WittCoreError> {
-        let notes = sqlx::query(
+        let note_rows = sqlx::query(
             r#"SELECT lemma, definition, pronunciation, phonetics, tags, comment, deck, created_at, updated_at FROM notes"#,
         )
         .fetch_all(&self.pool)
         .await?;
 
+        if note_rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let lemmas: Vec<String> = note_rows.iter()
+            .map(|r| r.try_get("lemma"))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let all_contexts = self.get_contexts_for_notes(&lemmas).await?;
+
         let mut result = Vec::new();
-        for row in notes {
+        for row in note_rows {
             let lemma: String = row.try_get("lemma")?;
-            let definition: String = row.try_get("definition")?;
-            let pronunciation: Option<String> = row.try_get("pronunciation")?;
-            let phonetics: Option<String> = row.try_get("phonetics")?;
-            let tags_json: Option<String> = row.try_get("tags")?;
-            let comment: Option<String> = row.try_get("comment")?;
-            let deck: String = row.try_get("deck")?;
-            let created_at: String = row.try_get("created_at")?;
-            let updated_at: Option<String> = row.try_get("updated_at")?;
-
-            let contexts = self.get_contexts_for_note(&lemma).await?;
-            let tags: Vec<String> = parse_tags_json(tags_json);
-            let pronunciation = pronunciation.map(|p| Audio { file_path: p });
-
-            let note = Note {
-                lemma,
-                definition,
-                pronunciation,
-                phonetics,
-                tags,
-                comment: comment.unwrap_or_default(),
-                deck: if deck.is_empty() { "Default".to_string() } else { deck },
-                contexts,
-                created_at: parse_rfc3339(&created_at)?,
-                updated_at: parse_opt_rfc3339(updated_at),
-            };
-            result.push(note);
+            let contexts = all_contexts.get(&lemma).cloned().unwrap_or_default();
+            result.push(map_row_to_note(&row, contexts)?);
         }
 
         Ok(result)
@@ -247,32 +331,9 @@ impl SqliteDb {
         match row {
             Some(row) => {
                 let lemma: String = row.try_get("lemma")?;
-                let definition: String = row.try_get("definition")?;
-                let pronunciation: Option<String> = row.try_get("pronunciation")?;
-                let phonetics: Option<String> = row.try_get("phonetics")?;
-                let tags_json: Option<String> = row.try_get("tags")?;
-                let comment: Option<String> = row.try_get("comment")?;
-                let deck: String = row.try_get("deck")?;
-                let created_at: String = row.try_get("created_at")?;
-                let updated_at: Option<String> = row.try_get("updated_at")?;
-
-                let contexts = self.get_contexts_for_note(&lemma).await?;
-                let tags: Vec<String> = parse_tags_json(tags_json);
-                let pronunciation = pronunciation.map(|p| Audio { file_path: p });
-
-                let note = Note {
-                    lemma,
-                    definition,
-                    pronunciation,
-                    phonetics,
-                    tags,
-                    comment: comment.unwrap_or_default(),
-                    deck: if deck.is_empty() { "Default".to_string() } else { deck },
-                    contexts,
-                    created_at: parse_rfc3339(&created_at)?,
-                    updated_at: parse_opt_rfc3339(updated_at),
-                };
-                Ok(Some(note))
+                let contexts = self.get_contexts_for_notes(std::slice::from_ref(&lemma)).await?
+                    .get(&lemma).cloned().unwrap_or_default();
+                Ok(Some(map_row_to_note(&row, contexts)?))
             },
             None => Ok(None),
         }
@@ -357,21 +418,12 @@ impl SqliteDb {
             let audio = context.audio.as_ref().map(|a| a.file_path.clone());
             let image = context.image.as_ref().map(|i| i.file_path.clone());
 
-            let source_type = match &context.source {
-                crate::note::Source::Web { .. } => "web",
-                crate::note::Source::Video { .. } => "video",
-                crate::note::Source::Pdf { .. } => "pdf",
-                crate::note::Source::App { .. } => "app",
-            };
-
-            let source_data = serde_json::to_string(&context.source).unwrap_or_default();
+            let (source_type, source_data) = source_to_type_and_data(&context.source);
             let updated_at = context.updated_at.map(|dt| dt.to_rfc3339());
 
-            // Check if context exists
             let existing = self.get_context_by_id(&context.id).await?;
 
             if existing.is_some() {
-                // Update existing context
                 let context_id = context.id.to_string();
                 sqlx::query(
                     r#"
@@ -477,48 +529,33 @@ impl SqliteDb {
         }
     }
 
-    /// Gets all contexts for a note
-    async fn get_contexts_for_note(&self, lemma: &str) -> Result<Vec<Context>, crate::WittCoreError> {
-        let rows = sqlx::query(
-            r#"SELECT id, word_form, sentence, audio, image, source_data, created_at, updated_at FROM contexts WHERE lemma = ?"#,
-        )
-        .bind(lemma)
-        .fetch_all(&self.pool)
-        .await?;
-
-        let mut contexts = Vec::new();
-        for row in rows {
-            let id: String = row.try_get("id")?;
-            let id = Uuid::parse_str(&id).map_err(|e| {
-                crate::WittCoreError::InvalidData(format!("Invalid UUID: {}", e))
-            })?;
-
-            let audio: Option<String> = row.try_get("audio")?;
-            let image: Option<String> = row.try_get("image")?;
-            let audio = audio.map(|a| Audio { file_path: a });
-            let image = image.map(|i| Image { file_path: i });
-            let source_data: String = row.try_get("source_data")?;
-            let source = serde_json::from_str(&source_data).map_err(|e| {
-                crate::WittCoreError::InvalidData(format!("Invalid source data: {}", e))
-            })?;
-
-            let created_at: String = row.try_get("created_at")?;
-            let updated_at: Option<String> = row.try_get("updated_at")?;
-
-            let context = Context {
-                id,
-                word_form: row.try_get("word_form")?,
-                sentence: row.try_get("sentence")?,
-                audio,
-                image,
-                source,
-                created_at: parse_rfc3339(&created_at)?,
-                updated_at: parse_opt_rfc3339(updated_at),
-            };
-            contexts.push(context);
+    /// Gets all contexts for multiple notes in a single query (avoids N+1 problem)
+    async fn get_contexts_for_notes(&self, lemmas: &[String]) -> Result<std::collections::HashMap<String, Vec<Context>>, crate::WittCoreError> {
+        if lemmas.is_empty() {
+            return Ok(std::collections::HashMap::new());
         }
 
-        Ok(contexts)
+        let placeholders: String = lemmas.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            r#"SELECT id, lemma, word_form, sentence, audio, image, source_data, created_at, updated_at FROM contexts WHERE lemma IN ({})"#,
+            placeholders
+        );
+
+        let mut query = sqlx::query(&sql);
+        for lemma in lemmas {
+            query = query.bind(lemma);
+        }
+
+        let rows = query.fetch_all(&self.pool).await?;
+
+        let mut context_map: std::collections::HashMap<String, Vec<Context>> = std::collections::HashMap::new();
+        for row in rows {
+            let lemma: String = row.try_get("lemma")?;
+            let context = map_row_to_context(&row)?;
+            context_map.entry(lemma).or_default().push(context);
+        }
+
+        Ok(context_map)
     }
 
     /// Updates tag usage counts
@@ -593,7 +630,7 @@ impl SqliteDb {
     pub async fn search_notes(&self, query: &str) -> Result<Vec<Note>, crate::WittCoreError> {
         let query_pattern = format!("%{}%", query);
 
-        let notes = sqlx::query(
+        let note_rows = sqlx::query(
             r#"
             SELECT lemma, definition, pronunciation, phonetics, tags, comment, deck, created_at, updated_at
             FROM notes
@@ -607,35 +644,21 @@ impl SqliteDb {
         .fetch_all(&self.pool)
         .await?;
 
+        if note_rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let lemmas: Vec<String> = note_rows.iter()
+            .map(|r| r.try_get("lemma"))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let all_contexts = self.get_contexts_for_notes(&lemmas).await?;
+
         let mut result = Vec::new();
-        for row in notes {
+        for row in note_rows {
             let lemma: String = row.try_get("lemma")?;
-            let definition: String = row.try_get("definition")?;
-            let pronunciation: Option<String> = row.try_get("pronunciation")?;
-            let phonetics: Option<String> = row.try_get("phonetics")?;
-            let tags_json: Option<String> = row.try_get("tags")?;
-            let comment: Option<String> = row.try_get("comment")?;
-            let deck: String = row.try_get("deck")?;
-            let created_at: String = row.try_get("created_at")?;
-            let updated_at: Option<String> = row.try_get("updated_at")?;
-
-            let contexts = self.get_contexts_for_note(&lemma).await?;
-            let tags: Vec<String> = parse_tags_json(tags_json);
-            let pronunciation = pronunciation.map(|p| Audio { file_path: p });
-
-            let note = Note {
-                lemma,
-                definition,
-                pronunciation,
-                phonetics,
-                tags,
-                comment: comment.unwrap_or_default(),
-                deck: if deck.is_empty() { "Default".to_string() } else { deck },
-                contexts,
-                created_at: parse_rfc3339(&created_at)?,
-                updated_at: parse_opt_rfc3339(updated_at),
-            };
-            result.push(note);
+            let contexts = all_contexts.get(&lemma).cloned().unwrap_or_default();
+            result.push(map_row_to_note(&row, contexts)?);
         }
 
         Ok(result)
@@ -643,13 +666,7 @@ impl SqliteDb {
 
     /// Insert a new inbox item into the database.
     pub async fn add_inbox_item(&self, item: &InboxItem) -> Result<(), crate::WittCoreError> {
-        let source_type = match &item.source {
-            crate::note::Source::Web { .. } => "web",
-            crate::note::Source::Video { .. } => "video",
-            crate::note::Source::Pdf { .. } => "pdf",
-            crate::note::Source::App { .. } => "app",
-        };
-        let source_data = serde_json::to_string(&item.source).unwrap_or_default();
+        let (source_type, source_data) = source_to_type_and_data(&item.source);
 
         sqlx::query(
             r#"
@@ -674,7 +691,7 @@ impl SqliteDb {
     pub async fn get_inbox_item(&self, id: &Uuid) -> Result<Option<InboxItem>, crate::WittCoreError> {
         let row = sqlx::query(
             r#"
-            SELECT id, context, source_data, captured_at, processed, processing_notes
+            SELECT id, context, source_type, source_data, captured_at, processed, processing_notes
             FROM inbox_items
             WHERE id = ?
             "#,
@@ -684,26 +701,7 @@ impl SqliteDb {
         .await?;
 
         match row {
-            Some(row) => {
-                let raw_id: String = row.try_get("id")?;
-                let id = Uuid::parse_str(&raw_id)
-                    .map_err(|e| crate::WittCoreError::InvalidData(format!("Invalid UUID: {}", e)))?;
-                let source_data: String = row.try_get("source_data")?;
-                let source = serde_json::from_str(&source_data)
-                    .map_err(|e| crate::WittCoreError::InvalidData(format!("Invalid source data: {}", e)))?;
-                let captured_at: String = row.try_get("captured_at")?;
-                let processed_i: i64 = row.try_get("processed")?;
-                let processing_notes: Option<String> = row.try_get("processing_notes")?;
-
-                Ok(Some(InboxItem {
-                    id,
-                    context: row.try_get("context")?,
-                    source,
-                    captured_at: parse_rfc3339(&captured_at)?,
-                    processed: processed_i != 0,
-                    processing_notes,
-                }))
-            }
+            Some(row) => Ok(Some(map_row_to_inbox_item(&row)?)),
             None => Ok(None),
         }
     }
@@ -798,7 +796,7 @@ impl SqliteDb {
         let items_sql = if use_fts {
             format!(
                 r#"
-                SELECT inbox_items.id, inbox_items.context, inbox_items.source_data, inbox_items.captured_at, inbox_items.processed, inbox_items.processing_notes
+                SELECT inbox_items.id, inbox_items.context, inbox_items.source_type, inbox_items.source_data, inbox_items.captured_at, inbox_items.processed, inbox_items.processing_notes
                 FROM inbox_items
                 JOIN inbox_items_fts ON inbox_items_fts.rowid = inbox_items.rowid
                 {}
@@ -810,7 +808,7 @@ impl SqliteDb {
         } else {
             format!(
                 r#"
-                SELECT id, context, source_data, captured_at, processed, processing_notes
+                SELECT id, context, source_type, source_data, captured_at, processed, processing_notes
                 FROM inbox_items
                 {}
                 ORDER BY captured_at DESC
@@ -848,24 +846,7 @@ impl SqliteDb {
         let mut items: Vec<InboxItem> = Vec::new();
 
         for row in rows {
-            let raw_id: String = row.try_get("id")?;
-            let id = Uuid::parse_str(&raw_id)
-                .map_err(|e| crate::WittCoreError::InvalidData(format!("Invalid UUID: {}", e)))?;
-            let source_data: String = row.try_get("source_data")?;
-            let source = serde_json::from_str(&source_data)
-                .map_err(|e| crate::WittCoreError::InvalidData(format!("Invalid source data: {}", e)))?;
-            let captured_at: String = row.try_get("captured_at")?;
-            let processed_i: i64 = row.try_get("processed")?;
-            let processing_notes: Option<String> = row.try_get("processing_notes")?;
-
-            items.push(InboxItem {
-                id,
-                context: row.try_get("context")?,
-                source,
-                captured_at: parse_rfc3339(&captured_at)?,
-                processed: processed_i != 0,
-                processing_notes,
-            });
+            items.push(map_row_to_inbox_item(&row)?);
         }
 
         Ok((items, total_usize))

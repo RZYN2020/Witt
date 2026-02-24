@@ -63,10 +63,10 @@ export const useSettingsStore = create<SettingsSlice>((set) => ({
   appLanguage: 'en',
 
   // Capture settings
-  // Default: Cmd+G / Cmd+L (CmdOrCtrl on non-macOS)
-  captureHotkey: 'CommandOrControl+G',
-  libraryHotkey: 'CommandOrControl+L',
-  inboxHotkey: 'CommandOrControl+Alt+I',
+  // Default: Cmd+; / Cmd+' / Cmd+, (CmdOrCtrl on non-macOS)
+  captureHotkey: 'CommandOrControl+;',
+  libraryHotkey: "CommandOrControl+'",
+  inboxHotkey: 'CommandOrControl+,',
   hotkeyEnabled: true,
   autoFetchDefinitions: true,
   includeScreenshots: false,
@@ -345,60 +345,19 @@ try {
       applyTheme(savedTheme);
     }
 
-    // Migrate old shortcut keys to new defaults
-    const oldCaptureHotkeys = [
-      'CommandOrControl+Shift+C',
-      'CommandOrControl+G',
-      'Super+G',
-      'Command+G',
-      'Command+Shift+X',
-      'Ctrl+Alt+C',
-      'CmdOrCtrl+G',
-    ];
-    const oldLibraryHotkeys = [
-      'CommandOrControl+Shift+L',
-      'CommandOrControl+L',
-      'Super+L',
-      'Command+L',
-      'Command+Shift+V',
-      'Ctrl+Alt+L',
-      'CmdOrCtrl+L',
-    ];
-    const newCaptureHotkey = 'CommandOrControl+G';
-    const newLibraryHotkey = 'CommandOrControl+L';
-    const newInboxHotkey = 'CommandOrControl+Alt+I';
-
     const savedCaptureHotkey = localStorage.getItem('witt:captureHotkey');
     if (savedCaptureHotkey) {
-      // Migrate old default to new default
-      if (oldCaptureHotkeys.includes(savedCaptureHotkey)) {
-        localStorage.setItem('witt:captureHotkey', newCaptureHotkey);
-        useSettingsStore.getState().captureHotkey = newCaptureHotkey;
-      } else {
-        useSettingsStore.getState().captureHotkey = savedCaptureHotkey;
-      }
+      useSettingsStore.getState().captureHotkey = savedCaptureHotkey;
     }
 
     const savedLibraryHotkey = localStorage.getItem('witt:libraryHotkey');
     if (savedLibraryHotkey) {
-      // Migrate old default to new default
-      if (oldLibraryHotkeys.includes(savedLibraryHotkey)) {
-        localStorage.setItem('witt:libraryHotkey', newLibraryHotkey);
-        useSettingsStore.getState().libraryHotkey = newLibraryHotkey;
-      } else {
-        useSettingsStore.getState().libraryHotkey = savedLibraryHotkey;
-      }
+      useSettingsStore.getState().libraryHotkey = savedLibraryHotkey;
     }
 
-    const oldInboxHotkeys = ['Ctrl+Alt+I'];
     const savedInboxHotkey = localStorage.getItem('witt:inboxHotkey');
     if (savedInboxHotkey) {
-      if (oldInboxHotkeys.includes(savedInboxHotkey)) {
-        localStorage.setItem('witt:inboxHotkey', newInboxHotkey);
-        useSettingsStore.getState().inboxHotkey = newInboxHotkey;
-      } else {
-        useSettingsStore.getState().inboxHotkey = savedInboxHotkey;
-      }
+      useSettingsStore.getState().inboxHotkey = savedInboxHotkey;
     }
 
     const savedHotkeyEnabled = localStorage.getItem('witt:hotkeyEnabled');

@@ -1,5 +1,7 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { useSettingsStore } from '@/stores/useSettingsStore';
+import type { Source } from '@/types';
+import { showCaptureWindow } from '@/lib/captureWindow';
 
 /**
  * Global shortcut manager for Witt
@@ -8,26 +10,59 @@ import { useSettingsStore } from '@/stores/useSettingsStore';
 export function GlobalShortcuts() {
   const { captureHotkey, libraryHotkey, inboxHotkey, hotkeyEnabled } = useSettingsStore();
   const registeredShortcuts = useRef<Set<string>>(new Set());
+  const registeredByKind = useRef<Record<'capture' | 'inbox' | 'library', string | null>>({
+    capture: null,
+    inbox: null,
+    library: null,
+  });
+
+  useEffect(() => {
+    return () => {
+      unregisterAllShortcuts();
+      registeredShortcuts.current.clear();
+      registeredByKind.current.capture = null;
+      registeredByKind.current.inbox = null;
+      registeredByKind.current.library = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!hotkeyEnabled) {
       unregisterAllShortcuts();
       registeredShortcuts.current.clear();
+      registeredByKind.current.capture = null;
+      registeredByKind.current.inbox = null;
+      registeredByKind.current.library = null;
       return;
     }
 
-    // Register capture shortcut
     if (captureHotkey) {
       void ensureShortcutRegistered({
         kind: 'capture',
         preferredShortcut: captureHotkey,
         registeredShortcuts,
+        registeredByKind,
         onTrigger: async () => {
           console.log('[GlobalShortcut] Capture shortcut triggered');
-          await toggleCaptureWindow({ mode: 'capture' });
+          const clipboardText = await tryGetClipboardText();
+          if (clipboardText) {
+            try {
+              localStorage.setItem(
+                'witt:pendingCapture',
+                JSON.stringify({ text: clipboardText, source: { type: 'app', name: 'Clipboard' } })
+              );
+            } catch {
+              void 0;
+            }
+          } else {
+            await preparePendingCaptureText('witt:pendingCapture');
+          }
+          await showCaptureWindow({ mode: 'capture' });
         },
         onPersistShortcut: (value) => useSettingsStore.getState().setCaptureHotkey(value),
       });
+    } else {
+      void unregisterKind('capture', registeredByKind, registeredShortcuts);
     }
 
     if (inboxHotkey) {
@@ -35,32 +70,35 @@ export function GlobalShortcuts() {
         kind: 'inbox',
         preferredShortcut: inboxHotkey,
         registeredShortcuts,
+        registeredByKind,
         onTrigger: async () => {
           console.log('[GlobalShortcut] Inbox shortcut triggered');
-          await toggleCaptureWindow({ mode: 'inbox' });
+          const saved = await trySaveSelectionToInbox();
+          if (!saved) {
+            await showCaptureWindow({ mode: 'inbox' });
+          }
         },
         onPersistShortcut: (value) => useSettingsStore.getState().setInboxHotkey(value),
       });
+    } else {
+      void unregisterKind('inbox', registeredByKind, registeredShortcuts);
     }
 
-    // Register library shortcut
     if (libraryHotkey) {
       void ensureShortcutRegistered({
         kind: 'library',
         preferredShortcut: libraryHotkey,
         registeredShortcuts,
+        registeredByKind,
         onTrigger: async () => {
           console.log('[GlobalShortcut] Library shortcut triggered');
           await showMainWindow();
         },
         onPersistShortcut: (value) => useSettingsStore.getState().setLibraryHotkey(value),
       });
+    } else {
+      void unregisterKind('library', registeredByKind, registeredShortcuts);
     }
-
-    return () => {
-      unregisterAllShortcuts();
-      registeredShortcuts.current.clear();
-    };
   }, [captureHotkey, inboxHotkey, libraryHotkey, hotkeyEnabled]);
 
   return null;
@@ -109,24 +147,55 @@ function buildFallbackShortcuts(preferredShortcut: string): string[] {
   return uniq;
 }
 
+type ShortcutKind = 'capture' | 'inbox' | 'library';
+type RegisteredByKindRef = MutableRefObject<Record<ShortcutKind, string | null>>;
+
+async function unregisterKind(
+  kind: ShortcutKind,
+  registeredByKind: RegisteredByKindRef,
+  registeredShortcuts: MutableRefObject<Set<string>>
+) {
+  const shortcut = registeredByKind.current[kind];
+  if (!shortcut) return;
+
+  try {
+    const { unregister, isRegistered } = await import('@tauri-apps/plugin-global-shortcut');
+    if (await isRegistered(shortcut)) {
+      await unregister(shortcut);
+    }
+  } catch (error) {
+    console.error('[GlobalShortcut] Failed to unregister shortcut:', shortcut, error);
+  }
+
+  registeredShortcuts.current.delete(shortcut);
+  registeredByKind.current[kind] = null;
+}
+
 async function ensureShortcutRegistered(opts: {
-  kind: 'capture' | 'inbox' | 'library';
+  kind: ShortcutKind;
   preferredShortcut: string;
   registeredShortcuts: MutableRefObject<Set<string>>;
+  registeredByKind: RegisteredByKindRef;
   onTrigger: () => Promise<void>;
   onPersistShortcut: (value: string) => void;
 }) {
   const candidates = buildFallbackShortcuts(opts.preferredShortcut);
   if (candidates.length === 0) return;
 
-  // Already registered with any candidate shortcut.
-  if (candidates.some((c) => opts.registeredShortcuts.current.has(c))) return;
+  const current = opts.registeredByKind.current[opts.kind];
+  if (current && candidates.includes(current) && opts.registeredShortcuts.current.has(current)) {
+    return;
+  }
+  if (current) {
+    await unregisterKind(opts.kind, opts.registeredByKind, opts.registeredShortcuts);
+  }
 
   let lastError: unknown = null;
   for (const shortcut of candidates) {
     const result = await registerShortcut(shortcut, opts.onTrigger);
     if (result.ok) {
       opts.registeredShortcuts.current.add(shortcut);
+      opts.registeredByKind.current[opts.kind] = shortcut;
 
       // If we had to fall back, persist and inform user.
       const normalizedPreferred = normalizeShortcut(opts.preferredShortcut);
@@ -154,188 +223,72 @@ async function ensureShortcutRegistered(opts: {
 /**
  * Toggle capture window visibility - show target window and hide others
  */
-async function toggleCaptureWindow(opts?: { mode?: 'capture' | 'inbox' }) {
+async function tryGetClipboardText(): Promise<string | null> {
   try {
-    const { getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow');
-    const { PhysicalPosition } = await import('@tauri-apps/api/dpi');
-    const windows = await getAllWebviewWindows();
-
-    const mode = opts?.mode === 'inbox' ? 'inbox' : 'capture';
-    try {
-      localStorage.setItem('witt:captureMode', mode);
-    } catch {
-      // ignore
-    }
-
-    // Best-effort: capture selected text from the currently focused app.
-    // Store it for the capture window to consume.
-    await preparePendingCaptureText(mode === 'inbox' ? 'witt:pendingInboxCapture' : 'witt:pendingCapture');
-
-    console.log(
-      '[Window] Available windows:',
-      windows.map((w) => w.label)
-    );
-    console.log('[Window] Target: capture');
-
-    // Find and show capture window
-    const captureWindow = windows.find((w) => w.label === 'capture');
-
-    // Get system/global mouse position for window placement.
-    // `window.cursorPosition()` is relative to the current window and becomes incorrect
-    // when the app is not focused.
-    const mousePos = await getGlobalMousePosition();
-    console.log('[Window] Global mouse position:', mousePos);
-
-    if (captureWindow) {
-      console.log('[Window] Showing existing capture window');
-      // Make it visible across Spaces (macOS) so it can show over the currently active app.
-      try {
-        await (captureWindow as any).setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-      } catch {
-        // ignore
-      }
-      try {
-        await captureWindow.setAlwaysOnTop(true);
-      } catch {
-        // ignore
-      }
-      try {
-        await captureWindow.setSkipTaskbar(true);
-      } catch {
-        // ignore
-      }
-
-      // Position first, then show/focus.
-      await captureWindow.setPosition(new PhysicalPosition(mousePos.x + 16, mousePos.y + 16));
-      await captureWindow.show();
-      await captureWindow.unminimize();
-      await captureWindow.setFocus();
-    } else {
-      // Create capture window if it doesn't exist
-      console.log('[Window] Creating new capture window');
-      const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      const newWindow = new WebviewWindow('capture', {
-        title: mode === 'inbox' ? 'Inbox Quick Capture' : 'Capture Context',
-        width: 650,
-        height: 750,
-        minWidth: 550,
-        minHeight: 650,
-        resizable: true,
-        fullscreen: false,
-        decorations: true,
-        transparent: false,
-        alwaysOnTop: true,
-        visibleOnAllWorkspaces: true,
-        visible: true,
-        x: mousePos.x + 16, // Offset to avoid cursor overlap
-        y: mousePos.y + 16,
-        skipTaskbar: true,
-      });
-
-      // Handle window creation errors
-      newWindow.once('tauri://created', () => {
-        console.log('[Window] Capture window created successfully');
-        void (async () => {
-          try {
-            await (newWindow as any).setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-          } catch {
-            // ignore
-          }
-          try {
-            await newWindow.setAlwaysOnTop(true);
-          } catch {
-            // ignore
-          }
-          try {
-            await newWindow.setSkipTaskbar(true);
-          } catch {
-            // ignore
-          }
-        })();
-      });
-
-      newWindow.once('tauri://creation-error', () => {
-        console.error('[Window] Failed to create capture window');
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 300));
-    }
-
-    // Keep main window state unchanged here. Hiding/showing the main window can cause
-    // Space switches on macOS and makes the capture popup feel like it is "tied" to the app.
-  } catch (error) {
-    console.error('[Window] Failed to toggle capture window:', error);
+    const { readText } = await import('@tauri-apps/plugin-clipboard-manager');
+    const text = (await readText()) || '';
+    const trimmed = text.trim();
+    return trimmed ? trimmed : null;
+  } catch {
+    return null;
   }
 }
 
-async function getGlobalMousePosition(): Promise<{ x: number; y: number }> {
-  // Prefer backend global cursor position (works even when app is not focused)
-  try {
-    const commands = await import('@/lib/commands');
-    return await commands.getGlobalCursorPosition();
-  } catch {
-    // Fallback: best-effort using current window coordinates
-  }
-
-  try {
-    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-    const { cursorPosition } = await import('@tauri-apps/api/window');
-
-    const win = getCurrentWebviewWindow();
-    const winPos = await win.outerPosition();
-    const rel = await cursorPosition();
-
-    return { x: winPos.x + rel.x, y: winPos.y + rel.y };
-  } catch {
-    return { x: 0, y: 0 };
-  }
-}
-
-async function preparePendingCaptureText(storageKey: string) {
+async function preparePendingCaptureText(storageKey?: string): Promise<string | null> {
   try {
     const { readText, writeText } = await import('@tauri-apps/plugin-clipboard-manager');
     const previous = (await readText()) || '';
 
-    // Try to simulate Cmd+C / Ctrl+C via backend (macOS requires Accessibility permission)
     try {
       const commands = await import('@/lib/commands');
       await commands.simulateCopyShortcut();
     } catch {
-      // ignore
+      void 0;
     }
 
-    // Give the OS a moment to update clipboard
     await new Promise((r) => setTimeout(r, 120));
 
     const current = (await readText()) || '';
     const selected = current.trim();
 
     if (selected) {
-      // Provide pending capture to the capture window
-      try {
-        localStorage.setItem(
-          storageKey,
-          JSON.stringify({
-            text: selected,
-            source: { type: 'app', name: 'Text Selection' },
-          })
-        );
-      } catch {
-        // ignore
+      if (storageKey) {
+        try {
+          localStorage.setItem(
+            storageKey,
+            JSON.stringify({
+              text: selected,
+              source: { type: 'app', name: 'Text Selection' },
+            })
+          );
+        } catch {
+          void 0;
+        }
       }
     }
 
-    // Restore clipboard to avoid polluting user's clipboard
     if (previous && previous !== current) {
       try {
         await writeText(previous);
       } catch {
-        // ignore
+        void 0;
       }
     }
+
+    return selected || null;
   } catch {
-    // ignore all errors
+    return null;
   }
+}
+
+async function trySaveSelectionToInbox(): Promise<boolean> {
+  const selected = await preparePendingCaptureText();
+  if (!selected) return false;
+
+  const source: Source = { type: 'app', name: 'Text Selection' };
+  const { useInboxStore } = await import('@/stores/useInboxStore');
+  await useInboxStore.getState().addToInbox(selected, source);
+  return true;
 }
 
 /**
@@ -365,15 +318,15 @@ async function registerShortcut(
   callback: () => void
 ): Promise<{ ok: boolean; error?: unknown }> {
   try {
-    const { register, isRegistered, unregister } =
+    const { register, isRegistered } = 
       await import('@tauri-apps/plugin-global-shortcut');
 
     console.log('[GlobalShortcut] Attempting to register:', shortcut);
 
     const alreadyRegistered = await isRegistered(shortcut);
     if (alreadyRegistered) {
-      console.log('[GlobalShortcut] Already registered, unregistering first:', shortcut);
-      await unregister(shortcut);
+      console.log('[GlobalShortcut] Already registered, skipping:', shortcut);
+      return { ok: true };
     }
 
     await register(shortcut, (event) => {

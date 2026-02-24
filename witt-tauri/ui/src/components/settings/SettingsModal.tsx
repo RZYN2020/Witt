@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 import {
@@ -124,6 +124,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     setIncludeScreenshots,
     appLanguage,
     setAppLanguage,
+    captureHotkey,
+    setCaptureHotkey,
+    libraryHotkey,
+    setLibraryHotkey,
+    inboxHotkey,
+    setInboxHotkey,
   } = useSettingsStore();
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -142,6 +148,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   // Get translations for current language
   const t = TRANSLATIONS[appLanguage as keyof typeof TRANSLATIONS] || TRANSLATIONS.en;
+  const defaultHotkeys = useMemo(
+    () => ({
+      capture: 'CommandOrControl+;',
+      library: "CommandOrControl+'",
+      inbox: 'CommandOrControl+,',
+    }),
+    []
+  );
 
   return (
     <AnimatePresence>
@@ -166,7 +180,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           >
             <div className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto mx-4">
               {/* Header */}
-              <div className="flex items-center justify-between p-5 border-b border-border flex-shrink-0">
+              <div className="flex items-center justify-between p-4 border-b border-border flex-shrink-0">
                 <h2 className="text-xl font-semibold text-foreground">{t.title}</h2>
                 <button
                   onClick={onClose}
@@ -177,7 +191,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               </div>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-5 min-h-0">
+              <div className="flex-1 overflow-y-auto p-4 min-h-0">
                 {/* Appearance Section */}
                 <SettingsSection
                   id="appearance"
@@ -186,7 +200,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   isExpanded={expandedSections.appearance}
                   onToggle={() => toggleSection('appearance')}
                 >
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <ThemeOption
                       value="light"
                       icon={Sun}
@@ -219,20 +233,20 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   isExpanded={expandedSections.language}
                   onToggle={() => toggleSection('language')}
                 >
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     {LANGUAGES.map((lang) => (
                       <button
                         key={lang.value}
                         onClick={() => setAppLanguage(lang.value)}
                         className={cn(
-                          'flex items-center gap-4 p-4 rounded-xl border transition-all',
+                          'flex items-center gap-3 p-3 rounded-xl border transition-all',
                           appLanguage === lang.value
                             ? 'border-primary bg-primary/5'
                             : 'border-border bg-card hover:border-ring'
                         )}
                       >
-                        <span className="text-3xl">{lang.flag}</span>
-                        <span className="flex-1 text-left text-base font-medium text-foreground">
+                        <span className="text-2xl">{lang.flag}</span>
+                        <span className="flex-1 text-left text-sm font-medium text-foreground">
                           {lang.label}
                         </span>
                         {appLanguage === lang.value && (
@@ -275,7 +289,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   isExpanded={expandedSections.shortcuts}
                   onToggle={() => toggleSection('shortcuts')}
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="p-4 bg-primary/5 rounded-lg border border-primary/30">
                       <p className="text-sm text-primary font-medium mb-2">🎯 Global Shortcuts</p>
                       <p className="text-xs text-muted-foreground">
@@ -284,27 +298,27 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </div>
 
                     <ShortcutInput
-                      label="Capture Word"
-                      description="Open capture popup from anywhere"
-                      value={useSettingsStore.getState().captureHotkey}
-                      onChange={(value) => useSettingsStore.getState().setCaptureHotkey(value)}
-                      defaultHotkey="CommandOrControl+G"
+                      label="Capture"
+                      description="Copy text → press hotkey → show capture window"
+                      value={captureHotkey}
+                      onChange={setCaptureHotkey}
+                      defaultHotkey={defaultHotkeys.capture}
                     />
 
                     <ShortcutInput
-                      label="Open Library"
-                      description="Focus/open the library window"
-                      value={useSettingsStore.getState().libraryHotkey}
-                      onChange={(value) => useSettingsStore.getState().setLibraryHotkey(value)}
-                      defaultHotkey="CommandOrControl+L"
+                      label="Library"
+                      description="Show the main window"
+                      value={libraryHotkey}
+                      onChange={setLibraryHotkey}
+                      defaultHotkey={defaultHotkeys.library}
                     />
 
                     <ShortcutInput
-                      label="Inbox Quick Capture"
-                      description="Quick-capture context into Inbox"
-                      value={useSettingsStore.getState().inboxHotkey}
-                      onChange={(value) => useSettingsStore.getState().setInboxHotkey(value)}
-                      defaultHotkey="CommandOrControl+Alt+I"
+                      label="Inbox"
+                      description="Save selection into Inbox"
+                      value={inboxHotkey}
+                      onChange={setInboxHotkey}
+                      defaultHotkey={defaultHotkeys.inbox}
                     />
                   </div>
                 </SettingsSection>
@@ -337,7 +351,7 @@ function SettingsSection({
     <div className="border border-border rounded-xl mb-3 overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 hover:bg-accent/50 transition-colors"
+        className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors"
       >
         <div className="flex items-center gap-3">
           <Icon className="w-5 h-5 text-muted-foreground" />
@@ -359,7 +373,7 @@ function SettingsSection({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="p-4 pt-0 border-t border-border">{children}</div>
+            <div className="p-3 pt-0 border-t border-border">{children}</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -382,14 +396,14 @@ function ThemeOption({ value, icon: Icon, label, current, onChange }: ThemeOptio
     <button
       onClick={() => onChange(value)}
       className={cn(
-        'flex flex-col items-center gap-3 p-6 rounded-xl border transition-all duration-200',
+        'flex flex-col items-center gap-2 p-4 rounded-xl border transition-all duration-200',
         isActive
           ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary ring-offset-2'
           : 'border-border bg-card hover:border-ring hover:bg-accent/50'
       )}
     >
-      <Icon className={cn('w-8 h-8', isActive ? 'text-primary' : 'text-muted-foreground')} />
-      <span className="text-base font-medium">{label}</span>
+      <Icon className={cn('w-6 h-6', isActive ? 'text-primary' : 'text-muted-foreground')} />
+      <span className="text-sm font-medium">{label}</span>
     </button>
   );
 }
@@ -403,10 +417,10 @@ interface SettingToggleProps {
 
 function SettingToggle({ label, description, checked, onChange }: SettingToggleProps) {
   return (
-    <div className="flex items-start justify-between gap-4 p-3 rounded-lg hover:bg-accent/30 transition-colors">
+    <div className="flex items-start justify-between gap-4 p-2.5 rounded-lg hover:bg-accent/30 transition-colors">
       <div className="flex-1">
-        <p className="text-base font-medium text-foreground">{label}</p>
-        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
       </div>
       <button
         onClick={() => onChange(!checked)}
@@ -436,47 +450,97 @@ interface ShortcutInputProps {
 
 function ShortcutInput({ label, description, value, onChange, defaultHotkey }: ShortcutInputProps) {
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingHint, setRecordingHint] = useState<string | null>(null);
 
   const handleRecord = () => {
     setIsRecording(true);
-    setTimeout(() => {
-      onChange(defaultHotkey);
-      setIsRecording(false);
-    }, 1000);
+    setRecordingHint(null);
   };
 
   const handleReset = () => {
     onChange(defaultHotkey);
   };
 
+  useEffect(() => {
+    if (!isRecording) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') {
+        setIsRecording(false);
+        setRecordingHint(null);
+        return;
+      }
+
+      const isModifierOnly = e.key === 'Shift' || e.key === 'Alt' || e.key === 'Control' || e.key === 'Meta';
+      if (isModifierOnly) {
+        return;
+      }
+
+      const parts: string[] = [];
+      if (e.metaKey || e.ctrlKey) parts.push('CommandOrControl');
+      if (e.altKey) parts.push('Alt');
+      if (e.shiftKey) parts.push('Shift');
+
+      if (parts.length === 0) {
+        setRecordingHint('Use Cmd/Ctrl with another key');
+        return;
+      }
+
+      let key = e.key;
+      if (key.length === 1) {
+        if (/[a-z]/.test(key)) key = key.toUpperCase();
+      }
+
+      const next = [...parts, key].join('+');
+      onChange(next);
+      setIsRecording(false);
+      setRecordingHint(null);
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [isRecording, onChange]);
+
   return (
-    <div className="p-4 bg-card rounded-lg border border-border">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-foreground">{label}</span>
-        <button
-          onClick={handleReset}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Reset
-        </button>
-      </div>
-      <p className="text-xs text-muted-foreground mb-3">{description}</p>
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleRecord}
-          disabled={isRecording}
-          className={cn(
-            'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-            isRecording
-              ? 'bg-primary/50 text-primary-foreground cursor-wait'
-              : 'bg-primary text-primary-foreground hover:bg-primary/90'
-          )}
-        >
-          {isRecording ? 'Press keys...' : 'Change'}
-        </button>
-        <kbd className="px-3 py-2 bg-muted border border-border rounded-md text-xs font-mono">
-          {value || 'Not set'}
-        </kbd>
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground">{label}</span>
+            {isRecording && (
+              <span className="text-[11px] text-muted-foreground">Press keys… (Esc to cancel)</span>
+            )}
+          </div>
+          {recordingHint && <p className="mt-0.5 text-[11px] text-muted-foreground">{recordingHint}</p>}
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <kbd className="max-w-[220px] truncate rounded-md border border-border bg-muted px-2 py-1 text-[11px] font-mono">
+            {value || 'Not set'}
+          </kbd>
+          <button
+            onClick={handleRecord}
+            disabled={isRecording}
+            className={cn(
+              'h-8 rounded-md px-3 text-xs font-medium transition-colors',
+              isRecording
+                ? 'bg-primary/40 text-primary-foreground cursor-wait'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            )}
+          >
+            {isRecording ? 'Listening' : 'Change'}
+          </button>
+          <button
+            onClick={handleReset}
+            className="h-8 rounded-md px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          >
+            Reset
+          </button>
+        </div>
       </div>
     </div>
   );

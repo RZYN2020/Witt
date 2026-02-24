@@ -6,6 +6,7 @@ import { useLoadingStore } from './useLoadingStore';
 import { useLibraryStore } from './useLibraryStore';
 import { classifyError, getUserFriendlyMessage, logError } from '@/lib/errors';
 import { withLoading, LoadingState } from '@/lib/loading';
+import { showCaptureWindow } from '@/lib/captureWindow';
 
 /**
  * Capture slice state and actions
@@ -51,42 +52,72 @@ export const useCaptureStore = create<CaptureSlice>((set, get) => ({
   ...initialState,
 
   openPopup: (context: string, source: Source) => {
-    const sentence = context;
-    const wordForm = extractCandidateWord(sentence);
-    const ctxId = crypto.randomUUID();
+    const applyInWindow = () => {
+      const sentence = context;
+      const wordForm = extractCandidateWord(sentence);
+      const ctxId = crypto.randomUUID();
 
-    set({
-      currentCapture: {
-        context: {
-          id: ctxId,
-          word_form: wordForm,
-          sentence,
-          audio: undefined,
-          image: undefined,
-          source,
-          created_at: new Date().toISOString(),
+      set({
+        currentCapture: {
+          context: {
+            id: ctxId,
+            word_form: wordForm,
+            sentence,
+            audio: undefined,
+            image: undefined,
+            source,
+            created_at: new Date().toISOString(),
+          },
+          lemma: '',
+          definition: '',
+          pronunciation: undefined,
+          phonetics: '',
+          tags: [],
+          comment: '',
+          deck: 'Default',
+          definitions: [],
         },
-        lemma: '',
-        definition: '',
-        pronunciation: undefined,
-        phonetics: '',
-        tags: [],
-        comment: '',
-        deck: 'Default',
-        definitions: [],
-      },
-      isPopupOpen: true,
-      error: null,
-      autoWordForm: true,
-    });
+        isPopupOpen: true,
+        error: null,
+        autoWordForm: true,
+      });
 
-    // Fetch lemma and definitions (best effort)
-    const lang = get().language || 'en';
-    setTimeout(() => {
-      if (wordForm) {
-        fetchLemmaAndDefinitions(wordForm, lang);
+      const lang = get().language || 'en';
+      setTimeout(() => {
+        if (wordForm) {
+          fetchLemmaAndDefinitions(wordForm, lang);
+        }
+      }, 100);
+    };
+
+    const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+    if (!isTauri) {
+      applyInWindow();
+      return;
+    }
+
+    void (async () => {
+      try {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const label = getCurrentWebviewWindow().label;
+        if (label !== 'capture') {
+          try {
+            localStorage.setItem(
+              'witt:pendingCapture',
+              JSON.stringify({ text: context, source })
+            );
+          } catch {
+            void 0;
+          }
+          await showCaptureWindow({ mode: 'capture' });
+          return;
+        }
+      } catch {
+        void 0;
       }
-    }, 100);
+
+      applyInWindow();
+    })();
   },
 
   closePopup: () => {

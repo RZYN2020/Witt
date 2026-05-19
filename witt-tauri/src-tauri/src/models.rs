@@ -1,130 +1,87 @@
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use witt_core::{note::Audio, note::Context, Note};
 
-
-/// A dictionary definition for a word
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Definition {
-    pub id: Uuid,
-    pub text: String,
-    pub source: String,
-    pub part_of_speech: Option<String>,
-    pub is_custom: bool,
-    pub is_user_edited: bool,
-}
-
-/// Note creation/update request from the UI
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NoteRequest {
-    pub lemma: String,
-    pub definition: String,
-    pub pronunciation: Option<Audio>,
-    pub phonetics: Option<String>,
-    pub tags: Vec<String>,
-    pub comment: Option<String>,
-    pub deck: Option<String>,
-    pub context: Context,
-    /// Optional definitions to associate with the note
-    #[serde(default)]
-    pub definitions: Vec<Definition>,
-}
-
-/// Filter options for note queries
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct NoteFilter {
-    pub time_range: Option<TimeRange>,
-    pub source: Option<String>,
-    pub tags: Vec<String>,
-    pub search_query: Option<String>,
+pub struct Book {
+    pub id: String,
+    pub title: String,
+    pub author: String,
+    pub file_path: String,
+    pub cover_path: Option<String>,
+    pub imported_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TimeRange {
-    Today,
-    ThisWeek,
-    ThisMonth,
-    All,
+pub struct ReadingProgress {
+    pub book_id: String,
+    pub epub_cfi: String,
+    pub chapter_href: Option<String>,
+    pub progress_percent: f64,
+    pub updated_at: String,
 }
 
-/// Lemma extraction request
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LemmaRequest {
+pub struct Annotation {
+    pub id: String,
+    pub book_id: String,
     pub word: String,
-    pub language: String,
-}
-
-/// Definition lookup request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DefinitionRequest {
-    pub word: String,
-    pub language: String,
-}
-
-/// Paginated response for large datasets
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PaginatedResponse<T> {
-    pub items: Vec<T>,
-    pub total: usize,
-    pub page: usize,
-    pub page_size: usize,
-    pub has_more: bool,
-}
-
-impl<T> PaginatedResponse<T> {
-    pub fn new(items: Vec<T>, total: usize, page: usize, page_size: usize) -> Self {
-        let has_more = (page + 1) * page_size < total;
-        Self {
-            items,
-            total,
-            page,
-            page_size,
-            has_more,
-        }
-    }
-}
-
-/// Batch note operation request
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BatchNoteRequest {
-    pub notes: Vec<NoteRequest>,
-}
-
-/// Batch operation result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BatchResult {
-    pub successful: Vec<String>,
-    pub failed: Vec<BatchError>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BatchError {
-    pub index: usize,
-    pub lemma: String,
-    pub error: String,
-}
-
-/// Compact note summary for list views
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NoteSummary {
-    pub lemma: String,
-    pub definition: String,
-    pub context_count: usize,
-    pub tags: Vec<String>,
+    pub sentence: String,
+    pub chapter_title: Option<String>,
+    pub epub_cfi: Option<String>,
+    pub status: String,
+    pub anki_note_id: Option<i64>,
     pub created_at: String,
-    pub updated_at: Option<String>,
+    pub updated_at: String,
 }
 
-impl From<&Note> for NoteSummary {
-    fn from(note: &Note) -> Self {
-        Self {
-            lemma: note.lemma.clone(),
-            definition: note.definition.clone(),
-            context_count: note.contexts.len(),
-            tags: note.tags.clone(),
-            created_at: note.created_at.to_rfc3339(),
-            updated_at: note.updated_at.map(|dt| dt.to_rfc3339()),
-        }
-    }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnotationDraft {
+    pub book_id: String,
+    pub word: String,
+    pub sentence: String,
+    pub chapter_title: Option<String>,
+    pub epub_cfi: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnkiDeck {
+    pub name: String,
+    pub selected: bool,
+    pub synced_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnkiNote {
+    pub note_id: i64,
+    pub deck_name: String,
+    pub word: String,
+    pub sentence: Option<String>,
+    pub meaning: Option<String>,
+    pub raw_fields_json: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppSettings {
+    pub llm_endpoint: String,
+    pub llm_model: String,
+    pub anki_endpoint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnkiStatus {
+    pub available: bool,
+    pub version: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncSummary {
+    pub created: usize,
+    pub failed: Vec<SyncFailure>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncFailure {
+    pub word: String,
+    pub error: String,
 }

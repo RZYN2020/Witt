@@ -49,6 +49,39 @@
   }
 }
 
+@layer components {
+  .reader-prose {
+    color: #1e293b;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 20px;
+    line-height: 1.95;
+  }
+
+  .reader-prose p {
+    margin: 0 0 1.25rem;
+  }
+
+  .reader-prose h1,
+  .reader-prose h2,
+  .reader-prose h3 {
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 2rem 0 1rem;
+  }
+
+  .reader-prose img {
+    max-width: 100%;
+    margin: 1.5rem auto;
+  }
+
+  .witt-highlight {
+    background: #fde68a;
+    border-radius: 0.18rem;
+    box-shadow: 0 0 0 2px #fde68a;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

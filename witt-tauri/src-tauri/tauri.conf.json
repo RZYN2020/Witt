@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../ui/dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeDevCommand": "cd ../ui && pnpm dev",
+    "beforeBuildCommand": "cd ../ui && pnpm build"
   },
   "app": {
     "windows": [
@@ -23,26 +23,7 @@
         "decorations": true,
         "transparent": false,
         "center": true,
-        "visible": true,
-        "visibleOnAllWorkspaces": true
-      },
-      {
-        "label": "capture",
-        "title": "Capture Context",
-        "width": 650,
-        "height": 750,
-        "minWidth": 550,
-        "minHeight": 650,
-        "resizable": true,
-        "fullscreen": false,
-        "decorations": true,
-        "transparent": false,
-        "alwaysOnTop": true,
-        "visibleOnAllWorkspaces": true,
-        "visible": false,
-        "center": true,
-        "skipTaskbar": true,
-        "acceptFirstMouse": true
+        "visible": true
       }
     ],
     "security": {
@@ -58,19 +39,14 @@
       "icons/icon.png"
     ],
     "category": "Education",
-    "shortDescription": "Personal language asset engine",
-    "longDescription": "Witt helps you build semantic understanding through multi-context word capture.",
+    "shortDescription": "EPUB reader with Anki sync",
+    "longDescription": "Witt helps language learners turn EPUB reading into sentence-backed Anki cards.",
     "macOS": {
       "entitlements": "entitlements.mac.plist",
       "exceptionDomain": "",
       "frameworks": [],
       "providerShortName": null,
       "signingIdentity": null
-    }
-  },
-  "plugins": {
-    "shell": {
-      "open": true
     }
   }
 }

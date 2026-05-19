@@ -27,7 +27,7 @@ beforeAll(() => {
 
   // Mock matchMedia
   Object.defineProperty(window, 'matchMedia', {
-    value: vi.fn().mockImplementation((query) => ({
+    value: vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
@@ -39,9 +39,6 @@ beforeAll(() => {
     })),
   });
 });
-
-// Extend Vitest's expect with Testing Library matchers
-import '@testing-library/jest-dom/vitest';
 
 // Cleanup after each test case (e.g., clearing jsdom)
 afterEach(() => {

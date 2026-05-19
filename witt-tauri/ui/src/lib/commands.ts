@@ -1,287 +1,155 @@
-/**
- * Tauri IPC commands for communicating with the Rust backend
- * With centralized error handling and exception capture
- */
 import { invoke } from '@tauri-apps/api/core';
-import type {
-  Note,
-  Context,
-  InboxItem,
-  NoteRequest,
-  NoteUpdate,
-  NoteFilter,
-  Definition,
-  LemmaRequest,
-  DefinitionRequest,
-  NoteSummary,
-  PaginatedResponse,
-  BatchNoteRequest,
-  BatchResult,
-  AppStats,
-  Source,
-} from '@/types';
-import { classifyError, logError, ErrorType, type WittError } from './errors';
 
-/**
- * Wrapper for invoke calls with standardized error handling
- */
-async function invokeWithErrorHandling<T>(
-  command: string,
-  args?: Record<string, unknown>
-): Promise<T> {
-  try {
-    return await invoke<T>(command, args);
-  } catch (error) {
-    const classifiedError = classifyError(error);
-    logError(classifiedError, command);
-    throw classifiedError;
-  }
+export interface BookRecord {
+  id: string;
+  title: string;
+  author: string;
+  file_path: string;
+  cover_path?: string | null;
+  imported_at: string;
+  updated_at: string;
 }
 
-/**
- * Initialize WittCore
- */
-export async function initCore(): Promise<void> {
-  return invokeWithErrorHandling<void>('init_core');
+export interface ReadingProgress {
+  book_id: string;
+  epub_cfi: string;
+  chapter_href?: string | null;
+  progress_percent: number;
+  updated_at: string;
 }
 
-/**
- * Get all notes with optional filtering
- */
-export async function getNotes(filter?: NoteFilter): Promise<Note[]> {
-  return invokeWithErrorHandling<Note[]>('get_notes', { filter });
+export interface Annotation {
+  id: string;
+  book_id: string;
+  word: string;
+  sentence: string;
+  chapter_title?: string | null;
+  epub_cfi?: string | null;
+  status: string;
+  anki_note_id?: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
-/**
- * Get a single note by lemma
- */
-export async function getNote(lemma: string): Promise<Note> {
-  return invokeWithErrorHandling<Note>('get_note', { lemma });
+export interface AnnotationDraft {
+  book_id: string;
+  word: string;
+  sentence: string;
+  chapter_title?: string | null;
+  epub_cfi?: string | null;
 }
 
-/**
- * Save a new note
- */
-export async function saveNote(request: NoteRequest): Promise<string> {
-  return invokeWithErrorHandling<string>('save_note', { request });
+export interface AnkiDeck {
+  name: string;
+  selected: boolean;
+  synced_at?: string | null;
 }
 
-/**
- * Update an existing note
- */
-export async function updateNote(lemma: string, updates: NoteUpdate): Promise<Note> {
-  return invokeWithErrorHandling<Note>('update_note', { lemma, updates });
+export interface AnkiNote {
+  note_id: number;
+  deck_name: string;
+  word: string;
+  sentence?: string | null;
+  meaning?: string | null;
+  raw_fields_json: string;
+  updated_at: string;
 }
 
-/**
- * Delete a note
- */
-export async function deleteNote(lemma: string): Promise<void> {
-  return invokeWithErrorHandling<void>('delete_note', { lemma });
+export interface AppSettings {
+  llm_endpoint: string;
+  llm_model: string;
+  anki_endpoint: string;
 }
 
-/**
- * Search notes by query
- */
-export async function searchNotes(query: string): Promise<Note[]> {
-  return invokeWithErrorHandling<Note[]>('search_notes', { query });
+export interface AnkiStatus {
+  available: boolean;
+  version?: number | null;
 }
 
-/**
- * Get all contexts for a note
- */
-export async function getContexts(lemma: string): Promise<Context[]> {
-  return invokeWithErrorHandling<Context[]>('get_contexts', { lemma });
+export interface SyncSummary {
+  created: number;
+  failed: Array<{ word: string; error: string }>;
 }
 
-/**
- * Save a new context
- */
-export async function saveContext(lemma: string, context: Context): Promise<string> {
-  return invokeWithErrorHandling<string>('save_context', { lemma, context });
+export function importBook(sourcePath: string): Promise<BookRecord> {
+  return invoke<BookRecord>('import_book', { sourcePath });
 }
 
-/**
- * Update an existing context
- */
-export async function updateContext(lemma: string, context: Context): Promise<Context> {
-  return invokeWithErrorHandling<Context>('update_context', { lemma, context });
+export function listBooks(): Promise<BookRecord[]> {
+  return invoke<BookRecord[]>('list_books');
 }
 
-/**
- * Delete a context
- */
-export async function deleteContext(lemma: string, contextId: string): Promise<void> {
-  return invokeWithErrorHandling<void>('delete_context', { lemma, contextId });
+export function getBook(bookId: string): Promise<BookRecord | null> {
+  return invoke<BookRecord | null>('get_book', { bookId });
 }
 
-/**
- * Get dictionary definitions for a word
- */
-export async function getDefinitions(request: DefinitionRequest): Promise<Definition[]> {
-  return invokeWithErrorHandling<Definition[]>('get_definitions', { request });
+export function removeBook(bookId: string): Promise<void> {
+  return invoke<void>('remove_book', { bookId });
 }
 
-/**
- * Get lemma for a word
- */
-export async function getLemma(request: LemmaRequest): Promise<string> {
-  return invokeWithErrorHandling<string>('get_lemma', { request });
+export function getBookFile(bookId: string): Promise<number[]> {
+  return invoke<number[]>('get_book_file', { bookId });
 }
 
-/**
- * Get tag suggestions
- */
-export async function getTagSuggestions(prefix: string): Promise<string[]> {
-  return invokeWithErrorHandling<string[]>('get_tag_suggestions', { prefix });
+export function saveProgress(progress: ReadingProgress): Promise<void> {
+  return invoke<void>('save_progress', { progress });
 }
 
-/**
- * Best-effort: simulate a system copy shortcut to capture current selection.
- * macOS requires Accessibility permission.
- */
-export async function simulateCopyShortcut(): Promise<boolean> {
-  return invokeWithErrorHandling<boolean>('simulate_copy_shortcut');
+export function getProgress(bookId: string): Promise<ReadingProgress | null> {
+  return invoke<ReadingProgress | null>('get_progress', { bookId });
 }
 
-export type GlobalCursorPosition = { x: number; y: number };
-
-/**
- * Get system/global cursor position in screen coordinates.
- */
-export async function getGlobalCursorPosition(): Promise<GlobalCursorPosition> {
-  return invokeWithErrorHandling<GlobalCursorPosition>('get_global_cursor_position');
+export function createAnnotation(draft: AnnotationDraft): Promise<Annotation> {
+  return invoke<Annotation>('create_annotation', { draft });
 }
 
-// ============================================================================
-// Optimized Response Format Commands
-// ============================================================================
+export function listAnnotations(bookId?: string): Promise<Annotation[]> {
+  return invoke<Annotation[]>('list_annotations', { bookId: bookId ?? null });
+}
 
-/**
- * Get notes with pagination support (optimized for large datasets)
- */
-export async function getNotesPaginated(
-  page: number,
-  pageSize: number,
-  filter?: NoteFilter
-): Promise<PaginatedResponse<NoteSummary>> {
-  return invokeWithErrorHandling<PaginatedResponse<NoteSummary>>('get_notes_paginated', {
-    page,
-    pageSize,
-    filter,
+export function syncAnnotationsToAnki(): Promise<SyncSummary> {
+  return invoke<SyncSummary>('sync_annotations_to_anki');
+}
+
+export function checkAnki(): Promise<AnkiStatus> {
+  return invoke<AnkiStatus>('check_anki');
+}
+
+export function listAnkiDecks(): Promise<AnkiDeck[]> {
+  return invoke<AnkiDeck[]>('list_anki_decks');
+}
+
+export function selectAnkiDeck(deckName: string): Promise<void> {
+  return invoke<void>('select_anki_deck', { deckName });
+}
+
+export function refreshAnkiCache(deckName: string): Promise<AnkiNote[]> {
+  return invoke<AnkiNote[]>('refresh_anki_cache', { deckName });
+}
+
+export function searchAnkiNotes(deckName?: string, query?: string): Promise<AnkiNote[]> {
+  return invoke<AnkiNote[]>('search_anki_notes', {
+    deckName: deckName ?? null,
+    query: query ?? null,
   });
 }
 
-/**
- * Batch save multiple notes in a single operation
- */
-export async function batchSaveNotes(request: BatchNoteRequest): Promise<BatchResult> {
-  return invokeWithErrorHandling<BatchResult>('batch_save_notes', { request });
+export function getAnkiNote(noteId: number): Promise<AnkiNote | null> {
+  return invoke<AnkiNote | null>('get_anki_note', { noteId });
 }
 
-/**
- * Get compact note summaries for efficient list rendering
- */
-export async function getNoteSummaries(lemmas: string[]): Promise<NoteSummary[]> {
-  return invokeWithErrorHandling<NoteSummary[]>('get_note_summaries', { lemmas });
+export function getSettings(): Promise<AppSettings> {
+  return invoke<AppSettings>('get_settings');
 }
 
-/**
- * Bulk delete multiple notes
- */
-export async function bulkDeleteNotes(lemmas: string[]): Promise<BatchResult> {
-  return invokeWithErrorHandling<BatchResult>('bulk_delete_notes', { lemmas });
+export function saveSettings(settings: AppSettings): Promise<void> {
+  return invoke<void>('save_settings', { settings });
 }
 
-/**
- * Get application statistics
- */
-export async function getStats(): Promise<AppStats> {
-  return invokeWithErrorHandling<AppStats>('get_stats');
+export function saveLlmApiKey(apiKey: string): Promise<void> {
+  return invoke<void>('save_llm_api_key', { apiKey });
 }
 
-export async function addToInbox(context: string, source: Source): Promise<InboxItem> {
-  return invokeWithErrorHandling<InboxItem>('add_to_inbox', { context, source });
-}
-
-export async function getInboxItems(
-  page: number,
-  pageSize: number,
-  search?: string,
-  sourceType?: string,
-  processed?: boolean,
-  capturedAfter?: string,
-  capturedBefore?: string
-): Promise<PaginatedResponse<InboxItem>> {
-  return invokeWithErrorHandling<PaginatedResponse<InboxItem>>('get_inbox_items', {
-    page,
-    pageSize,
-    search: search ?? null,
-    sourceType: sourceType ?? null,
-    processed: processed ?? null,
-    capturedAfter: capturedAfter ?? null,
-    capturedBefore: capturedBefore ?? null,
-  });
-}
-
-export async function getInboxCount(processed?: boolean): Promise<number> {
-  return invokeWithErrorHandling<number>('get_inbox_count', { processed: processed ?? null });
-}
-
-export async function processInboxItem(itemId: string, lemmas: string[]): Promise<Note[]> {
-  return invokeWithErrorHandling<Note[]>('process_inbox_item', { itemId, lemmas });
-}
-
-export async function deleteInboxItem(itemId: string): Promise<boolean> {
-  return invokeWithErrorHandling<boolean>('delete_inbox_item', { itemId });
-}
-
-export async function deleteInboxItems(itemIds: string[]): Promise<boolean> {
-  return invokeWithErrorHandling<boolean>('delete_inbox_items', { itemIds });
-}
-
-export async function setInboxItemProcessed(
-  itemId: string,
-  processed: boolean,
-  notes?: string
-): Promise<boolean> {
-  return invokeWithErrorHandling<boolean>('set_inbox_item_processed', {
-    itemId,
-    processed,
-    notes: notes ?? null,
-  });
-}
-
-export async function clearProcessedInboxItems(): Promise<boolean> {
-  return invokeWithErrorHandling<boolean>('clear_processed_inbox_items');
-}
-
-export async function extractWords(context: string): Promise<string[]> {
-  return invokeWithErrorHandling<string[]>('extract_words', { context });
-}
-
-export type WordFrequency = [string, number];
-
-export async function extractWordsWithFrequency(context: string): Promise<WordFrequency[]> {
-  return invokeWithErrorHandling<WordFrequency[]>('extract_words_with_frequency', { context });
-}
-
-/**
- * Check if an error is a specific error type
- */
-export function isErrorCode(error: unknown, code: ErrorType): boolean {
-  return typeof error === 'object' && error !== null && 'type' in error && error.type === code;
-}
-
-/**
- * Extract error message from a Witt error
- */
-export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return (error as WittError).message;
-  }
-  return String(error);
+export function hasLlmApiKey(): Promise<boolean> {
+  return invoke<boolean>('has_llm_api_key');
 }

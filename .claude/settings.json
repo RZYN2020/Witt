@@ -13,7 +13,12 @@
       "Bash(npm run format)",
       "Bash(cargo doc:*)",
       "Read(//Users/eka/.cargo/registry/src/**)",
-      "Bash(sh -x bundle_dmg.sh)"
+      "Bash(sh -x bundle_dmg.sh)",
+      "Bash(yes)",
+      "Read(//private/tmp/claude-501/**)",
+      "Bash(pnpm run build)",
+      "Bash(cargo test)",
+      "Bash(pnpm run test:run)"
     ]
   }
 }

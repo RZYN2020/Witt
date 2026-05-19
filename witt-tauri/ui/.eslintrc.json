@@ -8,10 +8,13 @@
   "extends": [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-type-checked",
     "plugin:react-hooks/recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
+    "project": ["./tsconfig.eslint.json"],
+    "tsconfigRootDir": ".",
     "ecmaVersion": "latest",
     "sourceType": "module",
     "ecmaFeatures": {
@@ -27,8 +30,33 @@
       "warn",
       { "allowConstantExport": true }
     ],
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "@typescript-eslint/no-explicit-any": "warn"
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ],
+    "@typescript-eslint/no-explicit-any": "error",
+    "@typescript-eslint/no-duplicate-enum-values": "error",
+    "@typescript-eslint/no-floating-promises": "error",
+    "@typescript-eslint/no-misused-promises": "error",
+    "@typescript-eslint/no-unnecessary-condition": "off",
+    "@typescript-eslint/no-unnecessary-type-assertion": "error",
+    "@typescript-eslint/consistent-type-imports": [
+      "error",
+      {
+        "prefer": "type-imports",
+        "fixStyle": "inline-type-imports"
+      }
+    ],
+    "no-duplicate-imports": "error",
+    "no-empty-function": "error",
+    "no-unreachable": "error",
+    "no-useless-return": "error",
+    "eqeqeq": ["error", "always"],
+    "curly": ["error", "all"]
   },
   "ignorePatterns": ["dist", "node_modules", "*.config.js"]
 }

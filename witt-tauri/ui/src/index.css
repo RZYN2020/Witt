@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -23,10 +24,11 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
-    --radius: 0.75rem;
+    --radius: 0.625rem;
   }
 
   .dark {
+    color-scheme: dark;
     --background: 240 10% 6%;
     --foreground: 0 0% 98%;
     --card: 240 10% 8%;
@@ -87,6 +89,26 @@
     @apply border-border;
   }
   body {
+    @apply bg-background text-foreground;
+  }
+  input,
+  select,
+  textarea {
+    @apply bg-background text-foreground;
+  }
+  input[type='range'] {
+    accent-color: hsl(var(--primary));
+  }
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply outline-none ring-2 ring-ring/40;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-muted-foreground;
+  }
+  option {
     @apply bg-background text-foreground;
   }
 }

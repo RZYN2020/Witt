@@ -3,7 +3,24 @@ declare module 'epubjs' {
     start?: {
       cfi?: string;
       href?: string;
+      location?: number;
+      page?: number;
       percentage?: number;
+      displayed?: {
+        page: number;
+        total: number;
+      };
+    };
+    end?: {
+      cfi?: string;
+      href?: string;
+      location?: number;
+      page?: number;
+      percentage?: number;
+      displayed?: {
+        page: number;
+        total: number;
+      };
     };
   }
 
@@ -25,9 +42,24 @@ declare module 'epubjs' {
       navigation: Promise<{ toc: EpubNavigationItem[] }>;
       metadata: Promise<{ title?: string; creator?: string }>;
     };
+    locations: {
+      generate(chars?: number): Promise<string[]>;
+      length(): number;
+      locationFromCfi(cfi: string): number;
+    };
+    spine: {
+      get(target?: string | number): { cfiBase: string; href: string; index: number } | null;
+    };
     renderTo(
       element: HTMLElement,
-      options: { width: string | number; height: string | number; flow?: string; spread?: string; allowScriptedContent?: boolean; minSpreadWidth?: number }
+      options: {
+        width: string | number;
+        height: string | number;
+        flow?: string;
+        spread?: string;
+        allowScriptedContent?: boolean;
+        minSpreadWidth?: number;
+      }
     ): EpubRendition;
     destroy(): void;
   }
@@ -36,9 +68,11 @@ declare module 'epubjs' {
     display(target?: string): Promise<void>;
     prev(): Promise<void>;
     next(): Promise<void>;
+    currentLocation(): EpubLocation | Promise<EpubLocation>;
+    getContents(): EpubContents[];
     themes: {
       fontSize(value: string): void;
-      override(name: string, value: string): void;
+      override(name: string, value: string, priority?: boolean): void;
     };
     hooks: {
       content: {

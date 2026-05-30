@@ -1,10 +1,11 @@
-use crate::models::{AnkiNote, AnkiStatus, Annotation, SyncFailure, SyncSummary};
-use chrono::Utc;
+use crate::models::{
+    AnkiModelInfo, AnkiNote, AnkiStatus, Annotation, AppSettings, SyncFailure, SyncSummary,
+};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-const MODEL_NAME: &str = "Witt EPUB Sentence";
+pub const DEFAULT_MODEL_NAME: &str = "Witt EPUB Sentence";
 pub const DEFAULT_ANKI_ENDPOINT: &str = "http://localhost:8765";
 
 #[derive(Debug, Deserialize)]
@@ -13,7 +14,11 @@ struct AnkiResponse<T> {
     error: Option<String>,
 }
 
-async fn request<T: for<'de> Deserialize<'de>>(endpoint: &str, action: &str, params: Value) -> Result<T, String> {
+async fn request<T: for<'de> Deserialize<'de>>(
+    endpoint: &str,
+    action: &str,
+    params: Value,
+) -> Result<T, String> {
     let client = Client::new();
     let response = client
         .post(endpoint)
@@ -21,6 +26,10 @@ async fn request<T: for<'de> Deserialize<'de>>(endpoint: &str, action: &str, par
         .send()
         .await
         .map_err(|error| error.to_string())?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("AnkiConnect HTTP {status}"));
+    }
     let payload = response
         .json::<AnkiResponse<T>>()
         .await
@@ -28,7 +37,9 @@ async fn request<T: for<'de> Deserialize<'de>>(endpoint: &str, action: &str, par
     if let Some(error) = payload.error {
         return Err(error);
     }
-    payload.result.ok_or_else(|| "AnkiConnect returned no result".to_string())
+    payload
+        .result
+        .ok_or_else(|| "AnkiConnect returned no result".to_string())
 }
 
 pub async fn check_anki(endpoint: &str) -> AnkiStatus {
@@ -48,41 +59,63 @@ pub async fn fetch_decks(endpoint: &str) -> Result<Vec<String>, String> {
     request::<Vec<String>>(endpoint, "deckNames", json!({})).await
 }
 
+pub async fn fetch_models(endpoint: &str) -> Result<Vec<AnkiModelInfo>, String> {
+    let names = request::<Vec<String>>(endpoint, "modelNames", json!({})).await?;
+    let mut output = Vec::new();
+    for name in names {
+        let fields = request::<Vec<String>>(
+            endpoint,
+            "modelFieldNames",
+            json!({ "modelName": name.clone() }),
+        )
+        .await?;
+        output.push(AnkiModelInfo { name, fields });
+    }
+    Ok(output)
+}
+
 pub async fn fetch_notes(endpoint: &str, deck_name: &str) -> Result<Vec<AnkiNote>, String> {
-    let ids = request::<Vec<i64>>(endpoint, "findNotes", json!({ "query": format!("deck:\"{}\"", deck_name) })).await?;
+    let ids = request::<Vec<i64>>(
+        endpoint,
+        "findNotes",
+        json!({ "query": format!("deck:\"{}\"", escape_query_value(deck_name)) }),
+    )
+    .await?;
     if ids.is_empty() {
         return Ok(Vec::new());
     }
-    let notes = request::<Vec<Value>>(endpoint, "notesInfo", json!({ "notes": ids })).await?;
-    let now = Utc::now().to_rfc3339();
-    Ok(notes
-        .into_iter()
-        .filter_map(|note| parse_note(deck_name, &now, note))
-        .collect())
+    let mut notes = Vec::new();
+    for chunk in ids.chunks(200) {
+        notes
+            .extend(request::<Vec<Value>>(endpoint, "notesInfo", json!({ "notes": chunk })).await?);
+    }
+    Ok(crate::anki_notes::parse_notes(deck_name, notes))
 }
 
-pub async fn sync_annotations(endpoint: &str, deck_name: &str, annotations: &[Annotation]) -> Result<(SyncSummary, Vec<(String, i64)>), String> {
+pub async fn sync_annotations(
+    settings: &AppSettings,
+    deck_name: &str,
+    annotations: &[Annotation],
+) -> Result<(SyncSummary, Vec<(String, i64)>), String> {
+    let endpoint = &settings.anki_endpoint;
     ensure_deck(endpoint, deck_name).await?;
-    ensure_model(endpoint).await?;
-    let notes: Vec<Value> = annotations
-        .iter()
-        .map(|annotation| {
-            json!({
-                "deckName": deck_name,
-                "modelName": MODEL_NAME,
-                "fields": {
-                    "Word": annotation.word,
-                    "Sentence": annotation.sentence,
-                    "Book": annotation.book_id,
-                    "Chapter": annotation.chapter_title.clone().unwrap_or_default(),
-                    "Meaning": ""
-                },
-                "tags": ["witt", "epub"],
-                "options": { "allowDuplicate": false, "duplicateScope": "deck" }
-            })
-        })
-        .collect();
-    let results = request::<Vec<Option<i64>>>(endpoint, "addNotes", json!({ "notes": notes })).await?;
+    if settings.anki_model_name == DEFAULT_MODEL_NAME {
+        ensure_default_model(endpoint).await?;
+    }
+    let api_key = if settings.anki_preprocess_mode == "llm" {
+        crate::settings::get_llm_api_key().ok()
+    } else {
+        None
+    };
+    let mut notes = Vec::new();
+    for annotation in annotations {
+        notes.push(
+            crate::anki_notes::prepare_note(settings, api_key.as_deref(), deck_name, annotation)
+                .await,
+        );
+    }
+    let results =
+        request::<Vec<Option<i64>>>(endpoint, "addNotes", json!({ "notes": notes })).await?;
     let mut created = 0;
     let mut failed = Vec::new();
     let mut synced = Vec::new();
@@ -106,86 +139,20 @@ async fn ensure_deck(endpoint: &str, deck_name: &str) -> Result<(), String> {
         .map(|_| ())
 }
 
-async fn ensure_model(endpoint: &str) -> Result<(), String> {
+async fn ensure_default_model(endpoint: &str) -> Result<(), String> {
     let models = request::<Vec<String>>(endpoint, "modelNames", json!({})).await?;
-    if models.iter().any(|name| name == MODEL_NAME) {
+    if models.iter().any(|name| name == DEFAULT_MODEL_NAME) {
         return Ok(());
     }
     request::<Value>(
         endpoint,
         "createModel",
-        json!({
-            "modelName": MODEL_NAME,
-            "inOrderFields": ["Word", "Sentence", "Book", "Chapter", "Meaning"],
-            "css": ".card{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;font-size:20px;line-height:1.6}.word{font-size:32px;font-weight:700}.sentence{margin-top:18px}.meaning{margin-top:18px;color:#475569}",
-            "cardTemplates": [{
-                "Name": "Sentence",
-                "Front": "<div class=\"word\">{{Word}}</div><div class=\"sentence\">{{Sentence}}</div>",
-                "Back": "<div class=\"word\">{{Word}}</div><div class=\"sentence\">{{Sentence}}</div><div class=\"meaning\">{{Meaning}}</div><p>{{Book}} · {{Chapter}}</p>"
-            }]
-        }),
+        crate::anki_notes::default_model_payload(DEFAULT_MODEL_NAME),
     )
     .await
     .map(|_| ())
 }
 
-fn parse_note(deck_name: &str, now: &str, value: Value) -> Option<AnkiNote> {
-    let note_id = value.get("noteId")?.as_i64()?;
-    let fields = value.get("fields")?.as_object()?;
-    let field_value = |name: &str| -> Option<String> {
-        fields
-            .get(name)
-            .and_then(|field| field.get("value"))
-            .and_then(|value| value.as_str())
-            .map(|s| strip_html(s.to_string()))
-            .filter(|value: &String| !value.trim().is_empty())
-    };
-    // Try common word field names first, then fall back to the first non-empty field.
-    let word = field_value("Word")
-        .or_else(|| field_value("Lemma"))
-        .or_else(|| field_value("Front"))
-        .or_else(|| {
-            fields
-                .values()
-                .find_map(|field| {
-                    field
-                        .get("value")
-                        .and_then(|v| v.as_str())
-                        .map(|s| strip_html(s.to_string()))
-                        .filter(|s| !s.trim().is_empty())
-                })
-        })?;
-    Some(AnkiNote {
-        note_id,
-        deck_name: deck_name.to_string(),
-        word: word.to_lowercase(),
-        sentence: field_value("Sentence"),
-        meaning: field_value("Meaning").or_else(|| field_value("Definition")).or_else(|| field_value("Back")),
-        raw_fields_json: serde_json::to_string(&fields).ok()?,
-        updated_at: now.to_string(),
-    })
-}
-
-fn strip_html(value: String) -> String {
-    let mut output = String::new();
-    let mut in_tag = false;
-    for ch in value.chars() {
-        match ch {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            _ if !in_tag => output.push(ch),
-            _ => {}
-        }
-    }
-    output.trim().to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::strip_html;
-
-    #[test]
-    fn strips_basic_html() {
-        assert_eq!(strip_html("<b>Hello</b>".to_string()), "Hello");
-    }
+fn escape_query_value(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
 }

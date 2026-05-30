@@ -44,6 +44,3 @@ beforeAll(() => {
 afterEach(() => {
   cleanup();
 });
-
-// Configure global test settings
-console.log('Test environment configured');

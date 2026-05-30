@@ -1,140 +1,139 @@
-import { RefreshCcw, Search, Wifi, WifiOff } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  checkAnki,
-  listAnkiDecks,
-  refreshAnkiCache,
-  searchAnkiNotes,
-  selectAnkiDeck,
-  syncAnnotationsToAnki,
-  type AnkiDeck,
-  type AnkiNote,
-} from '@/lib/commands';
+import { RefreshCcw, Search, Send, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
+import { SelectInput, StatusText } from '@/components/ui/Form';
+import { AnkiNoteList } from './AnkiNoteList';
+import { AnkiSyncSettings } from './AnkiSyncSettings';
+import { DEFAULT_MODEL, useAnkiPanel } from './useAnkiPanel';
 
 interface AnkiPanelProps {
   onKnownWordsChange: (words: string[]) => void;
 }
 
-export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
-  const [online, setOnline] = useState(false);
-  const [decks, setDecks] = useState<AnkiDeck[]>([]);
-  const [notes, setNotes] = useState<AnkiNote[]>([]);
-  const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('Ready');
-  const selectedDeck = useMemo(() => decks.find((deck) => deck.selected)?.name || '', [decks]);
-
-  const loadNotes = useCallback(
-    async (deckName = selectedDeck, nextQuery = query) => {
-      const nextNotes = await searchAnkiNotes(deckName || undefined, nextQuery || undefined);
-      setNotes(nextNotes);
-      onKnownWordsChange(nextNotes.map((note) => note.word));
-    },
-    [onKnownWordsChange, query, selectedDeck]
+function PanelSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-md border border-border bg-card p-3">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </p>
+      {children}
+    </section>
   );
+}
 
-  useEffect(() => {
-    void Promise.all([checkAnki(), listAnkiDecks()]).then(([statusResult, nextDecks]) => {
-      setOnline(statusResult.available);
-      setDecks(nextDecks);
-      const deck = nextDecks.find((item) => item.selected)?.name;
-      if (deck) {
-        void loadNotes(deck, '');
-      }
-    });
-  }, [loadNotes]);
-
-  const chooseDeck = async (deckName: string) => {
-    await selectAnkiDeck(deckName);
-    const nextDecks = await listAnkiDecks();
-    setDecks(nextDecks);
-    await loadNotes(deckName, '');
-  };
-
-  const refreshDeck = async () => {
-    if (!selectedDeck) {
-      setStatus('Select a deck first');
-      return;
-    }
-    setStatus('Refreshing Anki cache...');
-    const nextNotes = await refreshAnkiCache(selectedDeck);
-    setNotes(nextNotes);
-    onKnownWordsChange(nextNotes.map((note) => note.word));
-    setStatus(`Cached ${nextNotes.length} cards`);
-  };
-
-  const syncQueued = async () => {
-    setStatus('Syncing annotations...');
-    const summary = await syncAnnotationsToAnki();
-    setStatus(`Created ${summary.created}; ${summary.failed.length} failed`);
-    if (selectedDeck) {
-      await refreshDeck();
-    }
-  };
+export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
+  const anki = useAnkiPanel({ onKnownWordsChange });
 
   return (
-    <aside className="flex h-full flex-col border-l border-slate-200 bg-white">
-      <div className="border-b border-slate-200 p-4">
-        <div className="mb-4 flex items-center justify-between">
+    <aside className="flex h-full flex-col border-l border-border bg-background text-foreground">
+      <div className="space-y-4 border-b border-border p-5">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-semibold">Anki</h2>
-            <p className="text-xs text-slate-500">{online ? 'AnkiConnect online' : 'Offline/cache only'}</p>
+            <h2 className="text-base font-semibold">Anki</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {anki.online ? 'Connected through AnkiConnect' : 'Offline cache view'}
+            </p>
           </div>
-          {online ? <Wifi className="text-emerald-600" size={18} /> : <WifiOff className="text-slate-400" size={18} />}
+          <div className="rounded-md border border-border bg-card p-2">
+            {anki.online ? (
+              <Wifi className="text-emerald-600 dark:text-emerald-400" size={18} />
+            ) : (
+              <WifiOff className="text-muted-foreground" size={18} />
+            )}
+          </div>
         </div>
 
-        <select
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          value={selectedDeck}
-          onChange={(event) => void chooseDeck(event.target.value)}
-        >
-          <option value="">Select deck</option>
-          {decks.map((deck) => (
-            <option key={deck.name} value={deck.name}>
-              {deck.name}
-            </option>
-          ))}
-        </select>
+        <PanelSection title="Vocabulary source">
+          <SelectInput
+            className="px-3 py-2"
+            value={anki.selectedDeck}
+            onChange={(event) => void anki.chooseDeck(event.target.value)}
+            aria-label="Anki deck"
+          >
+            <option value="">Select deck</option>
+            {anki.decks.map((deck) => (
+              <option key={deck.name} value={deck.name}>
+                {deck.name}
+              </option>
+            ))}
+          </SelectInput>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <Button size="sm" onClick={() => void refreshDeck()}>
-            <RefreshCcw size={15} />
-            Refresh
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => void syncQueued()}>
-            Sync queued
-          </Button>
-        </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button size="sm" onClick={() => void anki.refreshDeck()}>
+              <RefreshCcw size={15} />
+              Refresh
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => void anki.syncQueued()}>
+              <Send size={15} />
+              Sync {anki.queuedCount || ''}
+            </Button>
+          </div>
+        </PanelSection>
 
-        <label className="mt-3 flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
+        <AnkiSyncSettings
+          defaultModel={DEFAULT_MODEL}
+          editingEnabled={anki.showMapping}
+          models={anki.models}
+          pipelines={anki.pipelines}
+          selectedModel={anki.selectedModel}
+          settings={anki.settings}
+          onEditPipeline={() => void anki.editPipeline()}
+          onLoadPipeline={(pipelineId) => void anki.loadPipeline(pipelineId)}
+          onSaveMapping={() => void anki.saveMapping()}
+          onSettingsChange={anki.setSettings}
+          onToggle={() => anki.setShowMapping((value) => !value)}
+        />
+
+        <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
           <Search size={15} />
           <input
-            className="min-w-0 flex-1 outline-none"
+            className="min-w-0 flex-1 bg-transparent outline-none"
             placeholder="Search cards"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              void loadNotes(selectedDeck, event.target.value);
-            }}
+            value={anki.query}
+            onChange={(event) => anki.searchNotes(event.target.value)}
           />
         </label>
 
-        <p className="mt-3 text-xs text-slate-500">{status}</p>
+        <StatusText>{anki.status}</StatusText>
+
+        {anki.queuedAnnotations.length > 0 && (
+          <section className="rounded-md border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Pending sync
+              </p>
+              <span className="text-xs text-muted-foreground">{anki.queuedAnnotations.length}</span>
+            </div>
+            <div className="max-h-44 overflow-y-auto p-1">
+              {anki.queuedAnnotations.map((annotation) => (
+                <div
+                  key={annotation.id}
+                  className="flex items-center justify-between gap-2 rounded px-2 py-1.5 hover:bg-accent"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{annotation.word}</p>
+                    <p className="truncate text-xs text-muted-foreground">{annotation.sentence}</p>
+                  </div>
+                  <button
+                    className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-destructive"
+                    title="Remove pending capture"
+                    aria-label={`Remove pending capture for ${annotation.word}`}
+                    onClick={() => void anki.deleteQueued(annotation.id)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto p-3">
-        {notes.map((note) => (
-          <article key={note.note_id} className="mb-2 rounded-md border border-slate-200 p-3">
-            <h3 className="font-semibold">{note.word}</h3>
-            {note.sentence && <p className="mt-1 line-clamp-3 text-sm text-slate-600">{note.sentence}</p>}
-            {note.meaning && <p className="mt-2 line-clamp-4 text-xs text-slate-500">{note.meaning}</p>}
-          </article>
-        ))}
-        {notes.length === 0 && (
-          <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-            Select a deck and refresh to cache cards.
-          </p>
-        )}
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Cached cards
+        </p>
+        <AnkiNoteList notes={anki.notes} />
       </div>
     </aside>
   );

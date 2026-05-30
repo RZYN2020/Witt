@@ -11,8 +11,7 @@ pub fn create_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Err
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show_witt, &separator, &quit])?;
 
-    let _tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+    let mut tray = TrayIconBuilder::new()
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(move |app, event| match event.id.as_ref() {
@@ -28,16 +27,20 @@ pub fn create_system_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Err
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click { .. } = event
-            {
+            if let TrayIconEvent::Click { .. } = event {
                 let app = tray.app_handle();
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
             }
-        })
-        .build(app)?;
+        });
+
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+
+    let _tray = tray.build(app)?;
 
     Ok(())
 }

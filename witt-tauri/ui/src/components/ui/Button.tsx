@@ -14,13 +14,15 @@ export function Button({
   size = 'md',
   className,
   children,
+  type = 'button',
   ...props
 }: ButtonProps) {
   return (
     <button
+      type={type}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors',
-        'focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         'disabled:opacity-50 disabled:pointer-events-none',
         // Variants
         variant === 'default' && 'bg-muted text-foreground hover:bg-accent',

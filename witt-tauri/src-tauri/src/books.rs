@@ -6,7 +6,6 @@ use uuid::Uuid;
 
 pub struct ImportedBook {
     pub book: Book,
-    pub bytes: Vec<u8>,
 }
 
 pub fn import_book_file(source_path: &str, books_dir: &Path) -> Result<ImportedBook, String> {
@@ -14,7 +13,12 @@ pub fn import_book_file(source_path: &str, books_dir: &Path) -> Result<ImportedB
     if !source.exists() {
         return Err("Book file does not exist".to_string());
     }
-    if source.extension().and_then(|value| value.to_str()).unwrap_or("") != "epub" {
+    if source
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        != "epub"
+    {
         return Err("Only EPUB files can be imported".to_string());
     }
 
@@ -22,7 +26,6 @@ pub fn import_book_file(source_path: &str, books_dir: &Path) -> Result<ImportedB
     let id = Uuid::new_v4().to_string();
     let target = books_dir.join(format!("{}.epub", id));
     fs::copy(&source, &target).map_err(|error| error.to_string())?;
-    let bytes = fs::read(&target).map_err(|error| error.to_string())?;
     let title = source
         .file_stem()
         .and_then(|value| value.to_str())
@@ -39,7 +42,6 @@ pub fn import_book_file(source_path: &str, books_dir: &Path) -> Result<ImportedB
             imported_at: now.clone(),
             updated_at: now,
         },
-        bytes,
     })
 }
 

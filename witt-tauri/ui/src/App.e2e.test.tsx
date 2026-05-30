@@ -26,4 +26,14 @@ describe('App (e2e smoke)', () => {
     expect(screen.getByText('Import EPUB')).toBeInTheDocument();
     expect(screen.getByText('Start with an EPUB')).toBeInTheDocument();
   });
+
+  it('does not globally suppress context menus', async () => {
+    render(<App />);
+
+    await screen.findByText('Bookshelf');
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    document.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(false);
+  });
 });

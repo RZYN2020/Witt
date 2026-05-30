@@ -2,90 +2,20 @@ use crate::models::*;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 
+pub use crate::db_settings::{get_settings, save_settings};
+
+const BOOK_SELECT: &str =
+    "SELECT id, title, author, file_path, cover_path, imported_at, updated_at FROM books";
+const ANNOTATION_SELECT: &str = "SELECT id, book_id, word, sentence, chapter_title, epub_cfi, status, anki_note_id, created_at, updated_at FROM annotations";
+const ANKI_NOTE_SELECT: &str =
+    "SELECT note_id, deck_name, word, sentence, meaning, raw_fields_json, updated_at FROM anki_notes";
+const ANKI_NOTE_SEARCH_FILTER: &str =
+    "LOWER(word) LIKE ?1 OR LOWER(COALESCE(sentence, '')) LIKE ?1 OR LOWER(COALESCE(meaning, '')) LIKE ?1";
+
 pub fn open_database(path: &Path) -> Result<Connection, String> {
     let conn = Connection::open(path).map_err(|error| error.to_string())?;
-    migrate(&conn)?;
+    crate::db_schema::migrate(&conn)?;
     Ok(conn)
-}
-
-fn migrate(conn: &Connection) -> Result<(), String> {
-    conn.execute_batch(
-        r#"
-        PRAGMA foreign_keys = ON;
-
-        CREATE TABLE IF NOT EXISTS books (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            author TEXT NOT NULL,
-            file_path TEXT NOT NULL,
-            cover_path TEXT,
-            imported_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS reading_progress (
-            book_id TEXT PRIMARY KEY,
-            epub_cfi TEXT NOT NULL,
-            chapter_href TEXT,
-            progress_percent REAL NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS annotations (
-            id TEXT PRIMARY KEY,
-            book_id TEXT NOT NULL,
-            word TEXT NOT NULL,
-            sentence TEXT NOT NULL,
-            chapter_title TEXT,
-            epub_cfi TEXT,
-            status TEXT NOT NULL,
-            anki_note_id INTEGER,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            FOREIGN KEY(book_id) REFERENCES books(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS anki_decks (
-            name TEXT PRIMARY KEY,
-            selected INTEGER NOT NULL DEFAULT 0,
-            synced_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS anki_notes (
-            note_id INTEGER PRIMARY KEY,
-            deck_name TEXT NOT NULL,
-            word TEXT NOT NULL,
-            sentence TEXT,
-            meaning TEXT,
-            raw_fields_json TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_anki_notes_deck_word ON anki_notes(deck_name, word);
-        CREATE INDEX IF NOT EXISTS idx_annotations_book ON annotations(book_id);
-
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        );
-        "#,
-    )
-    .map_err(|error| error.to_string())?;
-
-    set_default_setting(conn, "llm_endpoint", "https://api.openai.com/v1/chat/completions")?;
-    set_default_setting(conn, "llm_model", "gpt-4.1-mini")?;
-    set_default_setting(conn, "anki_endpoint", crate::anki::DEFAULT_ANKI_ENDPOINT)?;
-    Ok(())
-}
-
-fn set_default_setting(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
-    conn.execute(
-        "INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)",
-        params![key, value],
-    )
-    .map_err(|error| error.to_string())?;
-    Ok(())
 }
 
 pub fn insert_book(conn: &Connection, book: &Book) -> Result<(), String> {
@@ -109,11 +39,8 @@ pub fn insert_book(conn: &Connection, book: &Book) -> Result<(), String> {
 }
 
 pub fn list_books(conn: &Connection) -> Result<Vec<Book>, String> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, title, author, file_path, cover_path, imported_at, updated_at FROM books ORDER BY updated_at DESC",
-        )
-        .map_err(|error| error.to_string())?;
+    let sql = format!("{BOOK_SELECT} ORDER BY updated_at DESC");
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let rows = stmt
         .query_map([], row_to_book)
         .map_err(|error| error.to_string())?;
@@ -122,13 +49,10 @@ pub fn list_books(conn: &Connection) -> Result<Vec<Book>, String> {
 }
 
 pub fn get_book(conn: &Connection, book_id: &str) -> Result<Option<Book>, String> {
-    conn.query_row(
-        "SELECT id, title, author, file_path, cover_path, imported_at, updated_at FROM books WHERE id = ?1",
-        params![book_id],
-        row_to_book,
-    )
-    .optional()
-    .map_err(|error| error.to_string())
+    let sql = format!("{BOOK_SELECT} WHERE id = ?1");
+    conn.query_row(&sql, params![book_id], row_to_book)
+        .optional()
+        .map_err(|error| error.to_string())
 }
 
 pub fn remove_book(conn: &Connection, book_id: &str) -> Result<(), String> {
@@ -207,13 +131,62 @@ pub fn insert_annotation(conn: &Connection, annotation: &Annotation) -> Result<(
     Ok(())
 }
 
-pub fn list_annotations(conn: &Connection, book_id: Option<&str>) -> Result<Vec<Annotation>, String> {
+pub fn update_annotation(
+    conn: &Connection,
+    update: &AnnotationUpdate,
+    updated_at: &str,
+) -> Result<Annotation, String> {
+    conn.execute(
+        r#"
+        UPDATE annotations
+        SET word = ?2, sentence = ?3, chapter_title = ?4, status = 'queued', updated_at = ?5
+        WHERE id = ?1
+        "#,
+        params![
+            update.id,
+            update.word,
+            update.sentence,
+            update.chapter_title,
+            updated_at
+        ],
+    )
+    .map_err(|error| error.to_string())?;
+    get_annotation(conn, &update.id)?.ok_or_else(|| "Annotation not found".to_string())
+}
+
+pub fn get_annotation(
+    conn: &Connection,
+    annotation_id: &str,
+) -> Result<Option<Annotation>, String> {
+    let sql = format!("{ANNOTATION_SELECT} WHERE id = ?1");
+    conn.query_row(&sql, params![annotation_id], row_to_annotation)
+        .optional()
+        .map_err(|error| error.to_string())
+}
+
+pub fn delete_queued_annotation(conn: &Connection, annotation_id: &str) -> Result<(), String> {
+    let affected = conn
+        .execute(
+            "DELETE FROM annotations WHERE id = ?1 AND status != 'synced'",
+            params![annotation_id],
+        )
+        .map_err(|error| error.to_string())?;
+    if affected == 0 {
+        return Err("Annotation is already synced or does not exist".to_string());
+    }
+    Ok(())
+}
+
+pub fn list_annotations(
+    conn: &Connection,
+    book_id: Option<&str>,
+) -> Result<Vec<Annotation>, String> {
     let sql = if book_id.is_some() {
-        "SELECT id, book_id, word, sentence, chapter_title, epub_cfi, status, anki_note_id, created_at, updated_at FROM annotations WHERE book_id = ?1 ORDER BY created_at DESC"
+        format!("{ANNOTATION_SELECT} WHERE book_id = ?1 ORDER BY created_at DESC")
     } else {
-        "SELECT id, book_id, word, sentence, chapter_title, epub_cfi, status, anki_note_id, created_at, updated_at FROM annotations ORDER BY created_at DESC"
+        format!("{ANNOTATION_SELECT} ORDER BY created_at DESC")
     };
-    let mut stmt = conn.prepare(sql).map_err(|error| error.to_string())?;
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let rows = if let Some(id) = book_id {
         stmt.query_map(params![id], row_to_annotation)
     } else {
@@ -224,7 +197,12 @@ pub fn list_annotations(conn: &Connection, book_id: Option<&str>) -> Result<Vec<
         .map_err(|error| error.to_string())
 }
 
-pub fn mark_annotation_synced(conn: &Connection, id: &str, note_id: i64, updated_at: &str) -> Result<(), String> {
+pub fn mark_annotation_synced(
+    conn: &Connection,
+    id: &str,
+    note_id: i64,
+    updated_at: &str,
+) -> Result<(), String> {
     conn.execute(
         "UPDATE annotations SET status = 'synced', anki_note_id = ?2, updated_at = ?3 WHERE id = ?1",
         params![id, note_id, updated_at],
@@ -259,7 +237,9 @@ pub fn select_deck(conn: &Connection, deck_name: &str) -> Result<(), String> {
 
 pub fn list_decks(conn: &Connection) -> Result<Vec<AnkiDeck>, String> {
     let mut stmt = conn
-        .prepare("SELECT name, selected, synced_at FROM anki_decks ORDER BY selected DESC, name ASC")
+        .prepare(
+            "SELECT name, selected, synced_at FROM anki_decks ORDER BY selected DESC, name ASC",
+        )
         .map_err(|error| error.to_string())?;
     let rows = stmt
         .query_map([], |row| {
@@ -284,10 +264,18 @@ pub fn selected_deck(conn: &Connection) -> Result<Option<String>, String> {
     .map_err(|error| error.to_string())
 }
 
-pub fn replace_anki_notes(conn: &mut Connection, deck_name: &str, notes: &[AnkiNote], synced_at: &str) -> Result<(), String> {
+pub fn replace_anki_notes(
+    conn: &mut Connection,
+    deck_name: &str,
+    notes: &[AnkiNote],
+    synced_at: &str,
+) -> Result<(), String> {
     let tx = conn.transaction().map_err(|error| error.to_string())?;
-    tx.execute("DELETE FROM anki_notes WHERE deck_name = ?1", params![deck_name])
-        .map_err(|error| error.to_string())?;
+    tx.execute(
+        "DELETE FROM anki_notes WHERE deck_name = ?1",
+        params![deck_name],
+    )
+    .map_err(|error| error.to_string())?;
     for note in notes {
         tx.execute(
             r#"
@@ -315,28 +303,35 @@ pub fn replace_anki_notes(conn: &mut Connection, deck_name: &str, notes: &[AnkiN
     Ok(())
 }
 
-pub fn search_anki_notes(conn: &Connection, deck_name: Option<&str>, query: Option<&str>) -> Result<Vec<AnkiNote>, String> {
+pub fn search_anki_notes(
+    conn: &Connection,
+    deck_name: Option<&str>,
+    query: Option<&str>,
+) -> Result<Vec<AnkiNote>, String> {
     let query = query.unwrap_or("").trim().to_lowercase();
     let deck = deck_name.unwrap_or("").trim();
-    let (sql, args): (&str, Vec<String>) = match (deck.is_empty(), query.is_empty()) {
+    let (sql, args): (String, Vec<String>) = match (deck.is_empty(), query.is_empty()) {
         (false, false) => (
-            "SELECT note_id, deck_name, word, sentence, meaning, raw_fields_json, updated_at FROM anki_notes WHERE deck_name = ?1 AND (LOWER(word) LIKE ?2 OR LOWER(COALESCE(sentence, '')) LIKE ?2 OR LOWER(COALESCE(meaning, '')) LIKE ?2) ORDER BY word LIMIT 500",
+            format!(
+                "{ANKI_NOTE_SELECT} WHERE deck_name = ?1 AND ({}) ORDER BY word LIMIT 500",
+                ANKI_NOTE_SEARCH_FILTER.replace("?1", "?2")
+            ),
             vec![deck.to_string(), format!("%{}%", query)],
         ),
         (false, true) => (
-            "SELECT note_id, deck_name, word, sentence, meaning, raw_fields_json, updated_at FROM anki_notes WHERE deck_name = ?1 ORDER BY word LIMIT 500",
+            format!("{ANKI_NOTE_SELECT} WHERE deck_name = ?1 ORDER BY word LIMIT 500"),
             vec![deck.to_string()],
         ),
         (true, false) => (
-            "SELECT note_id, deck_name, word, sentence, meaning, raw_fields_json, updated_at FROM anki_notes WHERE LOWER(word) LIKE ?1 OR LOWER(COALESCE(sentence, '')) LIKE ?1 OR LOWER(COALESCE(meaning, '')) LIKE ?1 ORDER BY word LIMIT 500",
+            format!("{ANKI_NOTE_SELECT} WHERE {ANKI_NOTE_SEARCH_FILTER} ORDER BY word LIMIT 500"),
             vec![format!("%{}%", query)],
         ),
         (true, true) => (
-            "SELECT note_id, deck_name, word, sentence, meaning, raw_fields_json, updated_at FROM anki_notes ORDER BY word LIMIT 500",
+            format!("{ANKI_NOTE_SELECT} ORDER BY word LIMIT 500"),
             vec![],
         ),
     };
-    let mut stmt = conn.prepare(sql).map_err(|error| error.to_string())?;
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
     let rows = match args.len() {
         0 => stmt.query_map([], row_to_anki_note),
         1 => stmt.query_map(params![args[0]], row_to_anki_note),
@@ -348,43 +343,10 @@ pub fn search_anki_notes(conn: &Connection, deck_name: Option<&str>, query: Opti
 }
 
 pub fn get_anki_note(conn: &Connection, note_id: i64) -> Result<Option<AnkiNote>, String> {
-    conn.query_row(
-        "SELECT note_id, deck_name, word, sentence, meaning, raw_fields_json, updated_at FROM anki_notes WHERE note_id = ?1",
-        params![note_id],
-        row_to_anki_note,
-    )
-    .optional()
-    .map_err(|error| error.to_string())
-}
-
-pub fn get_settings(conn: &Connection) -> Result<AppSettings, String> {
-    Ok(AppSettings {
-        llm_endpoint: get_setting(conn, "llm_endpoint")?.unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string()),
-        llm_model: get_setting(conn, "llm_model")?.unwrap_or_else(|| "gpt-4.1-mini".to_string()),
-        anki_endpoint: get_setting(conn, "anki_endpoint")?.unwrap_or_else(|| crate::anki::DEFAULT_ANKI_ENDPOINT.to_string()),
-    })
-}
-
-pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, String> {
-    conn.query_row("SELECT value FROM settings WHERE key = ?1", params![key], |row| row.get(0))
+    let sql = format!("{ANKI_NOTE_SELECT} WHERE note_id = ?1");
+    conn.query_row(&sql, params![note_id], row_to_anki_note)
         .optional()
         .map_err(|error| error.to_string())
-}
-
-pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<(), String> {
-    set_setting(conn, "llm_endpoint", &settings.llm_endpoint)?;
-    set_setting(conn, "llm_model", &settings.llm_model)?;
-    set_setting(conn, "anki_endpoint", &settings.anki_endpoint)?;
-    Ok(())
-}
-
-fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
-    conn.execute(
-        "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![key, value],
-    )
-    .map_err(|error| error.to_string())?;
-    Ok(())
 }
 
 fn row_to_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {

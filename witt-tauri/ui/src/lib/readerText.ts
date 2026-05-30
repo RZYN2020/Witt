@@ -25,7 +25,7 @@ export function getSentenceAround(text: string, selected: string): string {
 }
 
 export function normalizeWord(value: string): string {
-  return value.replace(/[^\p{L}'-]/gu, '').trim();
+  return value.replace(/[^\p{L}'‘’-]/gu, '').trim();
 }
 
 export function applyHighlights(document: Document, words: string[]): void {

@@ -1,6 +1,6 @@
 import { type EpubNavigationItem } from 'epubjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { listAnnotations, type BookRecord } from '@/lib/commands';
+import { listAnnotations, listVocabulary, type BookRecord } from '@/lib/commands';
 import { getSentenceAround, normalizeWord } from '@/lib/readerText';
 import { ProfileEditor } from '@/components/ui/ProfileEditor';
 import { AnkiPanel } from '@/components/anki/AnkiPanel';
@@ -274,8 +274,14 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   });
 
   useEffect(() => {
-    void listAnnotations(book.id).then((anns) => {
-      setKnownWords((prev) => Array.from(new Set([...prev, ...anns.map((a) => a.word)])));
+    void Promise.all([listAnnotations(book.id), listVocabulary()]).then(([anns, vocabulary]) => {
+      const words = [
+        ...anns.map((annotation) => annotation.word),
+        ...vocabulary
+          .filter((entry) => entry.status !== 'ignored')
+          .map((entry) => entry.display_word),
+      ];
+      setKnownWords((prev) => Array.from(new Set([...prev, ...words])));
     });
   }, [book.id]);
 

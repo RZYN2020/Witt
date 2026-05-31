@@ -71,6 +71,45 @@ pub struct AnkiNote {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VocabularyEntry {
+    pub normalized_word: String,
+    pub display_word: String,
+    pub status: String,
+    pub source: String,
+    pub anki_note_id: Option<i64>,
+    pub first_seen_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WordOccurrence {
+    pub id: String,
+    pub normalized_word: String,
+    pub book_id: Option<String>,
+    pub annotation_id: Option<String>,
+    pub sentence: String,
+    pub chapter_title: Option<String>,
+    pub epub_cfi: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DictionaryCacheEntry {
+    pub normalized_word: String,
+    pub display_word: String,
+    pub meaning: String,
+    pub prompt_id: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DictionaryCacheDraft {
+    pub word: String,
+    pub meaning: String,
+    pub prompt_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnkiModelInfo {
     pub name: String,
     pub fields: Vec<String>,

@@ -267,12 +267,12 @@ Goal: Build the local model needed for visual memory, Anki backend, and contextu
 
 Work:
 
-- Add `vocabulary`, `meaning_groups`, `word_occurrences`, and `dictionary_cache`.
-- Migrate existing annotations into occurrences where possible.
+- Add `vocabulary`, `meaning_groups`, `word_occurrences`, and `dictionary_cache`. Initial tables and command wrappers are in place; later work should deepen meaning-level and review-state data.
+- Migrate existing annotations into occurrences where possible. Startup schema migration now backfills vocabulary and occurrence rows from existing annotations.
 - Keep existing annotations/Anki behavior working during migration.
 - Implement vocabulary status: new, learning, known, ignored.
 - Add indexes for normalized word lookup and book-level occurrence lookup.
-- Add import/update flow from AnkiConnect into the local vocabulary cache.
+- Add import/update flow from AnkiConnect into the local vocabulary cache. `refresh_anki_cache` now indexes pulled deck words into `vocabulary`.
 
 Success criteria:
 
@@ -288,7 +288,7 @@ Work:
 
 - Add backend mode setting: Hybrid, Anki-first, Witt-first.
 - Add selected deck/model mapping wizard.
-- Pull Anki notes into local vocabulary cache.
+- Pull Anki notes into local vocabulary cache. The first slice indexes deck words locally; deck/model/raw-field provenance still needs to be promoted into the vocabulary layer.
 - Track `anki_note_id`, deck, model, and raw fields.
 - Push new local words to Anki using configurable templates.
 - Add conflict handling: Anki changed, Witt changed, duplicate word, duplicate sentence.

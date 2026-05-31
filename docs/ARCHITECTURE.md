@@ -10,7 +10,7 @@ witt/
 │   ├── src-tauri/src/
 │   │   ├── main.rs        # App entry, tray, command registration
 │   │   ├── commands.rs    # Tauri IPC command re-export surface
-│   │   ├── commands/      # Domain command handlers (books, annotations, Anki, LLM, profiles, settings)
+│   │   ├── commands/      # Domain command handlers (books, annotations, Anki, vocabulary, LLM, profiles, settings)
 │   │   ├── state.rs       # App data paths and shared SQLite connection
 │   │   ├── app_config.rs  # Single settings.toml source of truth for editable configuration
 │   │   ├── db.rs          # SQLite connection and CRUD helpers
@@ -39,14 +39,18 @@ witt/
 
 The database file lives in the Tauri app data directory (`witt.sqlite3`). Schema is applied on first open by `db_schema.rs`; product CRUD helpers live in `db.rs`, while settings table access lives in `db_settings.rs`.
 
-| Table              | Purpose                                                                   |
-| ------------------ | ------------------------------------------------------------------------- |
-| `books`            | Book metadata: title, author, file path, cover path, timestamps           |
-| `reading_progress` | Last CFI position, chapter href, and percent per book                     |
-| `annotations`      | Word + sentence + CFI, Anki sync status and note ID                       |
-| `anki_decks`       | Available decks, which one is selected, last sync time                    |
-| `anki_notes`       | Cached notes from the selected deck (word, sentence, meaning, raw fields) |
-| `settings`         | SQLite cache of the active app config used by older DB-oriented flows     |
+| Table                | Purpose                                                                   |
+| -------------------- | ------------------------------------------------------------------------- |
+| `books`              | Book metadata: title, author, file path, cover path, timestamps           |
+| `reading_progress`   | Last CFI position, chapter href, and percent per book                     |
+| `annotations`        | Word + sentence + CFI, Anki sync status and note ID                       |
+| `anki_decks`         | Available decks, which one is selected, last sync time                    |
+| `anki_notes`         | Cached notes from the selected deck (word, sentence, meaning, raw fields) |
+| `vocabulary`         | Normalized word index shared by annotations, Anki cache, and highlights   |
+| `meaning_groups`     | Reserved meaning-level grouping for future dictionary/review features     |
+| `word_occurrences`   | Source contexts for words captured while reading                          |
+| `dictionary_cache`   | Cached contextual AI explanations for repeated word lookups               |
+| `settings`           | SQLite cache of the active app config used by older DB-oriented flows     |
 
 LLM API key is stored in the OS keyring via the `keyring` crate, not in SQLite.
 Human-maintained configuration lives in one `settings.toml` file in the app data directory. It contains service endpoints, selected prompt/pipeline ids, Anki field mapping, behavior toggles, editor preference, prompt definitions, and Anki pipeline definitions. UI saves write back to this TOML file, and reload reads it back into the app. Word, book, progress, annotation, deck, and cached note data remain in SQLite.
@@ -61,6 +65,7 @@ Backend command handlers live in `commands/` by product domain and are re-export
 **Progress:** `save_progress`, `get_progress`  
 **Annotations:** `create_annotation`, `list_annotations`, `sync_annotations_to_anki`  
 **Anki:** `check_anki`, `list_anki_decks`, `select_anki_deck`, `refresh_anki_cache`, `search_anki_notes`, `get_anki_note`  
+**Vocabulary:** `list_vocabulary`, `update_vocabulary_status`, `list_word_occurrences`, `get_dictionary_cache`, `save_dictionary_cache`
 **Profiles:** `list_prompt_profiles`, `read_prompt_profile`, `save_prompt_profile`, `list_pipeline_profiles`, `load_pipeline_profile`  
 **Settings:** `get_settings`, `save_settings`, `get_app_config`, `save_app_config`, `open_app_config`, `reload_app_config`, `save_llm_api_key`, `has_llm_api_key`
 
@@ -79,6 +84,8 @@ Open book
 Select word
   -> readerText.getSentenceAround() extracts context
   -> create_annotation writes to DB
+  -> vocabulary and word_occurrences are updated
+  -> optional AI explanation is read from/written to dictionary_cache
 
 Sync to Anki
   -> optional: backend LLM preprocessing enriches meaning fields
@@ -86,9 +93,22 @@ Sync to Anki
 
 Pull known words
   -> refresh_anki_cache fetches deck notes into anki_notes table
-  -> list_annotations returns word list
+  -> refresh_anki_cache indexes deck words into vocabulary
+  -> list_annotations + list_vocabulary return reader highlight candidates
   -> readerText.applyHighlights() marks known words in reader
 ```
+
+## Vocabulary Model
+
+Anki can be the learner's long-term review backend, but the reader should not depend on live AnkiConnect lookups while a user is reading. Witt therefore keeps a local vocabulary layer:
+
+- `annotations` remains the source of pending reading captures that can be synced to Anki.
+- `anki_notes` remains the raw cache of selected deck notes for inspection and search.
+- `vocabulary` is the fast normalized word index used by the reader and dashboard.
+- `word_occurrences` stores source contexts for words captured in Witt.
+- `dictionary_cache` stores reusable AI explanations so repeated selections do not call the LLM again.
+
+This keeps the default mode Anki-first without making Anki the only internal model. Future review state, meaning grouping, export, and visual memory features should extend this vocabulary layer instead of duplicating word lists in reader components.
 
 ## Reader Frontend Boundaries
 

@@ -73,6 +73,41 @@ export interface AnkiNote {
   updated_at: string;
 }
 
+export interface VocabularyEntry {
+  normalized_word: string;
+  display_word: string;
+  status: 'new' | 'learning' | 'known' | 'ignored';
+  source: string;
+  anki_note_id?: number | null;
+  first_seen_at: string;
+  updated_at: string;
+}
+
+export interface WordOccurrence {
+  id: string;
+  normalized_word: string;
+  book_id?: string | null;
+  annotation_id?: string | null;
+  sentence: string;
+  chapter_title?: string | null;
+  epub_cfi?: string | null;
+  created_at: string;
+}
+
+export interface DictionaryCacheEntry {
+  normalized_word: string;
+  display_word: string;
+  meaning: string;
+  prompt_id?: string | null;
+  updated_at: string;
+}
+
+export interface DictionaryCacheDraft {
+  word: string;
+  meaning: string;
+  prompt_id?: string | null;
+}
+
 export interface AppSettings {
   llm_endpoint: string;
   llm_model: string;
@@ -296,6 +331,36 @@ export function searchAnkiNotes(deckName?: string, query?: string): Promise<Anki
 
 export function getAnkiNote(noteId: number): Promise<AnkiNote | null> {
   return command<AnkiNote | null>('get_anki_note', { noteId }, () => null);
+}
+
+export function listVocabulary(query?: string): Promise<VocabularyEntry[]> {
+  return command<VocabularyEntry[]>('list_vocabulary', { query: query ?? null }, () => []);
+}
+
+export function updateVocabularyStatus(
+  word: string,
+  status: VocabularyEntry['status']
+): Promise<VocabularyEntry | null> {
+  return command<VocabularyEntry | null>('update_vocabulary_status', { word, status }, () => null);
+}
+
+export function listWordOccurrences(word: string): Promise<WordOccurrence[]> {
+  return command<WordOccurrence[]>('list_word_occurrences', { word }, () => []);
+}
+
+export function getDictionaryCache(
+  word: string,
+  promptId?: string
+): Promise<DictionaryCacheEntry | null> {
+  return command<DictionaryCacheEntry | null>(
+    'get_dictionary_cache',
+    { word, promptId: promptId ?? null },
+    () => null
+  );
+}
+
+export function saveDictionaryCache(draft: DictionaryCacheDraft): Promise<DictionaryCacheEntry> {
+  return command<DictionaryCacheEntry>('save_dictionary_cache', { draft });
 }
 
 export function askLlmAboutSelection(request: SelectionLlmRequest): Promise<string> {

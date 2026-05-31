@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   askLlmAboutSelection,
   createAnnotation,
+  getDictionaryCache,
   getSettings,
   listPromptProfiles,
   openPromptProfile,
   readPromptProfile,
+  saveDictionaryCache,
   savePromptProfile,
   saveSettings,
   type PromptProfile,
@@ -93,18 +95,34 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
       return;
     }
 
+    const question = aiQuestion.trim() || 'Explain this in context';
+    const canUseWordCache = question === 'Explain this in context';
     setAskingAi(true);
     setAiAnswer('');
     try {
+      if (canUseWordCache) {
+        const cached = await getDictionaryCache(popup.word.trim(), selectedPromptId);
+        if (cached?.meaning) {
+          setAiAnswer(cached.meaning);
+          return;
+        }
+      }
       const answer = await askLlmAboutSelection({
         selected_text: popup.selectedText,
         word: popup.word.trim(),
         sentence: popup.sentence.trim(),
         chapter_title: popup.chapterTitle || null,
-        question: aiQuestion.trim() || 'Explain this in context',
+        question,
         prompt_id: selectedPromptId,
       });
       setAiAnswer(answer);
+      if (canUseWordCache && answer.trim()) {
+        void saveDictionaryCache({
+          word: popup.word.trim(),
+          meaning: answer,
+          prompt_id: selectedPromptId,
+        }).catch(() => undefined);
+      }
     } catch (error) {
       setAiAnswer(error instanceof Error ? error.message : 'LLM request failed');
     } finally {

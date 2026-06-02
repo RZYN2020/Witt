@@ -63,6 +63,30 @@ export function AnkiConnectionSettings({
           <option value="witt_first">Witt-first</option>
         </SelectInput>
       </Field>
+      <Field label="Visual memory scope">
+        <SelectInput
+          value={settings.visual_memory_scope}
+          onChange={(event) =>
+            onSettingsChange({
+              ...settings,
+              visual_memory_scope: event.target.value as AppSettings['visual_memory_scope'],
+            })
+          }
+        >
+          <option value="library">All library</option>
+          <option value="book">Current book</option>
+        </SelectInput>
+      </Field>
+      <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs">
+        <span className="text-muted-foreground">Inline mini-gloss for learning words</span>
+        <input
+          type="checkbox"
+          checked={settings.inline_mini_gloss}
+          onChange={(event) =>
+            onSettingsChange({ ...settings, inline_mini_gloss: event.target.checked })
+          }
+        />
+      </label>
       <Button size="sm" onClick={onSave}>
         <Save size={15} />
         Save

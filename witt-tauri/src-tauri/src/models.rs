@@ -80,6 +80,7 @@ pub struct VocabularyEntry {
     pub deck_name: Option<String>,
     pub model_name: Option<String>,
     pub raw_fields_json: Option<String>,
+    pub cached_meaning: Option<String>,
     pub occurrence_count: i64,
     pub last_seen_at: Option<String>,
     pub first_seen_at: String,
@@ -154,6 +155,10 @@ pub struct AppSettings {
     pub selection_auto_ask_ai: bool,
     #[serde(default = "default_vocabulary_backend_mode")]
     pub vocabulary_backend_mode: String,
+    #[serde(default = "default_visual_memory_scope")]
+    pub visual_memory_scope: String,
+    #[serde(default)]
+    pub inline_mini_gloss: bool,
 }
 
 impl Default for AppSettings {
@@ -175,6 +180,8 @@ impl Default for AppSettings {
             anki_preprocess_prompt: default_anki_preprocess_prompt_string(),
             selection_auto_ask_ai: false,
             vocabulary_backend_mode: default_vocabulary_backend_mode(),
+            visual_memory_scope: default_visual_memory_scope(),
+            inline_mini_gloss: false,
         }
     }
 }
@@ -255,6 +262,10 @@ pub struct ConfigSettings {
     pub selection_auto_ask_ai: bool,
     #[serde(default = "default_vocabulary_backend_mode")]
     pub vocabulary_backend_mode: String,
+    #[serde(default = "default_visual_memory_scope")]
+    pub visual_memory_scope: String,
+    #[serde(default)]
+    pub inline_mini_gloss: bool,
 }
 
 impl Default for ConfigSettings {
@@ -264,6 +275,8 @@ impl Default for ConfigSettings {
             anki_pipeline_id: default_anki_pipeline_id(),
             selection_auto_ask_ai: false,
             vocabulary_backend_mode: default_vocabulary_backend_mode(),
+            visual_memory_scope: default_visual_memory_scope(),
+            inline_mini_gloss: false,
         }
     }
 }
@@ -431,6 +444,10 @@ fn default_anki_pipeline_id() -> String {
 
 fn default_vocabulary_backend_mode() -> String {
     "hybrid".to_string()
+}
+
+fn default_visual_memory_scope() -> String {
+    "library".to_string()
 }
 
 fn default_anki_preprocess_prompt_string() -> String {

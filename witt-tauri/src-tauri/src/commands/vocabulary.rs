@@ -7,9 +7,10 @@ use chrono::Utc;
 pub async fn list_vocabulary(
     state: tauri::State<'_, AppState>,
     query: Option<String>,
+    book_id: Option<String>,
 ) -> Result<Vec<VocabularyEntry>, String> {
     let conn = state.conn.lock().await;
-    db::list_vocabulary(&conn, query.as_deref())
+    db::list_vocabulary(&conn, query.as_deref(), book_id.as_deref())
 }
 
 #[tauri::command]

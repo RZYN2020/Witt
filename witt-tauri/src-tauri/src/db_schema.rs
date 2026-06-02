@@ -103,6 +103,7 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
         CREATE INDEX IF NOT EXISTS idx_annotations_book ON annotations(book_id);
         CREATE INDEX IF NOT EXISTS idx_vocabulary_status ON vocabulary(status, updated_at);
         CREATE INDEX IF NOT EXISTS idx_occurrences_word ON word_occurrences(normalized_word, created_at);
+        CREATE INDEX IF NOT EXISTS idx_occurrences_book ON word_occurrences(book_id, normalized_word);
 
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -148,6 +149,8 @@ fn insert_default_settings(conn: &Connection) -> Result<(), String> {
     )?;
     set_default_setting(conn, "selection_auto_ask_ai", "false")?;
     set_default_setting(conn, "vocabulary_backend_mode", "hybrid")?;
+    set_default_setting(conn, "visual_memory_scope", "library")?;
+    set_default_setting(conn, "inline_mini_gloss", "false")?;
     Ok(())
 }
 

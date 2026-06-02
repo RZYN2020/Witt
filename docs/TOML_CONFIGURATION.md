@@ -13,6 +13,9 @@ config_version = 1
 llm_prompt_id = "explain"
 anki_pipeline_id = "default"
 selection_auto_ask_ai = false
+vocabulary_backend_mode = "hybrid"
+visual_memory_scope = "library"
+inline_mini_gloss = false
 
 [llm]
 endpoint = "https://api.openai.com/v1/chat/completions"
@@ -64,6 +67,9 @@ meaning = ""
 - `llm_prompt_id` points to `[prompts.<id>]`.
 - `anki_pipeline_id` points to `[pipelines.<id>]`.
 - `selection_auto_ask_ai` controls whether selection automatically calls Ask AI.
+- `vocabulary_backend_mode` is `hybrid`, `anki_first`, or `witt_first`.
+- `visual_memory_scope` is `library` for all indexed words or `book` for current-book occurrences only.
+- `inline_mini_gloss` shows cached word meanings inline while reading.
 
 `[llm]` stores LLM connection defaults. `default_model` is used unless the selected prompt has its own `model`.
 
@@ -98,4 +104,4 @@ Supported template placeholders:
 
 ## What Stays In SQLite
 
-Books, reading progress, saved annotations, selected Anki deck, and cached Anki notes stay in SQLite. The TOML file is for configuration you may want to edit by hand.
+Books, reading progress, saved annotations, selected Anki deck, cached Anki notes, local vocabulary, word occurrences, and dictionary cache stay in SQLite. The TOML file is for configuration you may want to edit by hand.

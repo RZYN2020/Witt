@@ -30,6 +30,11 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings, String> {
             .unwrap_or(defaults.selection_auto_ask_ai),
         vocabulary_backend_mode: get_setting(conn, "vocabulary_backend_mode")?
             .unwrap_or(defaults.vocabulary_backend_mode),
+        visual_memory_scope: get_setting(conn, "visual_memory_scope")?
+            .unwrap_or(defaults.visual_memory_scope),
+        inline_mini_gloss: get_setting(conn, "inline_mini_gloss")?
+            .map(|value| value == "true")
+            .unwrap_or(defaults.inline_mini_gloss),
     })
 }
 
@@ -79,6 +84,16 @@ pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<(), St
         conn,
         "vocabulary_backend_mode",
         &settings.vocabulary_backend_mode,
+    )?;
+    set_setting(conn, "visual_memory_scope", &settings.visual_memory_scope)?;
+    set_setting(
+        conn,
+        "inline_mini_gloss",
+        if settings.inline_mini_gloss {
+            "true"
+        } else {
+            "false"
+        },
     )?;
     Ok(())
 }

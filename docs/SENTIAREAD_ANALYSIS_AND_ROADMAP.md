@@ -271,7 +271,7 @@ Work:
 - Migrate existing annotations into occurrences where possible. Startup schema migration now backfills vocabulary and occurrence rows from existing annotations.
 - Keep existing annotations/Anki behavior working during migration.
 - Implement vocabulary status: new, learning, known, ignored. Reader popup now exposes quick Known and Ignore actions.
-- Add indexes for normalized word lookup and book-level occurrence lookup. Normalized/status indexes exist; per-book occurrence lookup still needs a dedicated index before large-library scale.
+- Add indexes for normalized word lookup and book-level occurrence lookup.
 - Add import/update flow from AnkiConnect into the local vocabulary cache. `refresh_anki_cache` now indexes pulled deck words into `vocabulary`.
 
 Success criteria:
@@ -306,10 +306,10 @@ Goal: Make vocabulary review happen naturally while reading.
 Work:
 
 - Highlight words by status with restrained visual styles. Reader highlights now carry `data-witt-status` and use subdued new/learning/known styles.
-- Show inline mini-gloss for learning words as an optional mode.
-- Add "View contexts" from vocabulary entries.
+- Show inline mini-gloss for learning words as an optional mode. This is now controlled by reader settings and uses cached meanings.
+- Add "View contexts" from vocabulary entries. The Vocabulary view now opens a context drawer backed by `word_occurrences`.
 - Add occurrence count and last-seen metadata.
-- Add per-book and all-library visual memory settings.
+- Add per-book and all-library visual memory settings. `visual_memory_scope` now switches reader highlighting between all-library and current-book vocabulary.
 - Add ignore/known quick actions from the popup.
 
 Success criteria:

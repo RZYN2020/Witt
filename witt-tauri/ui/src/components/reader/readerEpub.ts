@@ -27,6 +27,10 @@ export interface SelectionPopupModel {
   chapterTitle: string;
 }
 
+export interface ReaderMemoryStyleOptions {
+  inlineMiniGloss: boolean;
+}
+
 export const emptyPageInfo: PageInfo = {
   current: 0,
   total: 0,
@@ -130,7 +134,11 @@ export const applyReaderTypography = (
   rendition.themes.override('background', theme.background, true);
 };
 
-export const installReaderDocumentStyles = (document: Document, theme: ReaderTheme) => {
+export const installReaderDocumentStyles = (
+  document: Document,
+  theme: ReaderTheme,
+  memory: ReaderMemoryStyleOptions = { inlineMiniGloss: false }
+) => {
   const styleId = 'witt-reader-polish';
   const existing = document.getElementById(styleId);
   const style = existing ?? document.createElement('style');
@@ -151,6 +159,14 @@ export const installReaderDocumentStyles = (document: Document, theme: ReaderThe
       margin-inline: auto !important;
       padding-inline: clamp(1.75rem, 5vw, 4.5rem) !important;
       -webkit-touch-callout: none;
+    }
+    body.witt-inline-mini-gloss .witt-highlight[data-witt-meaning]::after {
+      content: " " attr(data-witt-meaning);
+      display: inline;
+      color: color-mix(in srgb, ${theme.foreground} 64%, transparent) !important;
+      font-size: 0.72em;
+      font-weight: 500;
+      letter-spacing: 0;
     }
     p {
       margin-block: 0 0.9em;
@@ -188,4 +204,5 @@ export const installReaderDocumentStyles = (document: Document, theme: ReaderThe
   if (!existing) {
     document.head.appendChild(style);
   }
+  document.body?.classList.toggle('witt-inline-mini-gloss', memory.inlineMiniGloss);
 };

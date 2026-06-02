@@ -1,6 +1,6 @@
 import { type EpubNavigationItem } from 'epubjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { listAnnotations, listVocabulary, type BookRecord } from '@/lib/commands';
+import { getSettings, listAnnotations, listVocabulary, type BookRecord } from '@/lib/commands';
 import { getSentenceAround, normalizeWord, type HighlightToken } from '@/lib/readerText';
 import { ProfileEditor } from '@/components/ui/ProfileEditor';
 import { AnkiPanel } from '@/components/anki/AnkiPanel';
@@ -36,6 +36,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   const renditionRef = useRef<Rendition | null>(null);
   const epubBookRef = useRef<EpubBook | null>(null);
   const knownWordsRef = useRef<HighlightToken[]>([]);
+  const memoryStyleRef = useRef({ inlineMiniGloss: false });
   const displayRef = useRef<ReaderDisplaySettings>(getInitialDisplay());
   const userChangedReaderThemeRef = useRef(false);
 
@@ -52,6 +53,8 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   const [immersive, setImmersive] = useState(false);
   const [display, setDisplay] = useState<ReaderDisplaySettings>(getInitialDisplay);
   const [customTheme, setCustomTheme] = useState<ReaderTheme>(loadCustomTheme);
+  const [visualMemoryScope, setVisualMemoryScope] = useState<'library' | 'book'>('library');
+  const [inlineMiniGloss, setInlineMiniGloss] = useState(false);
   const markKnownWord = useCallback((word: string) => {
     setKnownWords((prev) => mergeHighlightTokens(prev, [{ word, status: 'learning' }]));
   }, []);
@@ -102,6 +105,18 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   useEffect(() => {
     displayRef.current = display;
   }, [display]);
+  useEffect(() => {
+    memoryStyleRef.current = { inlineMiniGloss };
+  }, [inlineMiniGloss]);
+
+  useEffect(() => {
+    void getSettings()
+      .then((settings) => {
+        setVisualMemoryScope(settings.visual_memory_scope);
+        setInlineMiniGloss(settings.inline_mini_gloss);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const currentTheme = useMemo(
     () => themeById(display.themeId, customTheme),
@@ -268,6 +283,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     displayRef,
     epubBookRef,
     knownWordsRef,
+    memoryStyleRef,
     nextPage,
     onOpenRangePopup: openRangePopup,
     onOpenSelectionPopup: openSelectionPopup,
@@ -283,16 +299,23 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   });
 
   useEffect(() => {
-    void Promise.all([listAnnotations(book.id), listVocabulary()]).then(([anns, vocabulary]) => {
-      const words = [
-        ...anns.map((annotation) => ({ word: annotation.word, status: 'learning' as const })),
-        ...vocabulary
-          .filter((entry) => entry.status !== 'ignored')
-          .map((entry) => ({ word: entry.display_word, status: entry.status })),
-      ];
-      setKnownWords((prev) => mergeHighlightTokens(prev, words));
-    });
-  }, [book.id]);
+    const vocabularyBookId = visualMemoryScope === 'book' ? book.id : undefined;
+    void Promise.all([listAnnotations(book.id), listVocabulary(undefined, vocabularyBookId)]).then(
+      ([anns, vocabulary]) => {
+        const words = [
+          ...anns.map((annotation) => ({ word: annotation.word, status: 'learning' as const })),
+          ...vocabulary
+            .filter((entry) => entry.status !== 'ignored')
+            .map((entry) => ({
+              word: entry.display_word,
+              status: entry.status,
+              meaning: entry.cached_meaning ?? undefined,
+            })),
+        ];
+        setKnownWords(mergeHighlightTokens([], words));
+      }
+    );
+  }, [book.id, visualMemoryScope]);
 
   return (
     <div

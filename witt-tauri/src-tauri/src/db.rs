@@ -21,12 +21,14 @@ const VOCABULARY_SELECT: &str = r#"
         v.deck_name,
         v.model_name,
         v.raw_fields_json,
+        MAX(dc.meaning) AS cached_meaning,
         COUNT(o.id) AS occurrence_count,
         MAX(o.created_at) AS last_seen_at,
         v.first_seen_at,
         v.updated_at
     FROM vocabulary v
     LEFT JOIN word_occurrences o ON o.normalized_word = v.normalized_word
+    LEFT JOIN dictionary_cache dc ON dc.normalized_word = v.normalized_word
 "#;
 const OCCURRENCE_SELECT: &str = "SELECT id, normalized_word, book_id, annotation_id, sentence, chapter_title, epub_cfi, created_at FROM word_occurrences";
 const DICTIONARY_CACHE_SELECT: &str =
@@ -378,30 +380,34 @@ pub fn get_anki_note(conn: &Connection, note_id: i64) -> Result<Option<AnkiNote>
 pub fn list_vocabulary(
     conn: &Connection,
     query: Option<&str>,
+    book_id: Option<&str>,
 ) -> Result<Vec<VocabularyEntry>, String> {
     let query = query.unwrap_or("").trim().to_lowercase();
-    let (sql, args): (String, Vec<String>) = if query.is_empty() {
-        (
-            format!(
-                "{VOCABULARY_SELECT} GROUP BY v.normalized_word ORDER BY v.updated_at DESC LIMIT 500"
-            ),
-            Vec::new(),
-        )
-    } else {
-        (
-            format!(
-                "{VOCABULARY_SELECT} WHERE v.normalized_word LIKE ?1 OR LOWER(v.display_word) LIKE ?1 GROUP BY v.normalized_word ORDER BY v.updated_at DESC LIMIT 500"
-            ),
-            vec![format!("%{}%", query)],
-        )
-    };
-    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
-    let rows = if args.is_empty() {
-        stmt.query_map([], row_to_vocabulary_entry)
-    } else {
-        stmt.query_map(params![args[0]], row_to_vocabulary_entry)
+    let book_id = book_id.unwrap_or("").trim();
+    let mut filters = Vec::new();
+    let mut args = Vec::new();
+    if !query.is_empty() {
+        filters.push("v.normalized_word LIKE ? OR LOWER(v.display_word) LIKE ?");
+        let value = format!("%{}%", query);
+        args.push(value.clone());
+        args.push(value);
     }
-    .map_err(|error| error.to_string())?;
+    if !book_id.is_empty() {
+        filters.push("EXISTS (SELECT 1 FROM word_occurrences bo WHERE bo.normalized_word = v.normalized_word AND bo.book_id = ?)");
+        args.push(book_id.to_string());
+    }
+    let where_clause = if filters.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", filters.join(" AND "))
+    };
+    let sql = format!(
+        "{VOCABULARY_SELECT}{where_clause} GROUP BY v.normalized_word ORDER BY v.updated_at DESC LIMIT 500"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(args), row_to_vocabulary_entry)
+        .map_err(|error| error.to_string())?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())
 }
@@ -708,10 +714,11 @@ fn row_to_vocabulary_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<Vocabula
         deck_name: row.get(5)?,
         model_name: row.get(6)?,
         raw_fields_json: row.get(7)?,
-        occurrence_count: row.get(8)?,
-        last_seen_at: row.get(9)?,
-        first_seen_at: row.get(10)?,
-        updated_at: row.get(11)?,
+        cached_meaning: row.get(8)?,
+        occurrence_count: row.get(9)?,
+        last_seen_at: row.get(10)?,
+        first_seen_at: row.get(11)?,
+        updated_at: row.get(12)?,
     })
 }
 

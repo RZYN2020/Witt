@@ -108,7 +108,7 @@ Anki can be the learner's long-term review backend, but the reader should not de
 - `word_occurrences` stores source contexts for words captured in Witt.
 - `dictionary_cache` stores reusable AI explanations so repeated selections do not call the LLM again.
 
-This keeps the default mode hybrid without making Anki the only internal model. `vocabulary_backend_mode` supports `hybrid`, `anki_first`, and `witt_first`; the current implementation uses it as an explicit product setting while the local cache keeps reading fast. Future review state, meaning grouping, export, and visual memory features should extend this vocabulary layer instead of duplicating word lists in reader components.
+This keeps the default mode hybrid without making Anki the only internal model. `vocabulary_backend_mode` supports `hybrid`, `anki_first`, and `witt_first`; the current implementation uses it as an explicit product setting while the local cache keeps reading fast. `visual_memory_scope` controls all-library versus current-book highlighting, and `inline_mini_gloss` can show cached meanings directly in the reader. Future review state, meaning grouping, export, and visual memory features should extend this vocabulary layer instead of duplicating word lists in reader components.
 
 ## Learning Workspace
 
@@ -116,7 +116,7 @@ The main window is a learning workspace rather than a raw file list. `BookshelfV
 
 - Books: `list_books` plus per-book `get_progress` for Reading/Finished/Unread filters.
 - Annotations: `list_annotations` for pending capture review.
-- Vocabulary: `list_vocabulary` for status, source, occurrence count, and Anki provenance.
+- Vocabulary: `list_vocabulary` for status, source, occurrence count, cached meaning, and Anki provenance; `list_word_occurrences` for the context drawer.
 - Sync state: `list_anki_decks` for selected backend visibility.
 
 This remains intentionally local to the home surface until the app needs a real router. New dashboard panels should reuse these command outputs instead of re-querying AnkiConnect directly.

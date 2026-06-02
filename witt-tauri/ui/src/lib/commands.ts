@@ -82,6 +82,7 @@ export interface VocabularyEntry {
   deck_name?: string | null;
   model_name?: string | null;
   raw_fields_json?: string | null;
+  cached_meaning?: string | null;
   occurrence_count: number;
   last_seen_at?: string | null;
   first_seen_at: string;
@@ -130,6 +131,8 @@ export interface AppSettings {
   anki_preprocess_prompt: string;
   selection_auto_ask_ai: boolean;
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
+  visual_memory_scope: 'library' | 'book';
+  inline_mini_gloss: boolean;
 }
 
 export interface SelectionLlmRequest {
@@ -168,6 +171,8 @@ export interface ConfigSettings {
   anki_pipeline_id: string;
   selection_auto_ask_ai: boolean;
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
+  visual_memory_scope: 'library' | 'book';
+  inline_mini_gloss: boolean;
 }
 
 export interface LlmConfig {
@@ -233,6 +238,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     'Transform the reading capture into Anki-ready fields. Return strict JSON only: {"word":"...","sentence":"...","book":"...","chapter":"...","meaning":"..."}.',
   selection_auto_ask_ai: false,
   vocabulary_backend_mode: 'hybrid',
+  visual_memory_scope: 'library',
+  inline_mini_gloss: false,
 };
 
 export function hasTauriRuntime() {
@@ -341,8 +348,12 @@ export function getAnkiNote(noteId: number): Promise<AnkiNote | null> {
   return command<AnkiNote | null>('get_anki_note', { noteId }, () => null);
 }
 
-export function listVocabulary(query?: string): Promise<VocabularyEntry[]> {
-  return command<VocabularyEntry[]>('list_vocabulary', { query: query ?? null }, () => []);
+export function listVocabulary(query?: string, bookId?: string): Promise<VocabularyEntry[]> {
+  return command<VocabularyEntry[]>(
+    'list_vocabulary',
+    { query: query ?? null, bookId: bookId ?? null },
+    () => []
+  );
 }
 
 export function updateVocabularyStatus(
@@ -443,6 +454,8 @@ export function getAppConfig(): Promise<AppConfig> {
       anki_pipeline_id: DEFAULT_APP_SETTINGS.anki_pipeline_id,
       selection_auto_ask_ai: DEFAULT_APP_SETTINGS.selection_auto_ask_ai,
       vocabulary_backend_mode: DEFAULT_APP_SETTINGS.vocabulary_backend_mode,
+      visual_memory_scope: DEFAULT_APP_SETTINGS.visual_memory_scope,
+      inline_mini_gloss: DEFAULT_APP_SETTINGS.inline_mini_gloss,
     },
     llm: {
       endpoint: DEFAULT_APP_SETTINGS.llm_endpoint,

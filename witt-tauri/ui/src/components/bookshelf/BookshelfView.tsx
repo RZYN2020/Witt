@@ -8,6 +8,7 @@ import {
   FileUp,
   Library,
   Loader2,
+  MessageSquareText,
   Search,
   StickyNote,
   Trash2,
@@ -18,12 +19,14 @@ import {
   getProgress,
   listAnnotations,
   listAnkiDecks,
+  listWordOccurrences,
   listVocabulary,
   type Annotation,
   type AnkiDeck,
   type BookRecord,
   type ReadingProgress,
   type VocabularyEntry,
+  type WordOccurrence,
 } from '@/lib/commands';
 import { loadEpubCoverUrl } from '@/lib/epubCover';
 import { Button } from '@/components/ui/Button';
@@ -56,6 +59,8 @@ export function BookshelfView({
   const [progressByBook, setProgressByBook] = useState<Record<string, ReadingProgress | null>>({});
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [vocabulary, setVocabulary] = useState<VocabularyEntry[]>([]);
+  const [contextWord, setContextWord] = useState<VocabularyEntry | null>(null);
+  const [contexts, setContexts] = useState<WordOccurrence[]>([]);
   const [decks, setDecks] = useState<AnkiDeck[]>([]);
   const [showImportMenu, setShowImportMenu] = useState(false);
 
@@ -160,6 +165,10 @@ export function BookshelfView({
     if (typeof selected === 'string') {
       await onImport(selected);
     }
+  };
+  const viewContexts = async (entry: VocabularyEntry) => {
+    setContextWord(entry);
+    setContexts(await listWordOccurrences(entry.display_word).catch(() => []));
   };
 
   return (
@@ -289,7 +298,10 @@ export function BookshelfView({
         {view === 'annotations' ? (
           <AnnotationsView annotations={visibleAnnotations} />
         ) : view === 'vocabulary' ? (
-          <VocabularyView vocabulary={visibleVocabulary} />
+          <VocabularyView
+            vocabulary={visibleVocabulary}
+            onViewContexts={(entry) => void viewContexts(entry)}
+          />
         ) : books.length === 0 ? (
           <EmptyLibrary loading={loading} onImport={() => void chooseBook()} />
         ) : (
@@ -301,6 +313,16 @@ export function BookshelfView({
           />
         )}
       </section>
+      {contextWord && (
+        <ContextPanel
+          contexts={contexts}
+          word={contextWord}
+          onClose={() => {
+            setContextWord(null);
+            setContexts([]);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -387,22 +409,29 @@ function AnnotationsView({ annotations }: { annotations: Annotation[] }) {
   );
 }
 
-function VocabularyView({ vocabulary }: { vocabulary: VocabularyEntry[] }) {
+function VocabularyView({
+  vocabulary,
+  onViewContexts,
+}: {
+  vocabulary: VocabularyEntry[];
+  onViewContexts: (entry: VocabularyEntry) => void;
+}) {
   if (vocabulary.length === 0) {
     return <EmptyPanel icon={<CheckCircle2 size={24} />} title="No vocabulary yet" />;
   }
   return (
     <div className="overflow-hidden rounded-md border border-border bg-card">
-      <div className="grid grid-cols-[1fr_6rem_6rem_8rem] border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="grid grid-cols-[1fr_6rem_6rem_8rem_7rem] border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         <span>Word</span>
         <span>Status</span>
         <span>Contexts</span>
         <span>Source</span>
+        <span></span>
       </div>
       {vocabulary.map((entry) => (
         <div
           key={entry.normalized_word}
-          className="grid grid-cols-[1fr_6rem_6rem_8rem] items-center gap-3 border-b border-border/60 px-4 py-3 last:border-b-0"
+          className="grid grid-cols-[1fr_6rem_6rem_8rem_7rem] items-center gap-3 border-b border-border/60 px-4 py-3 last:border-b-0"
         >
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{entry.display_word}</p>
@@ -413,8 +442,75 @@ function VocabularyView({ vocabulary }: { vocabulary: VocabularyEntry[] }) {
           <span className="text-sm capitalize text-muted-foreground">{entry.status}</span>
           <span className="text-sm text-muted-foreground">{entry.occurrence_count}</span>
           <span className="truncate text-sm text-muted-foreground">{entry.source}</span>
+          <Button size="sm" variant="ghost" onClick={() => onViewContexts(entry)}>
+            <MessageSquareText size={14} />
+            Contexts
+          </Button>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ContextPanel({
+  contexts,
+  word,
+  onClose,
+}: {
+  contexts: WordOccurrence[];
+  word: VocabularyEntry;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 bg-black/20 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vocabulary-context-title"
+      onClick={onClose}
+    >
+      <div
+        className="ml-auto flex h-full max-w-xl flex-col rounded-md border border-border bg-background shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="border-b border-border p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Contexts
+              </p>
+              <h2 id="vocabulary-context-title" className="mt-1 truncate text-lg font-semibold">
+                {word.display_word}
+              </h2>
+              {word.cached_meaning && (
+                <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+                  {word.cached_meaning}
+                </p>
+              )}
+            </div>
+            <Button size="sm" variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {contexts.length === 0 ? (
+            <EmptyPanel icon={<MessageSquareText size={24} />} title="No saved contexts yet" />
+          ) : (
+            <div className="space-y-3">
+              {contexts.map((context) => (
+                <article key={context.id} className="rounded-md border border-border bg-card p-3">
+                  <p className="text-sm leading-6">{context.sentence}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {context.chapter_title || 'Untitled chapter'} ·{' '}
+                    {new Date(context.created_at).toLocaleDateString()}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

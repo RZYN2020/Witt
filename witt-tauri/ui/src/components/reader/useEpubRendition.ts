@@ -14,6 +14,7 @@ import {
   tocItems,
   type EpubContents,
   type Rendition,
+  type ReaderMemoryStyleOptions,
 } from '@/components/reader/readerEpub';
 import { loadCustomTheme, themeById, type ReaderTheme } from '@/lib/themes';
 import { type ReaderDisplaySettings } from './readerTypes';
@@ -27,6 +28,7 @@ interface UseEpubRenditionArgs {
   displayRef: MutableRefObject<ReaderDisplaySettings>;
   epubBookRef: MutableRefObject<EpubBook | null>;
   knownWordsRef: MutableRefObject<HighlightToken[]>;
+  memoryStyleRef: MutableRefObject<ReaderMemoryStyleOptions>;
   nextPage: () => void;
   onOpenRangePopup: (contents: EpubContents, range: Range, cfiRange?: string) => void;
   onOpenSelectionPopup: (contents: EpubContents) => void;
@@ -48,6 +50,7 @@ export function useEpubRendition({
   displayRef,
   epubBookRef,
   knownWordsRef,
+  memoryStyleRef,
   nextPage,
   onOpenRangePopup,
   onOpenSelectionPopup,
@@ -306,7 +309,8 @@ export function useEpubRendition({
         applyHighlights(readerContents.document, knownWordsRef.current);
         installReaderDocumentStyles(
           readerContents.document,
-          themeById(displayRef.current.themeId, loadCustomTheme())
+          themeById(displayRef.current.themeId, loadCustomTheme()),
+          memoryStyleRef.current
         );
       });
 
@@ -385,6 +389,7 @@ export function useEpubRendition({
     displayRef,
     epubBookRef,
     knownWordsRef,
+    memoryStyleRef,
     nextPage,
     onOpenRangePopup,
     onOpenSelectionPopup,
@@ -405,6 +410,8 @@ export function useEpubRendition({
     applyReaderTypography(rendition, display, theme);
     rendition
       .getContents()
-      .forEach((contents) => installReaderDocumentStyles(contents.document, theme));
-  }, [display, renditionRef, theme]);
+      .forEach((contents) =>
+        installReaderDocumentStyles(contents.document, theme, memoryStyleRef.current)
+      );
+  }, [display, memoryStyleRef, renditionRef, theme]);
 }

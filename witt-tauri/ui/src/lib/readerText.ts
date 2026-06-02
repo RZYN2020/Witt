@@ -87,7 +87,11 @@ export function applyHighlights(document: Document, tokens: Array<HighlightToken
       const status = statusByWord.get(normalized) ?? 'learning';
       mark.dataset.wittWord = normalized;
       mark.dataset.wittStatus = status;
-      mark.title = meaningByWord.get(normalized) ?? statusLabel(status);
+      const meaning = meaningByWord.get(normalized) ?? '';
+      if (meaning) {
+        mark.dataset.wittMeaning = compactMeaning(meaning);
+      }
+      mark.title = meaning || statusLabel(status);
       mark.textContent = match;
       fragment.append(mark);
       lastIndex = offset + match.length;
@@ -97,6 +101,10 @@ export function applyHighlights(document: Document, tokens: Array<HighlightToken
     node.replaceWith(fragment);
     pattern.lastIndex = 0;
   }
+}
+
+function compactMeaning(value: string) {
+  return value.replace(/\s+/g, ' ').trim().slice(0, 64);
 }
 
 function statusLabel(status: HighlightToken['status']) {

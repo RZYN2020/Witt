@@ -11,7 +11,23 @@ const ANKI_NOTE_SELECT: &str =
     "SELECT note_id, deck_name, word, sentence, meaning, raw_fields_json, updated_at FROM anki_notes";
 const ANKI_NOTE_SEARCH_FILTER: &str =
     "LOWER(word) LIKE ?1 OR LOWER(COALESCE(sentence, '')) LIKE ?1 OR LOWER(COALESCE(meaning, '')) LIKE ?1";
-const VOCABULARY_SELECT: &str = "SELECT normalized_word, display_word, status, source, anki_note_id, first_seen_at, updated_at FROM vocabulary";
+const VOCABULARY_SELECT: &str = r#"
+    SELECT
+        v.normalized_word,
+        v.display_word,
+        v.status,
+        v.source,
+        v.anki_note_id,
+        v.deck_name,
+        v.model_name,
+        v.raw_fields_json,
+        COUNT(o.id) AS occurrence_count,
+        MAX(o.created_at) AS last_seen_at,
+        v.first_seen_at,
+        v.updated_at
+    FROM vocabulary v
+    LEFT JOIN word_occurrences o ON o.normalized_word = v.normalized_word
+"#;
 const OCCURRENCE_SELECT: &str = "SELECT id, normalized_word, book_id, annotation_id, sentence, chapter_title, epub_cfi, created_at FROM word_occurrences";
 const DICTIONARY_CACHE_SELECT: &str =
     "SELECT normalized_word, display_word, meaning, prompt_id, updated_at FROM dictionary_cache";
@@ -275,6 +291,7 @@ pub fn selected_deck(conn: &Connection) -> Result<Option<String>, String> {
 pub fn replace_anki_notes(
     conn: &mut Connection,
     deck_name: &str,
+    model_name: &str,
     notes: &[AnkiNote],
     synced_at: &str,
 ) -> Result<(), String> {
@@ -301,7 +318,7 @@ pub fn replace_anki_notes(
             ],
         )
         .map_err(|error| error.to_string())?;
-        upsert_vocabulary_from_anki_note(&tx, note, synced_at)?;
+        upsert_vocabulary_from_anki_note(&tx, note, model_name, synced_at)?;
     }
     tx.execute(
         "UPDATE anki_decks SET synced_at = ?2 WHERE name = ?1",
@@ -365,13 +382,15 @@ pub fn list_vocabulary(
     let query = query.unwrap_or("").trim().to_lowercase();
     let (sql, args): (String, Vec<String>) = if query.is_empty() {
         (
-            format!("{VOCABULARY_SELECT} ORDER BY updated_at DESC LIMIT 500"),
+            format!(
+                "{VOCABULARY_SELECT} GROUP BY v.normalized_word ORDER BY v.updated_at DESC LIMIT 500"
+            ),
             Vec::new(),
         )
     } else {
         (
             format!(
-                "{VOCABULARY_SELECT} WHERE normalized_word LIKE ?1 OR LOWER(display_word) LIKE ?1 ORDER BY updated_at DESC LIMIT 500"
+                "{VOCABULARY_SELECT} WHERE v.normalized_word LIKE ?1 OR LOWER(v.display_word) LIKE ?1 GROUP BY v.normalized_word ORDER BY v.updated_at DESC LIMIT 500"
             ),
             vec![format!("%{}%", query)],
         )
@@ -404,7 +423,24 @@ pub fn update_vocabulary_status(
         )
         .map_err(|error| error.to_string())?;
     if affected == 0 {
-        return Ok(None);
+        upsert_vocabulary(
+            conn,
+            VocabularyUpsert {
+                word,
+                source: "witt",
+                anki_note_id: None,
+                deck_name: None,
+                model_name: None,
+                raw_fields_json: None,
+                first_seen_at: updated_at,
+                updated_at,
+            },
+        )?;
+        conn.execute(
+            "UPDATE vocabulary SET status = ?2, updated_at = ?3 WHERE normalized_word = ?1",
+            params![normalize_vocabulary_word(word), status, updated_at],
+        )
+        .map_err(|error| error.to_string())?;
     }
     get_vocabulary_entry(conn, word)
 }
@@ -417,7 +453,8 @@ pub fn get_vocabulary_entry(
     if normalized.is_empty() {
         return Ok(None);
     }
-    let sql = format!("{VOCABULARY_SELECT} WHERE normalized_word = ?1");
+    let sql =
+        format!("{VOCABULARY_SELECT} WHERE v.normalized_word = ?1 GROUP BY v.normalized_word");
     conn.query_row(&sql, params![normalized], row_to_vocabulary_entry)
         .optional()
         .map_err(|error| error.to_string())
@@ -505,11 +542,16 @@ fn upsert_vocabulary_from_annotation(
 ) -> Result<(), String> {
     upsert_vocabulary(
         conn,
-        &annotation.word,
-        "annotation",
-        annotation.anki_note_id,
-        &annotation.created_at,
-        &annotation.updated_at,
+        VocabularyUpsert {
+            word: &annotation.word,
+            source: "annotation",
+            anki_note_id: annotation.anki_note_id,
+            deck_name: None,
+            model_name: None,
+            raw_fields_json: None,
+            first_seen_at: &annotation.created_at,
+            updated_at: &annotation.updated_at,
+        },
     )?;
     let normalized = normalize_vocabulary_word(&annotation.word);
     if normalized.is_empty() {
@@ -546,35 +588,45 @@ fn upsert_vocabulary_from_annotation(
 fn upsert_vocabulary_from_anki_note(
     conn: &Connection,
     note: &AnkiNote,
+    model_name: &str,
     updated_at: &str,
 ) -> Result<(), String> {
     upsert_vocabulary(
         conn,
-        &note.word,
-        "anki",
-        Some(note.note_id),
-        updated_at,
-        updated_at,
+        VocabularyUpsert {
+            word: &note.word,
+            source: "anki",
+            anki_note_id: Some(note.note_id),
+            deck_name: Some(note.deck_name.as_str()),
+            model_name: Some(model_name),
+            raw_fields_json: Some(note.raw_fields_json.as_str()),
+            first_seen_at: updated_at,
+            updated_at,
+        },
     )
 }
 
-fn upsert_vocabulary(
-    conn: &Connection,
-    word: &str,
-    source: &str,
+struct VocabularyUpsert<'a> {
+    word: &'a str,
+    source: &'a str,
     anki_note_id: Option<i64>,
-    first_seen_at: &str,
-    updated_at: &str,
-) -> Result<(), String> {
-    let normalized = normalize_vocabulary_word(word);
+    deck_name: Option<&'a str>,
+    model_name: Option<&'a str>,
+    raw_fields_json: Option<&'a str>,
+    first_seen_at: &'a str,
+    updated_at: &'a str,
+}
+
+fn upsert_vocabulary(conn: &Connection, upsert: VocabularyUpsert<'_>) -> Result<(), String> {
+    let normalized = normalize_vocabulary_word(upsert.word);
     if normalized.is_empty() {
         return Ok(());
     }
     conn.execute(
         r#"
         INSERT INTO vocabulary
-        (normalized_word, display_word, status, source, anki_note_id, first_seen_at, updated_at)
-        VALUES (?1, ?2, 'learning', ?3, ?4, ?5, ?6)
+        (normalized_word, display_word, status, source, anki_note_id, deck_name, model_name, raw_fields_json, first_seen_at, updated_at)
+        VALUES (?1, ?2, 'learning', ?3, ?4, ?5, ?6, ?7, ?8, ?9)
         ON CONFLICT(normalized_word) DO UPDATE SET
             display_word = excluded.display_word,
             source = CASE
@@ -582,15 +634,21 @@ fn upsert_vocabulary(
                 ELSE excluded.source
             END,
             anki_note_id = COALESCE(excluded.anki_note_id, vocabulary.anki_note_id),
+            deck_name = COALESCE(excluded.deck_name, vocabulary.deck_name),
+            model_name = COALESCE(excluded.model_name, vocabulary.model_name),
+            raw_fields_json = COALESCE(excluded.raw_fields_json, vocabulary.raw_fields_json),
             updated_at = excluded.updated_at
         "#,
         params![
             normalized,
-            word.trim(),
-            source,
-            anki_note_id,
-            first_seen_at,
-            updated_at
+            upsert.word.trim(),
+            upsert.source,
+            upsert.anki_note_id,
+            upsert.deck_name,
+            upsert.model_name,
+            upsert.raw_fields_json,
+            upsert.first_seen_at,
+            upsert.updated_at
         ],
     )
     .map_err(|error| error.to_string())?;
@@ -647,8 +705,13 @@ fn row_to_vocabulary_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<Vocabula
         status: row.get(2)?,
         source: row.get(3)?,
         anki_note_id: row.get(4)?,
-        first_seen_at: row.get(5)?,
-        updated_at: row.get(6)?,
+        deck_name: row.get(5)?,
+        model_name: row.get(6)?,
+        raw_fields_json: row.get(7)?,
+        occurrence_count: row.get(8)?,
+        last_seen_at: row.get(9)?,
+        first_seen_at: row.get(10)?,
+        updated_at: row.get(11)?,
     })
 }
 

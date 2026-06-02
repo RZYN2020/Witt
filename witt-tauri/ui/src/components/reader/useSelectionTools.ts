@@ -10,6 +10,7 @@ import {
   saveDictionaryCache,
   savePromptProfile,
   saveSettings,
+  updateVocabularyStatus,
   type PromptProfile,
 } from '@/lib/commands';
 import { type SelectionPopupMode } from '@/components/reader/SelectionPopup';
@@ -89,6 +90,29 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
       setCapturing(false);
     }
   }, [bookId, capturing, onKnownWord, popup, setStatus]);
+
+  const setVocabularyStatus = useCallback(
+    async (status: 'known' | 'ignored') => {
+      if (!popup) {
+        return;
+      }
+      const word = popup.word.trim();
+      if (!word) {
+        return;
+      }
+      try {
+        await updateVocabularyStatus(word, status);
+        setStatus(status === 'known' ? `Marked "${word}" as known` : `Ignored "${word}"`);
+        if (status === 'known') {
+          onKnownWord(word);
+        }
+        setPopup(null);
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Failed to update vocabulary');
+      }
+    },
+    [onKnownWord, popup, setStatus]
+  );
 
   const askAi = useCallback(async () => {
     if (!popup || askingAi) {
@@ -200,6 +224,7 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
     savePrompt,
     savedWord,
     selectedPromptId,
+    setVocabularyStatus,
     autoAskAi,
     setAiAnswer,
     setAiQuestion,

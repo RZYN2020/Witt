@@ -28,16 +28,36 @@ export function normalizeWord(value: string): string {
   return value.replace(/[^\p{L}'‘’-]/gu, '').trim();
 }
 
-export function applyHighlights(document: Document, words: string[]): void {
-  const unique = Array.from(
-    new Set(words.map((word) => word.trim().toLowerCase()).filter((word) => word.length > 1))
+export interface HighlightToken {
+  word: string;
+  status: 'new' | 'learning' | 'known' | 'ignored';
+  meaning?: string;
+}
+
+export function applyHighlights(document: Document, tokens: Array<HighlightToken | string>): void {
+  const entries = Array.from(
+    new Map(
+      tokens
+        .map((token) =>
+          typeof token === 'string' ? { word: token, status: 'learning' as const } : token
+        )
+        .map((token) => ({ ...token, normalized: token.word.trim().toLowerCase() }))
+        .filter((token) => token.normalized.length > 1 && token.status !== 'ignored')
+        .map((token) => [token.normalized, token])
+    ).values()
   );
-  if (unique.length === 0 || !document.body) {
+  if (entries.length === 0 || !document.body) {
     return;
   }
+  const statusByWord = new Map(entries.map((entry) => [entry.normalized, entry.status]));
+  const meaningByWord = new Map(
+    entries
+      .filter((entry) => entry.meaning)
+      .map((entry) => [entry.normalized, entry.meaning as string])
+  );
 
   const pattern = new RegExp(
-    `\\b(${unique.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`,
+    `\\b(${entries.map((entry) => entry.normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`,
     'gi'
   );
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -63,6 +83,11 @@ export function applyHighlights(document: Document, words: string[]): void {
       fragment.append(document.createTextNode(text.slice(lastIndex, offset)));
       const mark = document.createElement('mark');
       mark.className = 'witt-highlight';
+      const normalized = match.toLowerCase();
+      const status = statusByWord.get(normalized) ?? 'learning';
+      mark.dataset.wittWord = normalized;
+      mark.dataset.wittStatus = status;
+      mark.title = meaningByWord.get(normalized) ?? statusLabel(status);
       mark.textContent = match;
       fragment.append(mark);
       lastIndex = offset + match.length;
@@ -72,4 +97,14 @@ export function applyHighlights(document: Document, words: string[]): void {
     node.replaceWith(fragment);
     pattern.lastIndex = 0;
   }
+}
+
+function statusLabel(status: HighlightToken['status']) {
+  if (status === 'known') {
+    return 'Known word';
+  }
+  if (status === 'new') {
+    return 'New word';
+  }
+  return 'Learning word';
 }

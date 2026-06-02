@@ -1,4 +1,4 @@
-import { MoreHorizontal, Save, Sparkles, X } from 'lucide-react';
+import { Ban, CheckCircle2, MoreHorizontal, Save, Sparkles, X } from 'lucide-react';
 import { type ButtonHTMLAttributes } from 'react';
 import { type PromptProfile } from '@/lib/commands';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,8 @@ interface SelectionPopupProps {
   onPromptChange: (promptId: string) => void;
   onEditPrompt: () => void;
   onToggleAutoAskAi: () => void;
+  onMarkKnown: () => void;
+  onIgnore: () => void;
 }
 
 function PopupAction({
@@ -76,6 +78,8 @@ export function SelectionPopup({
   onPromptChange,
   onEditPrompt,
   onToggleAutoAskAi,
+  onMarkKnown,
+  onIgnore,
 }: SelectionPopupProps) {
   const showAi = mode === 'ai';
   const showMore = mode === 'more';
@@ -171,6 +175,16 @@ export function SelectionPopup({
             <MoreHorizontal size={13} />
             More
           </PopupAction>
+          <div className="ml-auto flex items-center gap-1">
+            <PopupAction aria-label={`Mark ${popup.word} as known`} onClick={onMarkKnown}>
+              <CheckCircle2 size={13} />
+              Known
+            </PopupAction>
+            <PopupAction aria-label={`Ignore ${popup.word}`} onClick={onIgnore}>
+              <Ban size={13} />
+              Ignore
+            </PopupAction>
+          </div>
         </div>
 
         {showMore && (

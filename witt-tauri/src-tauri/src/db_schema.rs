@@ -60,6 +60,9 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
             status TEXT NOT NULL DEFAULT 'learning',
             source TEXT NOT NULL,
             anki_note_id INTEGER,
+            deck_name TEXT,
+            model_name TEXT,
+            raw_fields_json TEXT,
             first_seen_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -109,6 +112,9 @@ pub fn migrate(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|error| error.to_string())?;
 
+    ensure_column(conn, "vocabulary", "deck_name", "TEXT")?;
+    ensure_column(conn, "vocabulary", "model_name", "TEXT")?;
+    ensure_column(conn, "vocabulary", "raw_fields_json", "TEXT")?;
     insert_default_settings(conn)?;
     backfill_vocabulary(conn)
 }
@@ -141,6 +147,7 @@ fn insert_default_settings(conn: &Connection) -> Result<(), String> {
         crate::llm::default_preprocess_prompt(),
     )?;
     set_default_setting(conn, "selection_auto_ask_ai", "false")?;
+    set_default_setting(conn, "vocabulary_backend_mode", "hybrid")?;
     Ok(())
 }
 
@@ -150,6 +157,32 @@ fn set_default_setting(conn: &Connection, key: &str, value: &str) -> Result<(), 
         params![key, value],
     )
     .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn ensure_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(|error| error.to_string())?;
+    let exists = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?
+        .iter()
+        .any(|name| name == column);
+    if !exists {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"),
+            [],
+        )
+        .map_err(|error| error.to_string())?;
+    }
     Ok(())
 }
 
@@ -184,13 +217,15 @@ fn backfill_vocabulary(conn: &Connection) -> Result<(), String> {
             epub_cfi = excluded.epub_cfi;
 
         INSERT INTO vocabulary
-        (normalized_word, display_word, status, source, anki_note_id, first_seen_at, updated_at)
-        SELECT LOWER(TRIM(word)), TRIM(word), 'learning', 'anki', note_id, updated_at, updated_at
+        (normalized_word, display_word, status, source, anki_note_id, deck_name, raw_fields_json, first_seen_at, updated_at)
+        SELECT LOWER(TRIM(word)), TRIM(word), 'learning', 'anki', note_id, deck_name, raw_fields_json, updated_at, updated_at
         FROM anki_notes
         WHERE TRIM(word) != ''
         ON CONFLICT(normalized_word) DO UPDATE SET
             display_word = excluded.display_word,
             anki_note_id = COALESCE(excluded.anki_note_id, vocabulary.anki_note_id),
+            deck_name = COALESCE(excluded.deck_name, vocabulary.deck_name),
+            raw_fields_json = COALESCE(excluded.raw_fields_json, vocabulary.raw_fields_json),
             updated_at = excluded.updated_at;
         "#,
     )

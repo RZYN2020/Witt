@@ -168,6 +168,20 @@ export const installReaderDocumentStyles = (document: Document, theme: ReaderThe
       color: ${theme.highlightForeground} !important;
       background: ${theme.highlightBackground} !important;
       box-shadow: 0 0 0 2px ${theme.highlightBackground} !important;
+      cursor: pointer;
+      border-radius: 0.12em;
+    }
+    .witt-highlight[data-witt-status="new"] {
+      background: color-mix(in srgb, ${theme.selection} 55%, transparent) !important;
+      box-shadow: inset 0 -0.18em 0 color-mix(in srgb, ${theme.link} 45%, transparent) !important;
+    }
+    .witt-highlight[data-witt-status="known"] {
+      background: transparent !important;
+      color: inherit !important;
+      box-shadow: inset 0 -0.12em 0 color-mix(in srgb, ${theme.highlightBackground} 55%, transparent) !important;
+    }
+    .witt-highlight:hover {
+      box-shadow: 0 0 0 2px ${theme.highlightBackground} !important;
     }
     ${theme.css}
   `;

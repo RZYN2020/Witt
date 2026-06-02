@@ -212,6 +212,7 @@ export function ReaderSettingsPanel({
             result={ankiTestResult}
             settings={settings}
             onSettingsChange={setSettings}
+            onSave={() => void persistSettings()}
             onTest={() => void testAnki()}
           />
         </div>

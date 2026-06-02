@@ -28,6 +28,8 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings, String> {
         selection_auto_ask_ai: get_setting(conn, "selection_auto_ask_ai")?
             .map(|value| value == "true")
             .unwrap_or(defaults.selection_auto_ask_ai),
+        vocabulary_backend_mode: get_setting(conn, "vocabulary_backend_mode")?
+            .unwrap_or(defaults.vocabulary_backend_mode),
     })
 }
 
@@ -72,6 +74,11 @@ pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<(), St
         } else {
             "false"
         },
+    )?;
+    set_setting(
+        conn,
+        "vocabulary_backend_mode",
+        &settings.vocabulary_backend_mode,
     )?;
     Ok(())
 }

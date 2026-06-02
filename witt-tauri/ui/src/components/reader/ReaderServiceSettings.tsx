@@ -1,12 +1,13 @@
 import { KeyRound, Save, Wifi } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Field, StatusText, TextInput } from '@/components/ui/Form';
+import { Field, SelectInput, StatusText, TextInput } from '@/components/ui/Form';
 import { type AppSettings } from '@/lib/commands';
 
 interface AnkiConnectionSettingsProps {
   result: string;
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
+  onSave: () => void;
   onTest: () => void;
 }
 
@@ -24,6 +25,7 @@ export function AnkiConnectionSettings({
   result,
   settings,
   onSettingsChange,
+  onSave,
   onTest,
 }: AnkiConnectionSettingsProps) {
   return (
@@ -46,6 +48,25 @@ export function AnkiConnectionSettings({
           Test
         </Button>
       </div>
+      <Field label="Vocabulary backend">
+        <SelectInput
+          value={settings.vocabulary_backend_mode}
+          onChange={(event) =>
+            onSettingsChange({
+              ...settings,
+              vocabulary_backend_mode: event.target.value as AppSettings['vocabulary_backend_mode'],
+            })
+          }
+        >
+          <option value="hybrid">Hybrid</option>
+          <option value="anki_first">Anki-first</option>
+          <option value="witt_first">Witt-first</option>
+        </SelectInput>
+      </Field>
+      <Button size="sm" onClick={onSave}>
+        <Save size={15} />
+        Save
+      </Button>
       <StatusText>{result}</StatusText>
     </div>
   );

@@ -1,7 +1,7 @@
 import ePub, { type EpubNavigationItem } from 'epubjs';
 import { useEffect, type MutableRefObject } from 'react';
 import { getBookFile, getProgress, saveProgress } from '@/lib/commands';
-import { applyHighlights } from '@/lib/readerText';
+import { applyHighlights, type HighlightToken } from '@/lib/readerText';
 import { LOCATION_BREAK_CHARS, PAGE_TURN_EDGE_W } from '@/components/reader/readerConstants';
 import {
   applyReaderTypography,
@@ -26,7 +26,7 @@ interface UseEpubRenditionArgs {
   display: ReaderDisplaySettings;
   displayRef: MutableRefObject<ReaderDisplaySettings>;
   epubBookRef: MutableRefObject<EpubBook | null>;
-  knownWordsRef: MutableRefObject<string[]>;
+  knownWordsRef: MutableRefObject<HighlightToken[]>;
   nextPage: () => void;
   onOpenRangePopup: (contents: EpubContents, range: Range, cfiRange?: string) => void;
   onOpenSelectionPopup: (contents: EpubContents) => void;
@@ -245,6 +245,19 @@ export function useEpubRendition({
             (event: MouseEvent) => {
               const target = event.target;
               const el = target instanceof Element ? target : null;
+              const highlight = el?.closest('.witt-highlight');
+              if (highlight) {
+                event.preventDefault();
+                event.stopPropagation();
+                const range = doc.createRange();
+                range.selectNodeContents(highlight);
+                onOpenRangePopup(
+                  readerContents,
+                  range,
+                  readerContents.cfiFromRange?.(range, 'witt-highlight') ?? ''
+                );
+                return;
+              }
               if (el?.closest('a, button, input, textarea, select, [role="button"]')) {
                 return;
               }

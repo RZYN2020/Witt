@@ -53,6 +53,7 @@ pub fn settings_from_config(config: &AppConfig) -> AppSettings {
         anki_preprocess_template: crate::llm::default_preprocess_template(),
         anki_preprocess_prompt: crate::llm::default_preprocess_prompt().to_string(),
         selection_auto_ask_ai: config.settings.selection_auto_ask_ai,
+        vocabulary_backend_mode: config.settings.vocabulary_backend_mode.clone(),
     };
     apply_pipeline_to_settings(config, &mut settings);
     settings
@@ -66,6 +67,7 @@ pub fn update_config_from_settings(
     config.settings.llm_prompt_id = settings.llm_prompt_id.clone();
     config.settings.anki_pipeline_id = settings.anki_pipeline_id.clone();
     config.settings.selection_auto_ask_ai = settings.selection_auto_ask_ai;
+    config.settings.vocabulary_backend_mode = settings.vocabulary_backend_mode.clone();
     config.llm.endpoint = settings.llm_endpoint.clone();
     config.llm.default_model = settings.llm_model.clone();
     config.anki.endpoint = settings.anki_endpoint.clone();
@@ -184,6 +186,7 @@ fn config_from_settings(settings: &AppSettings) -> AppConfig {
             llm_prompt_id: settings.llm_prompt_id.clone(),
             anki_pipeline_id: settings.anki_pipeline_id.clone(),
             selection_auto_ask_ai: settings.selection_auto_ask_ai,
+            vocabulary_backend_mode: settings.vocabulary_backend_mode.clone(),
         },
         llm: LlmConfig {
             endpoint: settings.llm_endpoint.clone(),
@@ -227,6 +230,11 @@ fn normalize_config(config: &mut AppConfig) {
         .contains_key(&config.settings.anki_pipeline_id)
     {
         config.settings.anki_pipeline_id = "default".to_string();
+    }
+    if !["hybrid", "anki_first", "witt_first"]
+        .contains(&config.settings.vocabulary_backend_mode.as_str())
+    {
+        config.settings.vocabulary_backend_mode = "hybrid".to_string();
     }
     trim_prompts(config);
 }

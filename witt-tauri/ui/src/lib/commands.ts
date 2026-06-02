@@ -79,6 +79,11 @@ export interface VocabularyEntry {
   status: 'new' | 'learning' | 'known' | 'ignored';
   source: string;
   anki_note_id?: number | null;
+  deck_name?: string | null;
+  model_name?: string | null;
+  raw_fields_json?: string | null;
+  occurrence_count: number;
+  last_seen_at?: string | null;
   first_seen_at: string;
   updated_at: string;
 }
@@ -124,6 +129,7 @@ export interface AppSettings {
   anki_preprocess_template: string;
   anki_preprocess_prompt: string;
   selection_auto_ask_ai: boolean;
+  vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
 }
 
 export interface SelectionLlmRequest {
@@ -161,6 +167,7 @@ export interface ConfigSettings {
   llm_prompt_id: string;
   anki_pipeline_id: string;
   selection_auto_ask_ai: boolean;
+  vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
 }
 
 export interface LlmConfig {
@@ -225,6 +232,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   anki_preprocess_prompt:
     'Transform the reading capture into Anki-ready fields. Return strict JSON only: {"word":"...","sentence":"...","book":"...","chapter":"...","meaning":"..."}.',
   selection_auto_ask_ai: false,
+  vocabulary_backend_mode: 'hybrid',
 };
 
 export function hasTauriRuntime() {
@@ -434,6 +442,7 @@ export function getAppConfig(): Promise<AppConfig> {
       llm_prompt_id: DEFAULT_APP_SETTINGS.llm_prompt_id,
       anki_pipeline_id: DEFAULT_APP_SETTINGS.anki_pipeline_id,
       selection_auto_ask_ai: DEFAULT_APP_SETTINGS.selection_auto_ask_ai,
+      vocabulary_backend_mode: DEFAULT_APP_SETTINGS.vocabulary_backend_mode,
     },
     llm: {
       endpoint: DEFAULT_APP_SETTINGS.llm_endpoint,

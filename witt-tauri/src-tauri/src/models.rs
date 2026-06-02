@@ -77,6 +77,11 @@ pub struct VocabularyEntry {
     pub status: String,
     pub source: String,
     pub anki_note_id: Option<i64>,
+    pub deck_name: Option<String>,
+    pub model_name: Option<String>,
+    pub raw_fields_json: Option<String>,
+    pub occurrence_count: i64,
+    pub last_seen_at: Option<String>,
     pub first_seen_at: String,
     pub updated_at: String,
 }
@@ -147,6 +152,8 @@ pub struct AppSettings {
     pub anki_preprocess_prompt: String,
     #[serde(default)]
     pub selection_auto_ask_ai: bool,
+    #[serde(default = "default_vocabulary_backend_mode")]
+    pub vocabulary_backend_mode: String,
 }
 
 impl Default for AppSettings {
@@ -167,6 +174,7 @@ impl Default for AppSettings {
             anki_preprocess_template: crate::llm::default_preprocess_template(),
             anki_preprocess_prompt: default_anki_preprocess_prompt_string(),
             selection_auto_ask_ai: false,
+            vocabulary_backend_mode: default_vocabulary_backend_mode(),
         }
     }
 }
@@ -245,6 +253,8 @@ pub struct ConfigSettings {
     pub anki_pipeline_id: String,
     #[serde(default)]
     pub selection_auto_ask_ai: bool,
+    #[serde(default = "default_vocabulary_backend_mode")]
+    pub vocabulary_backend_mode: String,
 }
 
 impl Default for ConfigSettings {
@@ -253,6 +263,7 @@ impl Default for ConfigSettings {
             llm_prompt_id: default_llm_prompt_id(),
             anki_pipeline_id: default_anki_pipeline_id(),
             selection_auto_ask_ai: false,
+            vocabulary_backend_mode: default_vocabulary_backend_mode(),
         }
     }
 }
@@ -416,6 +427,10 @@ fn default_anki_preprocess_mode() -> String {
 
 fn default_anki_pipeline_id() -> String {
     "default".to_string()
+}
+
+fn default_vocabulary_backend_mode() -> String {
+    "hybrid".to_string()
 }
 
 fn default_anki_preprocess_prompt_string() -> String {

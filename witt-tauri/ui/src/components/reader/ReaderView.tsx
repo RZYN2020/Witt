@@ -1,7 +1,7 @@
 import { type EpubNavigationItem } from 'epubjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listAnnotations, listVocabulary, type BookRecord } from '@/lib/commands';
-import { getSentenceAround, normalizeWord } from '@/lib/readerText';
+import { getSentenceAround, normalizeWord, type HighlightToken } from '@/lib/readerText';
 import { ProfileEditor } from '@/components/ui/ProfileEditor';
 import { AnkiPanel } from '@/components/anki/AnkiPanel';
 import { ReaderChrome } from '@/components/reader/ReaderChrome';
@@ -35,14 +35,14 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const renditionRef = useRef<Rendition | null>(null);
   const epubBookRef = useRef<EpubBook | null>(null);
-  const knownWordsRef = useRef<string[]>([]);
+  const knownWordsRef = useRef<HighlightToken[]>([]);
   const displayRef = useRef<ReaderDisplaySettings>(getInitialDisplay());
   const userChangedReaderThemeRef = useRef(false);
 
   const [toc, setToc] = useState<EpubNavigationItem[]>([]);
   const [tocPages, setTocPages] = useState<Record<string, number>>({});
   const [pageInfo, setPageInfo] = useState(emptyPageInfo);
-  const [knownWords, setKnownWords] = useState<string[]>([]);
+  const [knownWords, setKnownWords] = useState<HighlightToken[]>([]);
   const [status, setStatus] = useState('Loading…');
   // showUI = false → immersive: header, footer, TOC, and Anki all hidden
   const [showUI, setShowUI] = useState(true);
@@ -53,7 +53,15 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   const [display, setDisplay] = useState<ReaderDisplaySettings>(getInitialDisplay);
   const [customTheme, setCustomTheme] = useState<ReaderTheme>(loadCustomTheme);
   const markKnownWord = useCallback((word: string) => {
-    setKnownWords((prev) => Array.from(new Set([...prev, word])));
+    setKnownWords((prev) => mergeHighlightTokens(prev, [{ word, status: 'learning' }]));
+  }, []);
+  const mergeKnownWordList = useCallback((words: string[]) => {
+    setKnownWords((prev) =>
+      mergeHighlightTokens(
+        prev,
+        words.map((word) => ({ word, status: 'learning' }))
+      )
+    );
   }, []);
   const selectionTools = useSelectionTools({
     bookId: book.id,
@@ -79,6 +87,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     savePrompt,
     savedWord,
     selectedPromptId,
+    setVocabularyStatus,
     setAiAnswer,
     setAiQuestion,
     setPopup,
@@ -276,12 +285,12 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   useEffect(() => {
     void Promise.all([listAnnotations(book.id), listVocabulary()]).then(([anns, vocabulary]) => {
       const words = [
-        ...anns.map((annotation) => annotation.word),
+        ...anns.map((annotation) => ({ word: annotation.word, status: 'learning' as const })),
         ...vocabulary
           .filter((entry) => entry.status !== 'ignored')
-          .map((entry) => entry.display_word),
+          .map((entry) => ({ word: entry.display_word, status: entry.status })),
       ];
-      setKnownWords((prev) => Array.from(new Set([...prev, ...words])));
+      setKnownWords((prev) => mergeHighlightTokens(prev, words));
     });
   }, [book.id]);
 
@@ -358,7 +367,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
           style={{ top: HEADER_H, bottom: FOOTER_H }}
           onClick={(e) => e.stopPropagation()}
         >
-          <AnkiPanel onKnownWordsChange={setKnownWords} />
+          <AnkiPanel onKnownWordsChange={mergeKnownWordList} />
         </div>
       )}
 
@@ -386,6 +395,8 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
           onPromptChange={setSelectedPromptId}
           onEditPrompt={() => void editPrompt()}
           onToggleAutoAskAi={() => void toggleAutoAskAi()}
+          onMarkKnown={() => void setVocabularyStatus('known')}
+          onIgnore={() => void setVocabularyStatus('ignored')}
         />
       )}
 
@@ -399,4 +410,16 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
       )}
     </div>
   );
+}
+
+function mergeHighlightTokens(current: HighlightToken[], next: HighlightToken[]) {
+  const byWord = new Map(current.map((token) => [token.word.trim().toLowerCase(), token]));
+  for (const token of next) {
+    const normalized = token.word.trim().toLowerCase();
+    if (!normalized) {
+      continue;
+    }
+    byWord.set(normalized, { ...byWord.get(normalized), ...token });
+  }
+  return Array.from(byWord.values());
 }

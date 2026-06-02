@@ -270,8 +270,8 @@ Work:
 - Add `vocabulary`, `meaning_groups`, `word_occurrences`, and `dictionary_cache`. Initial tables and command wrappers are in place; later work should deepen meaning-level and review-state data.
 - Migrate existing annotations into occurrences where possible. Startup schema migration now backfills vocabulary and occurrence rows from existing annotations.
 - Keep existing annotations/Anki behavior working during migration.
-- Implement vocabulary status: new, learning, known, ignored.
-- Add indexes for normalized word lookup and book-level occurrence lookup.
+- Implement vocabulary status: new, learning, known, ignored. Reader popup now exposes quick Known and Ignore actions.
+- Add indexes for normalized word lookup and book-level occurrence lookup. Normalized/status indexes exist; per-book occurrence lookup still needs a dedicated index before large-library scale.
 - Add import/update flow from AnkiConnect into the local vocabulary cache. `refresh_anki_cache` now indexes pulled deck words into `vocabulary`.
 
 Success criteria:
@@ -286,10 +286,10 @@ Goal: Make Anki a serious backend, not just a sync target.
 
 Work:
 
-- Add backend mode setting: Hybrid, Anki-first, Witt-first.
+- Add backend mode setting: Hybrid, Anki-first, Witt-first. This now exists in `settings.toml`, app settings, and the Anki settings panel.
 - Add selected deck/model mapping wizard.
 - Pull Anki notes into local vocabulary cache. The first slice indexes deck words locally; deck/model/raw-field provenance still needs to be promoted into the vocabulary layer.
-- Track `anki_note_id`, deck, model, and raw fields.
+- Track `anki_note_id`, deck, model, and raw fields. The local vocabulary cache now stores this provenance for pulled Anki notes.
 - Push new local words to Anki using configurable templates.
 - Add conflict handling: Anki changed, Witt changed, duplicate word, duplicate sentence.
 - Add export path for users who do not want AnkiConnect running.
@@ -305,7 +305,7 @@ Goal: Make vocabulary review happen naturally while reading.
 
 Work:
 
-- Highlight words by status with restrained visual styles.
+- Highlight words by status with restrained visual styles. Reader highlights now carry `data-witt-status` and use subdued new/learning/known styles.
 - Show inline mini-gloss for learning words as an optional mode.
 - Add "View contexts" from vocabulary entries.
 - Add occurrence count and last-seen metadata.
@@ -323,11 +323,11 @@ Goal: Move the app from bookshelf to learning workspace.
 
 Work:
 
-- Redesign Home around Continue Reading, recent books, today's reading, vocabulary progress, and sync status.
+- Redesign Home around Continue Reading, recent books, vocabulary progress, and sync status. Today's reading target still needs a real daily goal model.
 - Add library filters: All, Reading, Finished, Unread.
 - Add global search with scoped placeholders.
 - Add Annotations and Vocabulary as first-class navigation items.
-- Add import menu for EPUB, TXT, Markdown, clipboard, and later web article.
+- Add import menu for EPUB, TXT, Markdown, clipboard, and later web article. EPUB is implemented; other import types are visible as disabled future options.
 
 Success criteria:
 

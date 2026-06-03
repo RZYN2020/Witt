@@ -32,6 +32,8 @@ const VOCABULARY_SELECT: &str = r#"
     LEFT JOIN dictionary_cache dc ON dc.normalized_word = v.normalized_word
 "#;
 const OCCURRENCE_SELECT: &str = "SELECT id, normalized_word, book_id, annotation_id, sentence, chapter_title, epub_cfi, created_at FROM word_occurrences";
+const MEANING_GROUP_SELECT: &str =
+    "SELECT id, normalized_word, meaning, source, created_at, updated_at FROM meaning_groups";
 const DICTIONARY_CACHE_SELECT: &str =
     "SELECT normalized_word, display_word, meaning, prompt_id, updated_at FROM dictionary_cache";
 
@@ -553,6 +555,20 @@ pub fn list_word_occurrences(conn: &Connection, word: &str) -> Result<Vec<WordOc
         .map_err(|error| error.to_string())
 }
 
+pub fn list_meaning_groups(conn: &Connection, word: &str) -> Result<Vec<MeaningGroup>, String> {
+    let normalized = normalize_vocabulary_word(word);
+    if normalized.is_empty() {
+        return Ok(Vec::new());
+    }
+    let sql = format!("{MEANING_GROUP_SELECT} WHERE normalized_word = ?1 ORDER BY updated_at DESC");
+    let mut stmt = conn.prepare(&sql).map_err(|error| error.to_string())?;
+    let rows = stmt
+        .query_map(params![normalized], row_to_meaning_group)
+        .map_err(|error| error.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
 pub fn get_dictionary_cache(
     conn: &Connection,
     word: &str,
@@ -609,8 +625,38 @@ pub fn save_dictionary_cache(
         ],
     )
     .map_err(|error| error.to_string())?;
+    upsert_meaning_group(
+        conn,
+        &normalized,
+        draft.meaning.trim(),
+        draft.prompt_id.as_deref().unwrap_or("dictionary_cache"),
+        updated_at,
+    )?;
     get_dictionary_cache(conn, &draft.word, draft.prompt_id.as_deref())?
         .ok_or_else(|| "Dictionary cache was not saved".to_string())
+}
+
+fn upsert_meaning_group(
+    conn: &Connection,
+    normalized_word: &str,
+    meaning: &str,
+    source: &str,
+    updated_at: &str,
+) -> Result<(), String> {
+    let id = format!("dictionary:{normalized_word}:{source}");
+    conn.execute(
+        r#"
+        INSERT INTO meaning_groups (id, normalized_word, meaning, source, created_at, updated_at)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+        ON CONFLICT(id) DO UPDATE SET
+            meaning = excluded.meaning,
+            source = excluded.source,
+            updated_at = excluded.updated_at
+        "#,
+        params![id, normalized_word, meaning, source, updated_at],
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 fn upsert_vocabulary_from_annotation(
@@ -811,6 +857,17 @@ fn row_to_word_occurrence(row: &rusqlite::Row<'_>) -> rusqlite::Result<WordOccur
         chapter_title: row.get(5)?,
         epub_cfi: row.get(6)?,
         created_at: row.get(7)?,
+    })
+}
+
+fn row_to_meaning_group(row: &rusqlite::Row<'_>) -> rusqlite::Result<MeaningGroup> {
+    Ok(MeaningGroup {
+        id: row.get(0)?,
+        normalized_word: row.get(1)?,
+        meaning: row.get(2)?,
+        source: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
     })
 }
 

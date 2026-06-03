@@ -6,6 +6,7 @@ vi.mock('@/lib/commands', () => ({
   listBooks: vi.fn().mockResolvedValue([]),
   listAnnotations: vi.fn().mockResolvedValue([]),
   listAnkiDecks: vi.fn().mockResolvedValue([]),
+  listMeaningGroups: vi.fn().mockResolvedValue([]),
   listWordOccurrences: vi.fn().mockResolvedValue([]),
   listVocabulary: vi.fn().mockResolvedValue([]),
   getProgress: vi.fn().mockResolvedValue(null),

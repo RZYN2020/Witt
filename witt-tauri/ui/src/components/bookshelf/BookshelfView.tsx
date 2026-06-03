@@ -19,11 +19,13 @@ import {
   getProgress,
   listAnnotations,
   listAnkiDecks,
+  listMeaningGroups,
   listWordOccurrences,
   listVocabulary,
   type Annotation,
   type AnkiDeck,
   type BookRecord,
+  type MeaningGroup,
   type ReadingProgress,
   type VocabularyEntry,
   type WordOccurrence,
@@ -61,6 +63,7 @@ export function BookshelfView({
   const [vocabulary, setVocabulary] = useState<VocabularyEntry[]>([]);
   const [contextWord, setContextWord] = useState<VocabularyEntry | null>(null);
   const [contexts, setContexts] = useState<WordOccurrence[]>([]);
+  const [meanings, setMeanings] = useState<MeaningGroup[]>([]);
   const [decks, setDecks] = useState<AnkiDeck[]>([]);
   const [showImportMenu, setShowImportMenu] = useState(false);
 
@@ -168,7 +171,12 @@ export function BookshelfView({
   };
   const viewContexts = async (entry: VocabularyEntry) => {
     setContextWord(entry);
-    setContexts(await listWordOccurrences(entry.display_word).catch(() => []));
+    const [nextContexts, nextMeanings] = await Promise.all([
+      listWordOccurrences(entry.display_word).catch(() => []),
+      listMeaningGroups(entry.display_word).catch(() => []),
+    ]);
+    setContexts(nextContexts);
+    setMeanings(nextMeanings);
   };
 
   return (
@@ -316,10 +324,12 @@ export function BookshelfView({
       {contextWord && (
         <ContextPanel
           contexts={contexts}
+          meanings={meanings}
           word={contextWord}
           onClose={() => {
             setContextWord(null);
             setContexts([]);
+            setMeanings([]);
           }}
         />
       )}
@@ -454,10 +464,12 @@ function VocabularyView({
 
 function ContextPanel({
   contexts,
+  meanings,
   word,
   onClose,
 }: {
   contexts: WordOccurrence[];
+  meanings: MeaningGroup[];
   word: VocabularyEntry;
   onClose: () => void;
 }) {
@@ -494,6 +506,21 @@ function ContextPanel({
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {meanings.length > 0 && (
+            <section className="mb-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Meanings
+              </p>
+              {meanings.map((meaning) => (
+                <article key={meaning.id} className="rounded-md border border-border bg-card p-3">
+                  <p className="whitespace-pre-wrap text-sm leading-6">{meaning.meaning}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {meaning.source} · {new Date(meaning.updated_at).toLocaleDateString()}
+                  </p>
+                </article>
+              ))}
+            </section>
+          )}
           {contexts.length === 0 ? (
             <EmptyPanel icon={<MessageSquareText size={24} />} title="No saved contexts yet" />
           ) : (

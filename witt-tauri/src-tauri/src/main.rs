@@ -63,6 +63,7 @@ fn main() {
             commands::list_vocabulary,
             commands::update_vocabulary_status,
             commands::list_word_occurrences,
+            commands::list_meaning_groups,
             commands::get_dictionary_cache,
             commands::save_dictionary_cache,
             commands::ask_llm_about_selection,

@@ -250,9 +250,9 @@ Work:
 - Replace the current selection toolbar default with a dictionary card.
 - Show word, part of speech, CEFR, short English explanation, native-language gloss, and source sentence.
 - Keep Save, Ask AI, Anki, prompt, and advanced actions secondary.
-- Cache explanations by word + sentence + CEFR + native language + provider settings.
+- Cache explanations by word + prompt/provider path. Existing cached words now load directly into the selection card; CEFR/native-language cache dimensions still need learner-profile settings.
 - Add click/hover behavior for already-highlighted vocabulary.
-- Add loading, cached, failed, and retry states that do not block reading.
+- Add loading, cached, failed, and retry states that do not block reading. Selection cards now distinguish loading, cached, and error explanation states.
 - Add keyboard and pointer polish: escape closes, reselect updates, popup stays within viewport.
 
 Success criteria:
@@ -267,7 +267,7 @@ Goal: Build the local model needed for visual memory, Anki backend, and contextu
 
 Work:
 
-- Add `vocabulary`, `meaning_groups`, `word_occurrences`, and `dictionary_cache`. Initial tables and command wrappers are in place; later work should deepen meaning-level and review-state data.
+- Add `vocabulary`, `meaning_groups`, `word_occurrences`, and `dictionary_cache`. Dictionary cache saves now also maintain meaning groups for the Vocabulary context drawer.
 - Migrate existing annotations into occurrences where possible. Startup schema migration now backfills vocabulary and occurrence rows from existing annotations.
 - Keep existing annotations/Anki behavior working during migration.
 - Implement vocabulary status: new, learning, known, ignored. Reader popup now exposes quick Known and Ignore actions.

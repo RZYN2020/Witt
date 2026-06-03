@@ -230,6 +230,21 @@ fn backfill_vocabulary(conn: &Connection) -> Result<(), String> {
             deck_name = COALESCE(excluded.deck_name, vocabulary.deck_name),
             raw_fields_json = COALESCE(excluded.raw_fields_json, vocabulary.raw_fields_json),
             updated_at = excluded.updated_at;
+
+        INSERT INTO meaning_groups
+        (id, normalized_word, meaning, source, created_at, updated_at)
+        SELECT 'dictionary:' || normalized_word || ':' || COALESCE(prompt_id, 'dictionary_cache'),
+               normalized_word,
+               meaning,
+               COALESCE(prompt_id, 'dictionary_cache'),
+               updated_at,
+               updated_at
+        FROM dictionary_cache
+        WHERE TRIM(meaning) != ''
+        ON CONFLICT(id) DO UPDATE SET
+            meaning = excluded.meaning,
+            source = excluded.source,
+            updated_at = excluded.updated_at;
         "#,
     )
     .map_err(|error| error.to_string())?;

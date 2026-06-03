@@ -28,6 +28,9 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
   const [aiQuestion, setAiQuestion] = useState('Explain this in context');
   const [aiAnswer, setAiAnswer] = useState('');
   const [askingAi, setAskingAi] = useState(false);
+  const [explanationState, setExplanationState] = useState<'idle' | 'loading' | 'cached' | 'error'>(
+    'idle'
+  );
   const [promptProfiles, setPromptProfiles] = useState<PromptProfile[]>([]);
   const [selectedPromptId, setSelectedPromptId] = useState('explain');
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
@@ -58,10 +61,44 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
 
   const resetPopupTools = useCallback(() => {
     setAiAnswer('');
+    setExplanationState('idle');
     setAiQuestion('Explain this in context');
     setPopupMode('toolbar');
     setSavedWord('');
   }, []);
+
+  useEffect(() => {
+    if (!popup) {
+      return;
+    }
+    let disposed = false;
+    const word = popup.word.trim();
+    if (!word) {
+      return;
+    }
+    setExplanationState('loading');
+    void getDictionaryCache(word, selectedPromptId)
+      .then((cached) => {
+        if (disposed) {
+          return;
+        }
+        if (cached?.meaning) {
+          setAiAnswer(cached.meaning);
+          setPopupMode('ai');
+          setExplanationState('cached');
+          return;
+        }
+        setExplanationState('idle');
+      })
+      .catch(() => {
+        if (!disposed) {
+          setExplanationState('error');
+        }
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [popup, selectedPromptId]);
 
   const captureSelection = useCallback(async () => {
     if (!popup || capturing) {
@@ -122,12 +159,14 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
     const question = aiQuestion.trim() || 'Explain this in context';
     const canUseWordCache = question === 'Explain this in context';
     setAskingAi(true);
+    setExplanationState('loading');
     setAiAnswer('');
     try {
       if (canUseWordCache) {
         const cached = await getDictionaryCache(popup.word.trim(), selectedPromptId);
         if (cached?.meaning) {
           setAiAnswer(cached.meaning);
+          setExplanationState('cached');
           return;
         }
       }
@@ -140,6 +179,7 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
         prompt_id: selectedPromptId,
       });
       setAiAnswer(answer);
+      setExplanationState('idle');
       if (canUseWordCache && answer.trim()) {
         void saveDictionaryCache({
           word: popup.word.trim(),
@@ -149,6 +189,7 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
       }
     } catch (error) {
       setAiAnswer(error instanceof Error ? error.message : 'LLM request failed');
+      setExplanationState('error');
     } finally {
       setAskingAi(false);
     }
@@ -217,6 +258,7 @@ export function useSelectionTools({ bookId, onKnownWord, setStatus }: UseSelecti
     editPrompt,
     editingPromptContent,
     editingPromptId,
+    explanationState,
     popup,
     popupMode,
     promptProfiles,

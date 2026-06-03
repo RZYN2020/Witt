@@ -47,7 +47,7 @@ The database file lives in the Tauri app data directory (`witt.sqlite3`). Schema
 | `anki_decks`         | Available decks, which one is selected, last sync time                    |
 | `anki_notes`         | Cached notes from the selected deck (word, sentence, meaning, raw fields) |
 | `vocabulary`         | Normalized word index with status, Anki provenance, counts, and highlights |
-| `meaning_groups`     | Reserved meaning-level grouping for future dictionary/review features     |
+| `meaning_groups`     | Meaning-level explanations derived from dictionary/AI cache               |
 | `word_occurrences`   | Source contexts for words captured while reading                          |
 | `dictionary_cache`   | Cached contextual AI explanations for repeated word lookups               |
 | `settings`           | SQLite cache of the active app config used by older DB-oriented flows     |
@@ -65,7 +65,7 @@ Backend command handlers live in `commands/` by product domain and are re-export
 **Progress:** `save_progress`, `get_progress`  
 **Annotations:** `create_annotation`, `list_annotations`, `sync_annotations_to_anki`  
 **Anki:** `check_anki`, `list_anki_decks`, `select_anki_deck`, `refresh_anki_cache`, `search_anki_notes`, `get_anki_note`, `list_anki_sync_conflicts`, `export_queued_annotations_tsv`
-**Vocabulary:** `list_vocabulary`, `update_vocabulary_status`, `list_word_occurrences`, `get_dictionary_cache`, `save_dictionary_cache`
+**Vocabulary:** `list_vocabulary`, `update_vocabulary_status`, `list_word_occurrences`, `list_meaning_groups`, `get_dictionary_cache`, `save_dictionary_cache`
 **Profiles:** `list_prompt_profiles`, `read_prompt_profile`, `save_prompt_profile`, `list_pipeline_profiles`, `load_pipeline_profile`  
 **Settings:** `get_settings`, `save_settings`, `get_app_config`, `save_app_config`, `open_app_config`, `reload_app_config`, `save_llm_api_key`, `has_llm_api_key`
 
@@ -109,6 +109,7 @@ Anki can be the learner's long-term review backend, but the reader should not de
 - `vocabulary` is the fast normalized word index used by the reader and dashboard.
 - `word_occurrences` stores source contexts for words captured in Witt.
 - `dictionary_cache` stores reusable AI explanations so repeated selections do not call the LLM again.
+- `meaning_groups` is updated from dictionary cache saves and feeds the Vocabulary context drawer.
 
 This keeps the default mode hybrid without making Anki the only internal model. `vocabulary_backend_mode` supports `hybrid`, `anki_first`, and `witt_first`; the current implementation uses it as an explicit product setting while the local cache keeps reading fast. `visual_memory_scope` controls all-library versus current-book highlighting, and `inline_mini_gloss` can show cached meanings directly in the reader. Future review state, meaning grouping, export, and visual memory features should extend this vocabulary layer instead of duplicating word lists in reader components.
 
@@ -118,7 +119,7 @@ The main window is a learning workspace rather than a raw file list. `BookshelfV
 
 - Books: `list_books` plus per-book `get_progress` for Reading/Finished/Unread filters.
 - Annotations: `list_annotations` for pending capture review.
-- Vocabulary: `list_vocabulary` for status, source, occurrence count, cached meaning, and Anki provenance; `list_word_occurrences` for the context drawer.
+- Vocabulary: `list_vocabulary` for status, source, occurrence count, cached meaning, and Anki provenance; `list_meaning_groups` and `list_word_occurrences` for the context drawer.
 - Sync state: `list_anki_decks` for selected backend visibility.
 
 This remains intentionally local to the home surface until the app needs a real router. New dashboard panels should reuse these command outputs instead of re-querying AnkiConnect directly.

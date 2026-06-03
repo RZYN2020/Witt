@@ -37,6 +37,15 @@ pub async fn list_word_occurrences(
 }
 
 #[tauri::command]
+pub async fn list_meaning_groups(
+    state: tauri::State<'_, AppState>,
+    word: String,
+) -> Result<Vec<MeaningGroup>, String> {
+    let conn = state.conn.lock().await;
+    db::list_meaning_groups(&conn, &word)
+}
+
+#[tauri::command]
 pub async fn get_dictionary_cache(
     state: tauri::State<'_, AppState>,
     word: String,

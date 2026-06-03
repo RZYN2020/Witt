@@ -100,6 +100,15 @@ export interface WordOccurrence {
   created_at: string;
 }
 
+export interface MeaningGroup {
+  id: string;
+  normalized_word: string;
+  meaning: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DictionaryCacheEntry {
   normalized_word: string;
   display_word: string;
@@ -387,6 +396,10 @@ export function updateVocabularyStatus(
 
 export function listWordOccurrences(word: string): Promise<WordOccurrence[]> {
   return command<WordOccurrence[]>('list_word_occurrences', { word }, () => []);
+}
+
+export function listMeaningGroups(word: string): Promise<MeaningGroup[]> {
+  return command<MeaningGroup[]>('list_meaning_groups', { word }, () => []);
 }
 
 export function getDictionaryCache(

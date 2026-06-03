@@ -100,6 +100,16 @@ pub struct WordOccurrence {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeaningGroup {
+    pub id: String,
+    pub normalized_word: String,
+    pub meaning: String,
+    pub source: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DictionaryCacheEntry {
     pub normalized_word: String,
     pub display_word: String,

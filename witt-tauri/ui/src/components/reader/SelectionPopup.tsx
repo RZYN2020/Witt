@@ -13,6 +13,7 @@ interface SelectionPopupProps {
   saving: boolean;
   askingAi: boolean;
   aiAnswer: string;
+  explanationState: 'idle' | 'loading' | 'cached' | 'error';
   aiQuestion: string;
   promptProfiles: PromptProfile[];
   selectedPromptId: string;
@@ -66,6 +67,7 @@ export function SelectionPopup({
   saving,
   askingAi,
   aiAnswer,
+  explanationState,
   aiQuestion,
   promptProfiles,
   selectedPromptId,
@@ -83,6 +85,7 @@ export function SelectionPopup({
 }: SelectionPopupProps) {
   const showAi = mode === 'ai';
   const showMore = mode === 'more';
+  const explanationLabel = explanationState === 'cached' ? 'Cached explanation' : 'AI explanation';
   const width = 360;
   const margin = 12;
   const estimatedHeight = showMore ? 420 : 280;
@@ -136,12 +139,14 @@ export function SelectionPopup({
             </p>
           </div>
 
-          {(showAi || askingAi || aiAnswer) && (
+          {(showAi || askingAi || aiAnswer || explanationState === 'loading') && (
             <div className="rounded-md bg-muted/70 p-3">
-              <PopupSectionLabel>AI explanation</PopupSectionLabel>
+              <PopupSectionLabel>{explanationLabel}</PopupSectionLabel>
               <p className="mt-1 max-h-36 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
                 {aiAnswer ||
-                  (askingAi ? 'Asking AI...' : 'Choose Ask AI for a contextual explanation.')}
+                  (askingAi || explanationState === 'loading'
+                    ? 'Loading explanation...'
+                    : 'Choose Ask AI for a contextual explanation.')}
               </p>
             </div>
           )}

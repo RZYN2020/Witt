@@ -83,6 +83,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     editPrompt,
     editingPromptContent,
     editingPromptId,
+    explanationState,
     popup,
     popupMode,
     promptProfiles,
@@ -403,6 +404,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
           saving={capturing}
           askingAi={askingAi}
           aiAnswer={aiAnswer}
+          explanationState={explanationState}
           aiQuestion={aiQuestion}
           promptProfiles={promptProfiles}
           selectedPromptId={selectedPromptId}

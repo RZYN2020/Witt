@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   checkAnki,
   deleteQueuedAnnotation,
+  exportQueuedAnnotationsTsv,
   getSettings,
+  listAnkiSyncConflicts,
   listAnnotations,
   listAnkiDecks,
   listAnkiModels,
@@ -18,6 +20,7 @@ import {
   type AnkiDeck,
   type AnkiModelInfo,
   type AnkiNote,
+  type AnkiSyncConflict,
   type AppSettings,
   type PipelineProfile,
   DEFAULT_APP_SETTINGS,
@@ -37,6 +40,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
   const [decks, setDecks] = useState<AnkiDeck[]>([]);
   const [notes, setNotes] = useState<AnkiNote[]>([]);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [conflicts, setConflicts] = useState<AnkiSyncConflict[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [models, setModels] = useState<AnkiModelInfo[]>([DEFAULT_MODEL]);
   const [pipelines, setPipelines] = useState<PipelineProfile[]>([]);
@@ -83,7 +87,9 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
   );
 
   const loadAnnotations = useCallback(async () => {
-    setAnnotations(await listAnnotations());
+    const nextAnnotations = await listAnnotations();
+    setAnnotations(nextAnnotations);
+    setConflicts(await listAnkiSyncConflicts());
   }, []);
 
   const loadModels = useCallback(async () => {
@@ -120,6 +126,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     const nextDecks = await listAnkiDecks();
     setDecks(nextDecks);
     await loadNotes(deckName, '');
+    setConflicts(await listAnkiSyncConflicts());
   };
 
   const refreshDeck = async () => {
@@ -131,6 +138,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     try {
       const nextNotes = await refreshAnkiCache(selectedDeck);
       setNotes(nextNotes);
+      setConflicts(await listAnkiSyncConflicts());
       publishKnownWords(nextNotes, annotations);
       flashStatus(`Cached ${nextNotes.length} cards`);
     } catch (err) {
@@ -146,6 +154,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
       flashStatus(`Created ${summary.created}; ${summary.failed.length} failed`);
       const nextAnnotations = await listAnnotations();
       setAnnotations(nextAnnotations);
+      setConflicts(await listAnkiSyncConflicts());
       if (selectedDeck) {
         await refreshDeck();
       } else {
@@ -170,6 +179,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
       await deleteQueuedAnnotation(annotationId);
       const nextAnnotations = await listAnnotations();
       setAnnotations(nextAnnotations);
+      setConflicts(await listAnkiSyncConflicts());
       publishKnownWords(notes, nextAnnotations);
       flashStatus('Removed pending capture');
     } catch (err) {
@@ -195,6 +205,17 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     void loadNotes(selectedDeck, nextQuery);
   };
 
+  const exportQueued = async () => {
+    setStatus('Exporting queued captures...');
+    try {
+      await saveSettings(settings);
+      const summary = await exportQueuedAnnotationsTsv();
+      flashStatus(`Exported ${summary.exported} rows to ${summary.path}`, 6000);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
   return {
     online,
     decks,
@@ -209,9 +230,11 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     status,
     queuedCount,
     queuedAnnotations,
+    conflicts,
     chooseDeck,
     deleteQueued,
     editPipeline,
+    exportQueued,
     loadPipeline,
     refreshDeck,
     saveMapping,

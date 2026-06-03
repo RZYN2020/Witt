@@ -291,8 +291,8 @@ Work:
 - Pull Anki notes into local vocabulary cache. The first slice indexes deck words locally; deck/model/raw-field provenance still needs to be promoted into the vocabulary layer.
 - Track `anki_note_id`, deck, model, and raw fields. The local vocabulary cache now stores this provenance for pulled Anki notes.
 - Push new local words to Anki using configurable templates.
-- Add conflict handling: Anki changed, Witt changed, duplicate word, duplicate sentence.
-- Add export path for users who do not want AnkiConnect running.
+- Add conflict handling: Anki changed, Witt changed, duplicate word, duplicate sentence. The Anki panel now previews local queued duplicates, cached Anki same-sentence duplicates, and cached Anki existing-word conflicts before sync.
+- Add export path for users who do not want AnkiConnect running. Queued captures can now be exported as a TSV using the configured Anki field mapping.
 
 Success criteria:
 

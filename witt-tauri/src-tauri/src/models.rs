@@ -394,6 +394,22 @@ pub struct SyncFailure {
     pub error: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnkiSyncConflict {
+    pub annotation_id: String,
+    pub word: String,
+    pub sentence: String,
+    pub kind: String,
+    pub detail: String,
+    pub anki_note_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportSummary {
+    pub path: String,
+    pub exported: usize,
+}
+
 fn default_llm_endpoint() -> String {
     "https://api.openai.com/v1/chat/completions".to_string()
 }

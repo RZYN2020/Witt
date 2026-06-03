@@ -219,6 +219,20 @@ export interface SyncSummary {
   failed: Array<{ word: string; error: string }>;
 }
 
+export interface AnkiSyncConflict {
+  annotation_id: string;
+  word: string;
+  sentence: string;
+  kind: string;
+  detail: string;
+  anki_note_id?: number | null;
+}
+
+export interface ExportSummary {
+  path: string;
+  exported: number;
+}
+
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   llm_endpoint: 'https://api.openai.com/v1/chat/completions',
   llm_model: 'gpt-4.1-mini',
@@ -311,6 +325,14 @@ export function deleteQueuedAnnotation(annotationId: string): Promise<void> {
 
 export function syncAnnotationsToAnki(): Promise<SyncSummary> {
   return command<SyncSummary>('sync_annotations_to_anki');
+}
+
+export function listAnkiSyncConflicts(): Promise<AnkiSyncConflict[]> {
+  return command<AnkiSyncConflict[]>('list_anki_sync_conflicts', undefined, () => []);
+}
+
+export function exportQueuedAnnotationsTsv(): Promise<ExportSummary> {
+  return command<ExportSummary>('export_queued_annotations_tsv');
 }
 
 export function checkAnki(): Promise<AnkiStatus> {

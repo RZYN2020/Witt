@@ -1,6 +1,7 @@
 use crate::models::{AnkiNote, Annotation, AppSettings};
 use chrono::Utc;
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 
 pub async fn prepare_note(
     settings: &AppSettings,
@@ -10,6 +11,29 @@ pub async fn prepare_note(
 ) -> Value {
     let values = preprocess_fields(settings, api_key, annotation).await;
     build_note(settings, deck_name, values)
+}
+
+pub fn export_fields(settings: &AppSettings, annotation: &Annotation) -> BTreeMap<String, String> {
+    let values = apply_template(settings, annotation);
+    BTreeMap::from([
+        (settings.anki_word_field.clone(), value_at(&values, "word")),
+        (
+            settings.anki_sentence_field.clone(),
+            value_at(&values, "sentence"),
+        ),
+        (settings.anki_book_field.clone(), value_at(&values, "book")),
+        (
+            settings.anki_chapter_field.clone(),
+            value_at(&values, "chapter"),
+        ),
+        (
+            settings.anki_meaning_field.clone(),
+            value_at(&values, "meaning"),
+        ),
+    ])
+    .into_iter()
+    .filter(|(field, _)| !field.trim().is_empty())
+    .collect()
 }
 
 pub fn parse_notes(deck_name: &str, values: Vec<Value>) -> Vec<AnkiNote> {

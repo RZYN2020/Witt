@@ -51,6 +51,8 @@ fn main() {
             commands::list_annotations,
             commands::delete_queued_annotation,
             commands::sync_annotations_to_anki,
+            commands::list_anki_sync_conflicts,
+            commands::export_queued_annotations_tsv,
             commands::check_anki,
             commands::list_anki_decks,
             commands::list_anki_models,

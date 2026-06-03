@@ -1,4 +1,13 @@
-import { RefreshCcw, Search, Send, Trash2, Wifi, WifiOff } from 'lucide-react';
+import {
+  AlertTriangle,
+  Download,
+  RefreshCcw,
+  Search,
+  Send,
+  Trash2,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SelectInput, StatusText } from '@/components/ui/Form';
@@ -58,7 +67,7 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
             ))}
           </SelectInput>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             <Button size="sm" onClick={() => void anki.refreshDeck()}>
               <RefreshCcw size={15} />
               Refresh
@@ -66,6 +75,10 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
             <Button variant="primary" size="sm" onClick={() => void anki.syncQueued()}>
               <Send size={15} />
               Sync {anki.queuedCount || ''}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void anki.exportQueued()}>
+              <Download size={15} />
+              Export
             </Button>
           </div>
         </PanelSection>
@@ -95,6 +108,29 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
         </label>
 
         <StatusText>{anki.status}</StatusText>
+
+        {anki.conflicts.length > 0 && (
+          <section className="rounded-md border border-amber-200 bg-amber-50/70 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+            <div className="flex items-center justify-between border-b border-amber-200 px-3 py-2 dark:border-amber-900/60">
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                <AlertTriangle size={14} />
+                Sync review
+              </p>
+              <span className="text-xs">{anki.conflicts.length}</span>
+            </div>
+            <div className="max-h-36 overflow-y-auto p-1">
+              {anki.conflicts.map((conflict) => (
+                <div
+                  key={`${conflict.annotation_id}-${conflict.kind}`}
+                  className="rounded px-2 py-1.5"
+                >
+                  <p className="truncate text-sm font-medium">{conflict.word}</p>
+                  <p className="line-clamp-2 text-xs opacity-80">{conflict.detail}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {anki.queuedAnnotations.length > 0 && (
           <section className="rounded-md border border-border bg-card">

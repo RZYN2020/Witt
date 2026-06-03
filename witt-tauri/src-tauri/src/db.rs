@@ -1,5 +1,6 @@
 use crate::models::*;
 use rusqlite::{params, Connection, OptionalExtension};
+use std::collections::HashMap;
 use std::path::Path;
 
 pub use crate::db_settings::{get_settings, save_settings};
@@ -377,6 +378,76 @@ pub fn get_anki_note(conn: &Connection, note_id: i64) -> Result<Option<AnkiNote>
         .map_err(|error| error.to_string())
 }
 
+pub fn list_anki_sync_conflicts(
+    conn: &Connection,
+    deck_name: Option<&str>,
+) -> Result<Vec<AnkiSyncConflict>, String> {
+    let annotations = list_annotations(conn, None)?
+        .into_iter()
+        .filter(|annotation| annotation.status != "synced")
+        .collect::<Vec<_>>();
+    let notes = search_anki_notes(conn, deck_name, None)?;
+    let mut conflicts = Vec::new();
+    let mut seen: HashMap<(String, String), String> = HashMap::new();
+    let note_by_word_sentence = notes
+        .iter()
+        .filter_map(|note| {
+            Some((
+                (
+                    normalize_vocabulary_word(&note.word),
+                    normalize_sentence(note.sentence.as_deref()?),
+                ),
+                note,
+            ))
+        })
+        .collect::<HashMap<_, _>>();
+    let note_by_word = notes
+        .iter()
+        .map(|note| (normalize_vocabulary_word(&note.word), note))
+        .collect::<HashMap<_, _>>();
+
+    for annotation in annotations {
+        let key = (
+            normalize_vocabulary_word(&annotation.word),
+            normalize_sentence(&annotation.sentence),
+        );
+        if let Some(first_id) = seen.get(&key) {
+            conflicts.push(AnkiSyncConflict {
+                annotation_id: annotation.id.clone(),
+                word: annotation.word.clone(),
+                sentence: annotation.sentence.clone(),
+                kind: "duplicate_sentence".to_string(),
+                detail: format!("Same word and sentence already queued as {first_id}"),
+                anki_note_id: None,
+            });
+        } else {
+            seen.insert(key.clone(), annotation.id.clone());
+        }
+        if let Some(note) = note_by_word_sentence.get(&key) {
+            conflicts.push(AnkiSyncConflict {
+                annotation_id: annotation.id.clone(),
+                word: annotation.word.clone(),
+                sentence: annotation.sentence.clone(),
+                kind: "anki_duplicate_sentence".to_string(),
+                detail: "Same word and sentence already exist in cached Anki deck".to_string(),
+                anki_note_id: Some(note.note_id),
+            });
+            continue;
+        }
+        if let Some(note) = note_by_word.get(&key.0) {
+            conflicts.push(AnkiSyncConflict {
+                annotation_id: annotation.id.clone(),
+                word: annotation.word.clone(),
+                sentence: annotation.sentence.clone(),
+                kind: "anki_existing_word".to_string(),
+                detail: "Word exists in cached Anki deck with a different context".to_string(),
+                anki_note_id: Some(note.note_id),
+            });
+        }
+    }
+    Ok(conflicts)
+}
+
 pub fn list_vocabulary(
     conn: &Connection,
     query: Option<&str>,
@@ -663,6 +734,14 @@ fn upsert_vocabulary(conn: &Connection, upsert: VocabularyUpsert<'_>) -> Result<
 
 fn normalize_vocabulary_word(word: &str) -> String {
     word.trim().to_lowercase()
+}
+
+fn normalize_sentence(sentence: &str) -> String {
+    sentence
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 
 fn row_to_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<Book> {

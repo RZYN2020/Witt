@@ -64,7 +64,7 @@ Backend command handlers live in `commands/` by product domain and are re-export
 **Books:** `import_book`, `list_books`, `get_book`, `remove_book`, `get_book_file`  
 **Progress:** `save_progress`, `get_progress`  
 **Annotations:** `create_annotation`, `list_annotations`, `sync_annotations_to_anki`  
-**Anki:** `check_anki`, `list_anki_decks`, `select_anki_deck`, `refresh_anki_cache`, `search_anki_notes`, `get_anki_note`  
+**Anki:** `check_anki`, `list_anki_decks`, `select_anki_deck`, `refresh_anki_cache`, `search_anki_notes`, `get_anki_note`, `list_anki_sync_conflicts`, `export_queued_annotations_tsv`
 **Vocabulary:** `list_vocabulary`, `update_vocabulary_status`, `list_word_occurrences`, `get_dictionary_cache`, `save_dictionary_cache`
 **Profiles:** `list_prompt_profiles`, `read_prompt_profile`, `save_prompt_profile`, `list_pipeline_profiles`, `load_pipeline_profile`  
 **Settings:** `get_settings`, `save_settings`, `get_app_config`, `save_app_config`, `open_app_config`, `reload_app_config`, `save_llm_api_key`, `has_llm_api_key`
@@ -89,7 +89,9 @@ Select word
 
 Sync to Anki
   -> optional: backend LLM preprocessing enriches meaning fields
+  -> list_anki_sync_conflicts compares queued captures with local Anki cache
   -> sync_annotations_to_anki creates notes via AnkiConnect
+  -> export_queued_annotations_tsv writes a TSV fallback when AnkiConnect is unavailable
 
 Pull known words
   -> refresh_anki_cache fetches deck notes into anki_notes table

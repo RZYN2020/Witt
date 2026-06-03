@@ -1,9 +1,11 @@
 use crate::anki as anki_service;
+use crate::anki_notes;
 use crate::app_config;
 use crate::db;
 use crate::models::*;
 use crate::state::AppState;
 use chrono::Utc;
+use std::fs;
 
 #[tauri::command]
 pub async fn sync_annotations_to_anki(
@@ -39,6 +41,68 @@ pub async fn sync_annotations_to_anki(
 }
 
 #[tauri::command]
+pub async fn list_anki_sync_conflicts(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<AnkiSyncConflict>, String> {
+    let conn = state.conn.lock().await;
+    let selected = db::selected_deck(&conn)?;
+    db::list_anki_sync_conflicts(&conn, selected.as_deref())
+}
+
+#[tauri::command]
+pub async fn export_queued_annotations_tsv(
+    state: tauri::State<'_, AppState>,
+) -> Result<ExportSummary, String> {
+    let (settings, annotations, export_dir) = {
+        let conn = state.conn.lock().await;
+        let settings =
+            app_config::settings_from_config(&app_config::read_config(&state.config_path)?);
+        db::save_settings(&conn, &settings)?;
+        let annotations = db::list_annotations(&conn, None)?
+            .into_iter()
+            .filter(|annotation| annotation.status != "synced")
+            .collect::<Vec<_>>();
+        let app_dir = state
+            .config_path
+            .parent()
+            .ok_or_else(|| "App data directory not found".to_string())?
+            .join("exports");
+        (settings, annotations, app_dir)
+    };
+    fs::create_dir_all(&export_dir).map_err(|error| error.to_string())?;
+    let fields = [
+        settings.anki_word_field.as_str(),
+        settings.anki_sentence_field.as_str(),
+        settings.anki_book_field.as_str(),
+        settings.anki_chapter_field.as_str(),
+        settings.anki_meaning_field.as_str(),
+    ]
+    .into_iter()
+    .filter(|field| !field.trim().is_empty())
+    .collect::<Vec<_>>();
+    let mut lines = vec![fields.join("\t")];
+    for annotation in &annotations {
+        let values = anki_notes::export_fields(&settings, annotation);
+        lines.push(
+            fields
+                .iter()
+                .map(|field| escape_tsv(values.get(*field).map(String::as_str).unwrap_or_default()))
+                .collect::<Vec<_>>()
+                .join("\t"),
+        );
+    }
+    let path = export_dir.join(format!(
+        "witt-anki-export-{}.tsv",
+        Utc::now().format("%Y%m%d-%H%M%S")
+    ));
+    fs::write(&path, lines.join("\n")).map_err(|error| error.to_string())?;
+    Ok(ExportSummary {
+        path: path.to_string_lossy().to_string(),
+        exported: annotations.len(),
+    })
+}
+
+#[tauri::command]
 pub async fn check_anki(state: tauri::State<'_, AppState>) -> Result<AnkiStatus, String> {
     let endpoint = {
         let conn = state.conn.lock().await;
@@ -48,6 +112,10 @@ pub async fn check_anki(state: tauri::State<'_, AppState>) -> Result<AnkiStatus,
         settings.anki_endpoint
     };
     Ok(anki_service::check_anki(&endpoint).await)
+}
+
+fn escape_tsv(value: &str) -> String {
+    value.replace(['\t', '\r'], " ").replace('\n', "<br>")
 }
 
 #[tauri::command]

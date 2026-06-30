@@ -39,6 +39,9 @@ dist-ssr/
 # Tauri
 **/tauri.conf.json.bak
 
+# Runtime data
+.witt-data/
+
 # Database
 *.db
 *.db-shm

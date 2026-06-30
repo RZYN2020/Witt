@@ -2,25 +2,35 @@
 
 ## Overview
 
-Witt is a Tauri desktop app. The Rust backend owns persistence, file handling, OS integration, and AnkiConnect access. The React frontend owns the reading experience, annotation UI, and LLM card generation.
+Witt has a shared Rust core, a shared storage adapter, a Tauri desktop adapter, and an Axum web adapter. `witt-core` owns domain types, Anki note construction, AnkiConnect access, sync orchestration, LLM helpers, config mapping, and queue logic. `witt-storage` owns SQLite and EPUB file storage. Tauri owns desktop OS integration. `witt-server` exposes the same product workflow over HTTP for browser access.
 
 ```
 witt/
+├── crates/
+│   └── witt-core/src/
+│       ├── models.rs       # Shared DTOs and serialized IPC-compatible shapes
+│       ├── defaults.rs     # Default endpoints, model names, prompts, and templates
+│       ├── anki_notes.rs   # Anki note construction, export fields, notesInfo parsing
+│       ├── anki_connect.rs # Portable AnkiConnect HTTP client
+│       ├── sync.rs         # Storage-agnostic annotation-to-Anki sync orchestration
+│       ├── llm.rs          # OpenAI-compatible chat and preprocess helpers
+│       ├── app_config.rs   # Pure settings/config normalization and mapping
+│       └── web_queue.rs    # Claim/report client and queue processing helper
+│   └── witt-storage/src/   # Shared SQLite schema/CRUD/settings and EPUB file storage
+│   └── witt-server/src/    # Axum HTTP API and static web app server
 ├── witt-tauri/
 │   ├── src-tauri/src/
 │   │   ├── main.rs        # App entry, tray, command registration
 │   │   ├── commands.rs    # Tauri IPC command re-export surface
 │   │   ├── commands/      # Domain command handlers (books, annotations, Anki, vocabulary, LLM, profiles, settings)
 │   │   ├── state.rs       # App data paths and shared SQLite connection
-│   │   ├── app_config.rs  # Single settings.toml source of truth for editable configuration
-│   │   ├── db.rs          # SQLite connection and CRUD helpers
-│   │   ├── db_schema.rs   # SQLite schema and default settings migration
-│   │   ├── db_settings.rs # Settings table read/write helpers
-│   │   ├── models.rs      # Shared data types (Book, Annotation, …)
-│   │   ├── anki.rs        # AnkiConnect HTTP client + sync orchestration
-│   │   ├── anki_notes.rs  # Anki note construction, parsing, and templates
-│   │   ├── books.rs       # EPUB file import and read helpers
-│   │   ├── llm.rs         # LLM request/preprocess helpers
+│   │   ├── app_config.rs  # settings.toml file/editor adapter around witt-core config mapping
+│   │   ├── db.rs          # Thin storage re-export
+│   │   ├── models.rs      # Re-export of shared witt-core models
+│   │   ├── anki.rs        # Thin desktop Anki adapter/re-exports
+│   │   ├── anki_notes.rs  # Thin desktop note adapter/re-exports
+│   │   ├── books.rs       # Thin storage re-export
+│   │   ├── llm.rs         # Thin desktop LLM adapter/re-exports
 │   │   ├── settings.rs    # OS keyring access for LLM API key
 │   │   └── tray.rs        # System tray menu
 │   └── ui/src/
@@ -29,7 +39,7 @@ witt/
 │       ├── components/reader/               # epub.js reader, chrome, selection tools
 │       ├── components/anki/                 # Anki panel (deck picker, cache, search)
 │       ├── components/ui/Button.tsx
-│       ├── lib/commands.ts                  # Typed wrappers for all Tauri commands
+│       ├── lib/commands.ts                  # Typed wrappers for Tauri IPC and browser HTTP
 │       ├── lib/readerText.ts                # Sentence extraction, word highlighting
 │       ├── lib/extensions.ts                # Extension registry interface
 │       └── lib/utils.ts
@@ -37,7 +47,7 @@ witt/
 
 ## Database (SQLite)
 
-The database file lives in the Tauri app data directory (`witt.sqlite3`). Schema is applied on first open by `db_schema.rs`; product CRUD helpers live in `db.rs`, while settings table access lives in `db_settings.rs`.
+The database file lives in the adapter data directory (`witt.sqlite3`). Tauri uses its app data directory; `witt-server` uses `WITT_DATA_DIR` or `.witt-data`. Schema, product CRUD, and settings table access live in `witt-storage`.
 
 | Table                | Purpose                                                                   |
 | -------------------- | ------------------------------------------------------------------------- |
@@ -55,11 +65,25 @@ The database file lives in the Tauri app data directory (`witt.sqlite3`). Schema
 LLM API key is stored in the OS keyring via the `keyring` crate, not in SQLite.
 Human-maintained configuration lives in one `settings.toml` file in the app data directory. It contains service endpoints, selected prompt/pipeline ids, Anki field mapping, behavior toggles, editor preference, prompt definitions, and Anki pipeline definitions. UI saves write back to this TOML file, and reload reads it back into the app. Word, book, progress, annotation, deck, and cached note data remain in SQLite.
 
-## Tauri IPC Commands
+## Frontend Transport
 
-All product operations go through `lib/commands.ts`. The frontend never touches the filesystem, SQLite, or AnkiConnect directly.
+All product operations go through `lib/commands.ts`. In Tauri, commands call IPC with `invoke`. In a normal browser, commands call authenticated `/api/*` endpoints on `witt-server`. The frontend never touches SQLite or AnkiConnect directly.
 
-Backend command handlers live in `commands/` by product domain and are re-exported through `commands.rs` so `main.rs` has one command namespace. Keep handlers thin: put product persistence queries in `db.rs`, schema/default setting changes in `db_schema.rs`, settings table helpers in `db_settings.rs`, AnkiConnect calls in `anki.rs`, annotation-to-note conversion in `anki_notes.rs`, editable TOML config handling in `app_config.rs`, app path/state setup in `state.rs`, and EPUB file IO in `books.rs`.
+Tauri command handlers live in `commands/` by product domain and are re-exported through `commands.rs`. Web handlers live in `witt-server`. Keep both adapters thin: reusable domain logic belongs in `witt-core`; persistence and EPUB file logic belongs in `witt-storage`.
+
+## Web Server API
+
+`witt-server` serves the built React app and protects `/api/*` with `Authorization: Bearer <WITT_WEB_TOKEN>`. The browser can also receive the token from `?token=...`, which is stored in localStorage for subsequent API calls.
+
+Important API groups:
+
+- Books: `GET/POST /api/books`, `GET/DELETE /api/books/:id`, `GET /api/books/:id/file`.
+- Reading progress: `GET/PUT /api/books/:id/progress`.
+- Annotations: `GET/POST /api/annotations`, `PUT/DELETE /api/annotations/:id`.
+- Vocabulary/cache: `/api/vocabulary`, `/api/word-occurrences/:word`, `/api/meaning-groups/:word`, `/api/dictionary-cache`.
+- Anki: `/api/anki/status`, decks, models, cache refresh, notes, conflicts, sync, and AnkiWeb sync.
+- Config/profiles: `/api/settings`, `/api/config`, `/api/prompts`, `/api/pipelines`.
+- LLM: `POST /api/llm/selection`; the server reads `WITT_LLM_API_KEY`.
 
 **Books:** `import_book`, `list_books`, `get_book`, `remove_book`, `get_book_file`  
 **Progress:** `save_progress`, `get_progress`  
@@ -88,9 +112,11 @@ Select word
   -> optional AI explanation is read from/written to dictionary_cache
 
 Sync to Anki
-  -> optional: backend LLM preprocessing enriches meaning fields
+  -> adapter reads the LLM API key from OS keyring (Tauri) or WITT_LLM_API_KEY (server)
+  -> witt-core LLM preprocessing enriches meaning fields when configured
   -> list_anki_sync_conflicts compares queued captures with local Anki cache
-  -> sync_annotations_to_anki creates notes via AnkiConnect
+  -> witt-core sync creates notes via AnkiConnect and optionally pushes AnkiWeb
+  -> Tauri persists synced annotation IDs and note IDs in SQLite
   -> export_queued_annotations_tsv writes a TSV fallback when AnkiConnect is unavailable
 
 Pull known words
@@ -99,6 +125,29 @@ Pull known words
   -> list_annotations + list_vocabulary return reader highlight candidates
   -> readerText.applyHighlights() marks known words in reader
 ```
+
+## Core/Adapter Boundary
+
+`witt-core` is storage-agnostic. It does not read SQLite, app data directories, or OS keyrings, and callers pass secrets such as LLM API keys explicitly. It can be reused by the desktop app, a future hosted web server, or a pure web worker so long as the caller supplies settings, annotations, deck names, and persistence for returned sync results.
+
+Tauri adapters are responsible for:
+
+- SQLite reads/writes and schema migrations.
+- OS keyring access through `settings.rs`.
+- Reading, writing, and opening `settings.toml`.
+- Filesystem access for EPUB imports, exports, app data, and windows/tray behavior.
+- Persisting `(annotation_id, note_id)` pairs returned by `witt_core::sync::sync_annotations_to_anki`.
+
+## Web Queue Contract
+
+When web mode is enabled, the desktop app acts as an Anki worker for a remote queue. Tauri loads local settings and the optional LLM API key, then delegates claim, sync, AnkiWeb push, and report behavior to `witt_core::web_queue::process_queue`.
+
+The queue endpoint in settings is treated as a base URL. Core calls:
+
+- `POST {base}/anki/jobs/claim` with JSON `{ "limit": number }`, returning `WebQueueAnnotationJob[]`.
+- `POST {base}/anki/jobs/report` with `WebQueueProcessSummary`.
+
+If `web_queue_token` is set, both requests use bearer auth. Each claimed job may include job-specific `settings`, but the local worker always overrides the Anki endpoint and fills missing queue endpoint/token values from local settings. A job is classified complete only when at least one note was created, there are no failed entries, and optional AnkiWeb sync did not fail.
 
 ## Vocabulary Model
 

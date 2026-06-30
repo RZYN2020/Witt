@@ -3,9 +3,12 @@ use crate::anki_notes;
 use crate::app_config;
 use crate::db;
 use crate::models::*;
+use crate::settings;
 use crate::state::AppState;
 use chrono::Utc;
 use std::fs;
+use witt_core::sync::{sync_annotations_to_anki as core_sync_annotations_to_anki, SyncInput};
+use witt_core::web_queue::{process_queue, WebQueueInput};
 
 #[tauri::command]
 pub async fn sync_annotations_to_anki(
@@ -28,16 +31,82 @@ pub async fn sync_annotations_to_anki(
         return Ok(SyncSummary {
             created: 0,
             failed: Vec::new(),
+            anki_web_sync: AnkiWebSyncState::NotRequested,
+            anki_web_sync_error: None,
         });
     }
-    let (summary, synced) =
-        anki_service::sync_annotations(&settings, &deck_name, &annotations).await?;
+    let llm_api_key = if settings.anki_preprocess_mode == "llm" {
+        settings::get_llm_api_key().ok()
+    } else {
+        None
+    };
+    let (summary, synced) = core_sync_annotations_to_anki(SyncInput {
+        push_anki_web: settings.anki_auto_sync_web,
+        settings: settings.clone(),
+        deck_name: deck_name.clone(),
+        annotations: annotations.clone(),
+        llm_api_key,
+    })
+    .await?;
     let now = Utc::now().to_rfc3339();
     let conn = state.conn.lock().await;
     for (annotation_id, note_id) in synced {
         db::mark_annotation_synced(&conn, &annotation_id, note_id, &now)?;
     }
     Ok(summary)
+}
+
+#[tauri::command]
+pub async fn sync_anki_web(state: tauri::State<'_, AppState>) -> Result<SyncSummary, String> {
+    let settings = {
+        let conn = state.conn.lock().await;
+        let settings =
+            app_config::settings_from_config(&app_config::read_config(&state.config_path)?);
+        db::save_settings(&conn, &settings)?;
+        settings
+    };
+    let mut summary = SyncSummary {
+        created: 0,
+        failed: Vec::new(),
+        anki_web_sync: AnkiWebSyncState::NotRequested,
+        anki_web_sync_error: None,
+    };
+    match anki_service::sync_anki_web(&settings.anki_endpoint).await {
+        Ok(()) => summary.anki_web_sync = AnkiWebSyncState::Synced,
+        Err(error) => {
+            summary.anki_web_sync = AnkiWebSyncState::Failed;
+            summary.anki_web_sync_error = Some(error);
+        }
+    }
+    Ok(summary)
+}
+
+#[tauri::command]
+pub async fn process_web_mode_queue(
+    state: tauri::State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<WebQueueProcessSummary, String> {
+    let settings = {
+        let conn = state.conn.lock().await;
+        let settings =
+            app_config::settings_from_config(&app_config::read_config(&state.config_path)?);
+        db::save_settings(&conn, &settings)?;
+        settings
+    };
+    if !settings.web_mode_enabled {
+        return Err("Web mode is disabled in settings".to_string());
+    }
+    if settings.web_queue_endpoint.trim().is_empty() {
+        return Err("Set a web queue endpoint before processing web-mode jobs".to_string());
+    }
+
+    let llm_api_key = settings::get_llm_api_key().ok();
+    process_queue(WebQueueInput {
+        settings,
+        limit: limit.unwrap_or(20),
+        llm_api_key,
+    })
+    .await
 }
 
 #[tauri::command]

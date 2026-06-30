@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["witt-tauri/src-tauri"]
+members = [
+    "witt-tauri/src-tauri",
+    "crates/witt-core",
+    "crates/witt-storage",
+    "crates/witt-server",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -21,3 +26,8 @@ keyring = "3.6"
 tokio = { version = "1.35", features = ["sync"] }
 tauri-plugin-dialog = "2"
 toml = "0.9.12"
+axum = "0.7"
+tower-http = { version = "0.6", features = ["fs", "trace"] }
+tower = "0.5"
+http = "1.1"
+tokio-util = "0.7"

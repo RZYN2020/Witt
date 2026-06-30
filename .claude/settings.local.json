@@ -9,7 +9,15 @@
       "Bash(cargo check *)",
       "Bash(pnpm check *)",
       "Bash(pnpm eslint *)",
-      "Bash(pnpm build *)"
+      "Bash(pnpm build *)",
+      "Read(//Users/eka/.cargo/**)",
+      "Read(//Users/eka/.cargo/registry/**)",
+      "Bash(kill 42668 42691)",
+      "Bash(fuser *)",
+      "Bash(cargo tauri *)",
+      "Bash(kill %1)",
+      "Bash(awk '/Selection popup/,/editingPromptId/' /Users/eka/Code/witt/witt-tauri/ui/src/components/reader/ReaderView.tsx)",
+      "Bash(pnpm typecheck *)"
     ]
   }
 }

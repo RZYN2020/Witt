@@ -128,8 +128,16 @@ fn insert_default_settings(conn: &Connection) -> Result<(), String> {
     )?;
     set_default_setting(conn, "llm_model", "gpt-4.1-mini")?;
     set_default_setting(conn, "llm_prompt_id", "explain")?;
-    set_default_setting(conn, "anki_endpoint", crate::anki::DEFAULT_ANKI_ENDPOINT)?;
-    set_default_setting(conn, "anki_model_name", crate::anki::DEFAULT_MODEL_NAME)?;
+    set_default_setting(
+        conn,
+        "anki_endpoint",
+        witt_core::defaults::DEFAULT_ANKI_ENDPOINT,
+    )?;
+    set_default_setting(
+        conn,
+        "anki_model_name",
+        witt_core::defaults::DEFAULT_MODEL_NAME,
+    )?;
     set_default_setting(conn, "anki_word_field", "Word")?;
     set_default_setting(conn, "anki_sentence_field", "Sentence")?;
     set_default_setting(conn, "anki_book_field", "Book")?;
@@ -140,12 +148,12 @@ fn insert_default_settings(conn: &Connection) -> Result<(), String> {
     set_default_setting(
         conn,
         "anki_preprocess_template",
-        &crate::llm::default_preprocess_template(),
+        &witt_core::defaults::default_preprocess_template(),
     )?;
     set_default_setting(
         conn,
         "anki_preprocess_prompt",
-        crate::llm::default_preprocess_prompt(),
+        witt_core::defaults::default_preprocess_prompt(),
     )?;
     set_default_setting(conn, "selection_auto_ask_ai", "false")?;
     set_default_setting(conn, "vocabulary_backend_mode", "hybrid")?;

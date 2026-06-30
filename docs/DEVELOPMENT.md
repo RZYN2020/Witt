@@ -15,7 +15,7 @@ pnpm install
 
 ## Running
 
-Frontend only (no desktop features):
+Frontend dev server:
 
 ```bash
 cd witt-tauri/ui
@@ -23,13 +23,31 @@ pnpm dev
 # opens http://localhost:1420
 ```
 
-The standalone browser build uses safe read-only fallbacks for Tauri commands, so the bookshelf and settings UI can render without the desktop runtime. File import, EPUB bytes, keychain writes, native windows, and other OS-backed commands still require `cargo tauri dev`.
+When opened directly from Vite, the browser build calls `/api/*`. Run `witt-server` separately or set `VITE_WITT_API_BASE_URL` to a running server.
 
 Full desktop app (Tauri + Rust backend):
 
 ```bash
 cargo tauri dev
 ```
+
+Web app (browser + Axum backend on the AnkiConnect machine):
+
+```bash
+cd witt-tauri/ui
+pnpm build
+
+cd /Users/eka/Code/witt
+WITT_WEB_TOKEN=change-me \
+WITT_DATA_DIR=.witt-data \
+WITT_BIND=127.0.0.1:8787 \
+cargo run -p witt-server
+
+# Browser:
+# http://127.0.0.1:8787/?token=change-me
+```
+
+For LAN access, set `WITT_BIND=0.0.0.0:8787` and keep the token private. The server machine must have Anki running with AnkiConnect enabled because sync requests are sent from the server to its configured Anki endpoint.
 
 ## Quality Checks
 
@@ -40,11 +58,14 @@ cd witt-tauri/ui
 pnpm check          # tsc --noEmit, eslint, prettier check, vitest run
 pnpm build          # production bundle and chunk sanity
 
-cd /Users/eka/Code/witt/witt-tauri/src-tauri
-cargo check
-cargo fmt --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test
+cd /Users/eka/Code/witt
+cargo test -p witt-core
+cargo test -p witt-storage
+cargo test -p witt-server
+cargo test -p witt-tauri
+cargo check --workspace
+cargo fmt --check --all
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
 
 ## Reader Development Notes
@@ -79,25 +100,29 @@ pnpm build
 
 ## Backend Structure
 
-The Rust side is in `witt-tauri/src-tauri/src/`. Key entry points:
+Shared Rust domain logic is in `crates/witt-core/src/`. Keep this crate portable: no SQLite, Tauri, app data paths, OS keyring, windows, or editor process launching. Callers pass API keys explicitly. Key modules are `models`, `defaults`, `anki_notes`, `anki_connect`, `sync`, `llm`, `app_config`, and `web_queue`.
+
+Shared persistence and EPUB file operations are in `crates/witt-storage/src/`. Both Tauri and the web server should reuse this crate for SQLite schema, CRUD, settings table access, and EPUB file storage.
+
+The web adapter is `crates/witt-server`. It is an Axum server that authenticates `/api/*` with `Authorization: Bearer <WITT_WEB_TOKEN>`, serves the built React app, stores data under `WITT_DATA_DIR`, and talks to AnkiConnect from the server machine.
+
+The desktop adapter is in `witt-tauri/src-tauri/src/`. Key entry points:
 
 - `main.rs` — registers all Tauri commands, builds the app
 - `commands.rs` — re-exports domain command handlers for Tauri registration
 - `commands/` — command handlers grouped by product domain (`books`, `annotations`, `anki`, `llm`, `profiles`, `settings`)
 - `state.rs` — app data directories and shared SQLite connection
-- `app_config.rs` — reads/writes the single `settings.toml` source of truth for human-maintained config
-- `db.rs` — SQLite connection and product CRUD queries
-- `db_schema.rs` — tables, indexes, migrations, and inserted default settings
-- `db_settings.rs` — settings table reads/writes exposed through `db.rs`
-- `anki.rs` — AnkiConnect client and sync orchestration
-- `anki_notes.rs` — note JSON construction, template preprocessing, notesInfo parsing, and note-related tests
-- `llm.rs` — selection explanation and annotation preprocessing requests
+- `app_config.rs` — reads/writes the single `settings.toml` source of truth for human-maintained config, delegating pure mapping/defaulting to `witt-core`
+- `db.rs`, `books.rs` — thin re-export/adapters around shared `witt-storage` logic
+- `anki.rs`, `anki_notes.rs`, `llm.rs`, `models.rs` — thin re-export/adapters around shared `witt-core` logic
 
 ## Adding a Feature
 
-1. If it touches the DB: add tables/columns/defaults in `db_schema.rs`, product queries in `db.rs`, settings reads/writes in `db_settings.rs`, update `models.rs`, add a command in the matching `commands/` module, re-export it from `commands.rs`, register it in `main.rs`.
-2. Add a typed wrapper in `ui/src/lib/commands.ts`.
-3. Build the UI component. Reuse `components/ui/Button.tsx`, `Tabs.tsx`, and `Form.tsx` before adding new one-off form markup.
+1. If it is reusable domain logic, add it to `crates/witt-core` first and keep persistence/secrets as explicit inputs or returned outputs.
+2. If it touches DB/files: add schema/queries/storage helpers in `crates/witt-storage`.
+3. Add the behavior to both adapters when applicable: Tauri command handlers and `witt-server` HTTP routes.
+4. Add a typed wrapper in `ui/src/lib/commands.ts` for both Tauri IPC and browser HTTP transport.
+5. Build the UI component. Reuse `components/ui/Button.tsx`, `Tabs.tsx`, and `Form.tsx` before adding new one-off form markup.
 
 If the feature is non-core (not reading, annotation, Anki sync, or LLM), start from `ui/src/lib/extensions.ts`.
 

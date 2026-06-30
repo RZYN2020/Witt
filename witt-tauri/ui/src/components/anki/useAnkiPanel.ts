@@ -11,10 +11,12 @@ import {
   listPipelineProfiles,
   loadPipelineProfile,
   openPipelineProfile,
+  processWebModeQueue,
   refreshAnkiCache,
   saveSettings,
   searchAnkiNotes,
   selectAnkiDeck,
+  syncAnkiWeb,
   syncAnnotationsToAnki,
   type Annotation,
   type AnkiDeck,
@@ -62,6 +64,16 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     setStatus(message);
     setTimeout(() => setStatus((prev) => (prev === message ? 'Ready' : prev)), durationMs);
   }, []);
+
+  const syncMessage = (summary: { created: number; failed: unknown[]; anki_web_sync: string }) => {
+    const cloud =
+      summary.anki_web_sync === 'synced'
+        ? '; pushed to AnkiWeb'
+        : summary.anki_web_sync === 'failed'
+          ? '; AnkiWeb sync failed'
+          : '';
+    return `Created ${summary.created}; ${summary.failed.length} failed${cloud}`;
+  };
 
   const loadNotes = useCallback(
     async (deckName: string, nextQuery: string) => {
@@ -151,7 +163,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     try {
       await saveSettings(settings);
       const summary = await syncAnnotationsToAnki();
-      flashStatus(`Created ${summary.created}; ${summary.failed.length} failed`);
+      flashStatus(syncMessage(summary));
       const nextAnnotations = await listAnnotations();
       setAnnotations(nextAnnotations);
       setConflicts(await listAnkiSyncConflicts());
@@ -216,6 +228,34 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     }
   };
 
+  const pushAnkiWeb = async () => {
+    setStatus('Pushing Anki to AnkiWeb...');
+    try {
+      const summary = await syncAnkiWeb();
+      flashStatus(
+        summary.anki_web_sync === 'synced'
+          ? 'AnkiWeb sync complete'
+          : summary.anki_web_sync_error || 'AnkiWeb sync failed'
+      );
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'AnkiWeb sync failed');
+    }
+  };
+
+  const processWebQueue = async () => {
+    setStatus('Processing web-mode queue...');
+    try {
+      await saveSettings(settings);
+      const summary = await processWebModeQueue();
+      flashStatus(
+        `Processed ${summary.claimed} web jobs; ${summary.completed} complete; ${summary.failed} failed`,
+        6000
+      );
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Web queue sync failed');
+    }
+  };
+
   return {
     online,
     decks,
@@ -236,6 +276,8 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     editPipeline,
     exportQueued,
     loadPipeline,
+    processWebQueue,
+    pushAnkiWeb,
     refreshDeck,
     saveMapping,
     searchNotes,

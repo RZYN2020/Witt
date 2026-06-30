@@ -9,6 +9,8 @@ license.workspace = true
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
+witt-core = { path = "../../crates/witt-core" }
+witt-storage = { path = "../../crates/witt-storage" }
 tauri.workspace = true
 tauri-plugin-dialog.workspace = true
 serde.workspace = true

@@ -1,0 +1,13 @@
+[package]
+name = "witt-storage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+witt-core = { path = "../witt-core" }
+chrono.workspace = true
+rusqlite.workspace = true
+uuid.workspace = true
+

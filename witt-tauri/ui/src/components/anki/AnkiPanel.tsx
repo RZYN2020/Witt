@@ -4,7 +4,9 @@ import {
   RefreshCcw,
   Search,
   Send,
+  ServerCog,
   Trash2,
+  Upload,
   Wifi,
   WifiOff,
 } from 'lucide-react';
@@ -79,6 +81,21 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
             <Button size="sm" variant="outline" onClick={() => void anki.exportQueued()}>
               <Download size={15} />
               Export
+            </Button>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Button size="sm" variant="outline" onClick={() => void anki.pushAnkiWeb()}>
+              <Upload size={15} />
+              AnkiWeb
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void anki.processWebQueue()}
+              disabled={!anki.settings.web_mode_enabled}
+            >
+              <ServerCog size={15} />
+              Web queue
             </Button>
           </div>
         </PanelSection>

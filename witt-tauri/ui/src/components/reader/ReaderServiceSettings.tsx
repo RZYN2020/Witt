@@ -87,6 +87,45 @@ export function AnkiConnectionSettings({
           }
         />
       </label>
+      <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs">
+        <span className="text-muted-foreground">Push Anki changes to AnkiWeb after sync</span>
+        <input
+          type="checkbox"
+          checked={settings.anki_auto_sync_web}
+          onChange={(event) =>
+            onSettingsChange({ ...settings, anki_auto_sync_web: event.target.checked })
+          }
+        />
+      </label>
+      <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs">
+        <span className="text-muted-foreground">Enable web-mode queue agent</span>
+        <input
+          type="checkbox"
+          checked={settings.web_mode_enabled}
+          onChange={(event) =>
+            onSettingsChange({ ...settings, web_mode_enabled: event.target.checked })
+          }
+        />
+      </label>
+      <Field label="Web queue endpoint">
+        <TextInput
+          placeholder="https://example.com"
+          value={settings.web_queue_endpoint}
+          onChange={(event) =>
+            onSettingsChange({ ...settings, web_queue_endpoint: event.target.value })
+          }
+        />
+      </Field>
+      <Field label="Web queue token">
+        <TextInput
+          type="password"
+          placeholder="Bearer token"
+          value={settings.web_queue_token}
+          onChange={(event) =>
+            onSettingsChange({ ...settings, web_queue_token: event.target.value })
+          }
+        />
+      </Field>
       <Button size="sm" onClick={onSave}>
         <Save size={15} />
         Save

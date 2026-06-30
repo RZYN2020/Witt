@@ -80,10 +80,10 @@ function App() {
     }
   };
 
-  const handleImport = async (sourcePath: string) => {
+  const handleImport = async (source: string | File) => {
     setLoading(true);
     try {
-      const book = await importBook(sourcePath);
+      const book = await importBook(source);
       const nextBooks = await listBooks();
       setBooks(nextBooks);
       await handleOpenBook(book);

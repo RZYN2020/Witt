@@ -1,5 +1,5 @@
-use crate::models::AppSettings;
 use rusqlite::{params, Connection, OptionalExtension};
+use witt_core::models::AppSettings;
 
 pub fn get_settings(conn: &Connection) -> Result<AppSettings, String> {
     let defaults = AppSettings::default();
@@ -35,6 +35,15 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings, String> {
         inline_mini_gloss: get_setting(conn, "inline_mini_gloss")?
             .map(|value| value == "true")
             .unwrap_or(defaults.inline_mini_gloss),
+        anki_auto_sync_web: get_setting(conn, "anki_auto_sync_web")?
+            .map(|value| value == "true")
+            .unwrap_or(defaults.anki_auto_sync_web),
+        web_mode_enabled: get_setting(conn, "web_mode_enabled")?
+            .map(|value| value == "true")
+            .unwrap_or(defaults.web_mode_enabled),
+        web_queue_endpoint: get_setting(conn, "web_queue_endpoint")?
+            .unwrap_or(defaults.web_queue_endpoint),
+        web_queue_token: get_setting(conn, "web_queue_token")?.unwrap_or(defaults.web_queue_token),
     })
 }
 
@@ -95,6 +104,26 @@ pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<(), St
             "false"
         },
     )?;
+    set_setting(
+        conn,
+        "anki_auto_sync_web",
+        if settings.anki_auto_sync_web {
+            "true"
+        } else {
+            "false"
+        },
+    )?;
+    set_setting(
+        conn,
+        "web_mode_enabled",
+        if settings.web_mode_enabled {
+            "true"
+        } else {
+            "false"
+        },
+    )?;
+    set_setting(conn, "web_queue_endpoint", &settings.web_queue_endpoint)?;
+    set_setting(conn, "web_queue_token", &settings.web_queue_token)?;
     Ok(())
 }
 

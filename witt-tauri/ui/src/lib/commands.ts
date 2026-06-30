@@ -142,6 +142,10 @@ export interface AppSettings {
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
   visual_memory_scope: 'library' | 'book';
   inline_mini_gloss: boolean;
+  anki_auto_sync_web: boolean;
+  web_mode_enabled: boolean;
+  web_queue_endpoint: string;
+  web_queue_token: string;
 }
 
 export interface SelectionLlmRequest {
@@ -182,6 +186,10 @@ export interface ConfigSettings {
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
   visual_memory_scope: 'library' | 'book';
   inline_mini_gloss: boolean;
+  anki_auto_sync_web: boolean;
+  web_mode_enabled: boolean;
+  web_queue_endpoint: string;
+  web_queue_token: string;
 }
 
 export interface LlmConfig {
@@ -226,6 +234,8 @@ export interface AnkiStatus {
 export interface SyncSummary {
   created: number;
   failed: Array<{ word: string; error: string }>;
+  anki_web_sync: 'not_requested' | 'synced' | 'failed';
+  anki_web_sync_error?: string | null;
 }
 
 export interface AnkiSyncConflict {
@@ -240,6 +250,25 @@ export interface AnkiSyncConflict {
 export interface ExportSummary {
   path: string;
   exported: number;
+}
+
+export interface WebQueueAnnotationJob {
+  id: string;
+  deck_name: string;
+  annotation: Annotation;
+  settings?: AppSettings | null;
+}
+
+export interface WebQueueJobResult {
+  id: string;
+  summary: SyncSummary;
+}
+
+export interface WebQueueProcessSummary {
+  claimed: number;
+  completed: number;
+  failed: number;
+  results: WebQueueJobResult[];
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -263,10 +292,96 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   vocabulary_backend_mode: 'hybrid',
   visual_memory_scope: 'library',
   inline_mini_gloss: false,
+  anki_auto_sync_web: true,
+  web_mode_enabled: false,
+  web_queue_endpoint: '',
+  web_queue_token: '',
 };
 
 export function hasTauriRuntime() {
   return typeof window !== 'undefined' && window.__TAURI_INTERNALS__ !== undefined;
+}
+
+function apiUrl(path: string) {
+  const meta = import.meta as ImportMeta & { env?: Record<string, string | undefined> };
+  const base = meta.env?.VITE_WITT_API_BASE_URL || '';
+  return `${base}${path}`;
+}
+
+function webToken() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+  const fromQuery = new URLSearchParams(window.location.search).get('token');
+  if (fromQuery) {
+    window.localStorage.setItem('witt.webToken', fromQuery);
+    return fromQuery;
+  }
+  const stored = window.localStorage.getItem('witt.webToken');
+  if (stored) {
+    return stored;
+  }
+  const entered = window.prompt('Enter Witt web token')?.trim() ?? '';
+  if (entered) {
+    window.localStorage.setItem('witt.webToken', entered);
+  }
+  return entered;
+}
+
+async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  const body = init.body;
+  if (body && !(body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  const token = webToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(apiUrl(path), { ...init, headers });
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const payload = (await response.json()) as { error?: string };
+      message = payload.error || message;
+    } catch {
+      // Keep status text fallback.
+    }
+    if (response.status === 401 && typeof window !== 'undefined') {
+      window.localStorage.removeItem('witt.webToken');
+    }
+    throw new Error(message);
+  }
+  return (await response.json()) as T;
+}
+
+async function apiBytes(path: string): Promise<number[]> {
+  const headers = new Headers();
+  const token = webToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(apiUrl(path), { headers });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return Array.from(new Uint8Array(await response.arrayBuffer()));
+}
+
+async function apiText(path: string, init: RequestInit = {}): Promise<string> {
+  const headers = new Headers(init.headers);
+  const token = webToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const response = await fetch(apiUrl(path), { ...init, headers });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  return response.text();
 }
 
 function unavailableInBrowser(commandName: string): Promise<never> {
@@ -284,60 +399,117 @@ function command<T>(
   return invoke<T>(commandName, args);
 }
 
-export function importBook(sourcePath: string): Promise<BookRecord> {
+export function importBook(sourcePath: string | File): Promise<BookRecord> {
+  if (!hasTauriRuntime()) {
+    if (!(sourcePath instanceof File)) {
+      return unavailableInBrowser('import_book');
+    }
+    const form = new FormData();
+    form.append('file', sourcePath);
+    return api<BookRecord>('/api/books', { method: 'POST', body: form });
+  }
   return command<BookRecord>('import_book', { sourcePath });
 }
 
 export function listBooks(): Promise<BookRecord[]> {
-  return command<BookRecord[]>('list_books', undefined, () => []);
+  return hasTauriRuntime() ? command<BookRecord[]>('list_books') : api<BookRecord[]>('/api/books');
 }
 
 export function getBook(bookId: string): Promise<BookRecord | null> {
-  return command<BookRecord | null>('get_book', { bookId }, () => null);
+  return hasTauriRuntime()
+    ? command<BookRecord | null>('get_book', { bookId })
+    : api<BookRecord>(`/api/books/${encodeURIComponent(bookId)}`).catch((error) => {
+        if (error instanceof Error && error.message === 'Book not found') {
+          return null;
+        }
+        throw error;
+      });
 }
 
 export function openReaderWindow(bookId: string): Promise<void> {
+  if (!hasTauriRuntime()) {
+    window.location.href = `/?reader=${encodeURIComponent(bookId)}`;
+    return Promise.resolve();
+  }
   return command<void>('open_reader_window', { bookId });
 }
 
 export function removeBook(bookId: string): Promise<void> {
-  return command<void>('remove_book', { bookId });
+  return hasTauriRuntime()
+    ? command<void>('remove_book', { bookId })
+    : api<void>(`/api/books/${encodeURIComponent(bookId)}`, { method: 'DELETE' });
 }
 
 export function getBookFile(bookId: string): Promise<number[]> {
-  return command<number[]>('get_book_file', { bookId });
+  return hasTauriRuntime()
+    ? command<number[]>('get_book_file', { bookId })
+    : apiBytes(`/api/books/${encodeURIComponent(bookId)}/file`);
 }
 
 export function saveProgress(progress: ReadingProgress): Promise<void> {
-  return command<void>('save_progress', { progress });
+  return hasTauriRuntime()
+    ? command<void>('save_progress', { progress })
+    : api<void>(`/api/books/${encodeURIComponent(progress.book_id)}/progress`, {
+        method: 'PUT',
+        body: JSON.stringify(progress),
+      });
 }
 
 export function getProgress(bookId: string): Promise<ReadingProgress | null> {
-  return command<ReadingProgress | null>('get_progress', { bookId }, () => null);
+  return hasTauriRuntime()
+    ? command<ReadingProgress | null>('get_progress', { bookId })
+    : api<ReadingProgress | null>(`/api/books/${encodeURIComponent(bookId)}/progress`);
 }
 
 export function createAnnotation(draft: AnnotationDraft): Promise<Annotation> {
-  return command<Annotation>('create_annotation', { draft });
+  return hasTauriRuntime()
+    ? command<Annotation>('create_annotation', { draft })
+    : api<Annotation>('/api/annotations', { method: 'POST', body: JSON.stringify(draft) });
 }
 
 export function updateAnnotation(update: AnnotationUpdate): Promise<Annotation> {
-  return command<Annotation>('update_annotation', { update });
+  return hasTauriRuntime()
+    ? command<Annotation>('update_annotation', { update })
+    : api<Annotation>(`/api/annotations/${encodeURIComponent(update.id)}`, {
+        method: 'PUT',
+        body: JSON.stringify(update),
+      });
 }
 
 export function listAnnotations(bookId?: string): Promise<Annotation[]> {
-  return command<Annotation[]>('list_annotations', { bookId: bookId ?? null }, () => []);
+  if (hasTauriRuntime()) {
+    return command<Annotation[]>('list_annotations', { bookId: bookId ?? null });
+  }
+  const query = bookId ? `?book_id=${encodeURIComponent(bookId)}` : '';
+  return api<Annotation[]>(`/api/annotations${query}`);
 }
 
 export function deleteQueuedAnnotation(annotationId: string): Promise<void> {
-  return command<void>('delete_queued_annotation', { annotationId });
+  return hasTauriRuntime()
+    ? command<void>('delete_queued_annotation', { annotationId })
+    : api<void>(`/api/annotations/${encodeURIComponent(annotationId)}`, { method: 'DELETE' });
 }
 
 export function syncAnnotationsToAnki(): Promise<SyncSummary> {
-  return command<SyncSummary>('sync_annotations_to_anki');
+  return hasTauriRuntime()
+    ? command<SyncSummary>('sync_annotations_to_anki')
+    : api<SyncSummary>('/api/anki/sync', { method: 'POST' });
+}
+
+export function syncAnkiWeb(): Promise<SyncSummary> {
+  return hasTauriRuntime()
+    ? command<SyncSummary>('sync_anki_web')
+    : api<SyncSummary>('/api/anki/sync-web', { method: 'POST' });
+}
+
+export function processWebModeQueue(limit?: number): Promise<WebQueueProcessSummary> {
+  return command<WebQueueProcessSummary>('process_web_mode_queue', { limit: limit ?? null });
 }
 
 export function listAnkiSyncConflicts(): Promise<AnkiSyncConflict[]> {
-  return command<AnkiSyncConflict[]>('list_anki_sync_conflicts', undefined, () => []);
+  return hasTauriRuntime()
+    ? command<AnkiSyncConflict[]>('list_anki_sync_conflicts')
+    : api<AnkiSyncConflict[]>('/api/anki/conflicts');
 }
 
 export function exportQueuedAnnotationsTsv(): Promise<ExportSummary> {
@@ -345,26 +517,49 @@ export function exportQueuedAnnotationsTsv(): Promise<ExportSummary> {
 }
 
 export function checkAnki(): Promise<AnkiStatus> {
-  return command<AnkiStatus>('check_anki', undefined, () => ({ available: false, version: null }));
+  return hasTauriRuntime()
+    ? command<AnkiStatus>('check_anki')
+    : api<AnkiStatus>('/api/anki/status');
 }
 
 export function listAnkiDecks(): Promise<AnkiDeck[]> {
-  return command<AnkiDeck[]>('list_anki_decks', undefined, () => []);
+  return hasTauriRuntime()
+    ? command<AnkiDeck[]>('list_anki_decks')
+    : api<AnkiDeck[]>('/api/anki/decks');
 }
 
 export function listAnkiModels(): Promise<AnkiModelInfo[]> {
-  return command<AnkiModelInfo[]>('list_anki_models', undefined, () => []);
+  return hasTauriRuntime()
+    ? command<AnkiModelInfo[]>('list_anki_models')
+    : api<AnkiModelInfo[]>('/api/anki/models');
 }
 
 export function selectAnkiDeck(deckName: string): Promise<void> {
-  return command<void>('select_anki_deck', { deckName });
+  return hasTauriRuntime()
+    ? command<void>('select_anki_deck', { deckName })
+    : api<void>('/api/anki/decks/select', {
+        method: 'POST',
+        body: JSON.stringify({ deck_name: deckName }),
+      });
 }
 
 export function refreshAnkiCache(deckName: string): Promise<AnkiNote[]> {
-  return command<AnkiNote[]>('refresh_anki_cache', { deckName });
+  return hasTauriRuntime()
+    ? command<AnkiNote[]>('refresh_anki_cache', { deckName })
+    : api<AnkiNote[]>('/api/anki/cache/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ deck_name: deckName }),
+      });
 }
 
 export function searchAnkiNotes(deckName?: string, query?: string): Promise<AnkiNote[]> {
+  if (!hasTauriRuntime()) {
+    const params = new URLSearchParams();
+    if (deckName) params.set('deck_name', deckName);
+    if (query) params.set('query', query);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    return api<AnkiNote[]>(`/api/anki/notes${suffix}`);
+  }
   return command<AnkiNote[]>(
     'search_anki_notes',
     {
@@ -376,10 +571,19 @@ export function searchAnkiNotes(deckName?: string, query?: string): Promise<Anki
 }
 
 export function getAnkiNote(noteId: number): Promise<AnkiNote | null> {
-  return command<AnkiNote | null>('get_anki_note', { noteId }, () => null);
+  return hasTauriRuntime()
+    ? command<AnkiNote | null>('get_anki_note', { noteId })
+    : api<AnkiNote | null>(`/api/anki/notes/${noteId}`);
 }
 
 export function listVocabulary(query?: string, bookId?: string): Promise<VocabularyEntry[]> {
+  if (!hasTauriRuntime()) {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    if (bookId) params.set('book_id', bookId);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    return api<VocabularyEntry[]>(`/api/vocabulary${suffix}`);
+  }
   return command<VocabularyEntry[]>(
     'list_vocabulary',
     { query: query ?? null, bookId: bookId ?? null },
@@ -391,21 +595,35 @@ export function updateVocabularyStatus(
   word: string,
   status: VocabularyEntry['status']
 ): Promise<VocabularyEntry | null> {
-  return command<VocabularyEntry | null>('update_vocabulary_status', { word, status }, () => null);
+  return hasTauriRuntime()
+    ? command<VocabularyEntry | null>('update_vocabulary_status', { word, status })
+    : api<VocabularyEntry | null>(`/api/vocabulary/${encodeURIComponent(word)}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
 }
 
 export function listWordOccurrences(word: string): Promise<WordOccurrence[]> {
-  return command<WordOccurrence[]>('list_word_occurrences', { word }, () => []);
+  return hasTauriRuntime()
+    ? command<WordOccurrence[]>('list_word_occurrences', { word })
+    : api<WordOccurrence[]>(`/api/word-occurrences/${encodeURIComponent(word)}`);
 }
 
 export function listMeaningGroups(word: string): Promise<MeaningGroup[]> {
-  return command<MeaningGroup[]>('list_meaning_groups', { word }, () => []);
+  return hasTauriRuntime()
+    ? command<MeaningGroup[]>('list_meaning_groups', { word })
+    : api<MeaningGroup[]>(`/api/meaning-groups/${encodeURIComponent(word)}`);
 }
 
 export function getDictionaryCache(
   word: string,
   promptId?: string
 ): Promise<DictionaryCacheEntry | null> {
+  if (!hasTauriRuntime()) {
+    const params = new URLSearchParams({ word });
+    if (promptId) params.set('prompt_id', promptId);
+    return api<DictionaryCacheEntry | null>(`/api/dictionary-cache?${params.toString()}`);
+  }
   return command<DictionaryCacheEntry | null>(
     'get_dictionary_cache',
     { word, promptId: promptId ?? null },
@@ -414,55 +632,94 @@ export function getDictionaryCache(
 }
 
 export function saveDictionaryCache(draft: DictionaryCacheDraft): Promise<DictionaryCacheEntry> {
-  return command<DictionaryCacheEntry>('save_dictionary_cache', { draft });
+  return hasTauriRuntime()
+    ? command<DictionaryCacheEntry>('save_dictionary_cache', { draft })
+    : api<DictionaryCacheEntry>('/api/dictionary-cache', {
+        method: 'PUT',
+        body: JSON.stringify(draft),
+      });
 }
 
 export function askLlmAboutSelection(request: SelectionLlmRequest): Promise<string> {
-  return command<string>('ask_llm_about_selection', { request });
+  return hasTauriRuntime()
+    ? command<string>('ask_llm_about_selection', { request })
+    : api<string>('/api/llm/selection', { method: 'POST', body: JSON.stringify(request) });
 }
 
 export function listPromptProfiles(): Promise<PromptProfile[]> {
-  return command<PromptProfile[]>('list_prompt_profiles', undefined, () => []);
+  return hasTauriRuntime()
+    ? command<PromptProfile[]>('list_prompt_profiles')
+    : api<PromptProfile[]>('/api/prompts');
 }
 
 export function listPipelineProfiles(): Promise<PipelineProfile[]> {
-  return command<PipelineProfile[]>('list_pipeline_profiles', undefined, () => []);
+  return hasTauriRuntime()
+    ? command<PipelineProfile[]>('list_pipeline_profiles')
+    : api<PipelineProfile[]>('/api/pipelines');
 }
 
 export function openPromptProfile(promptId: string): Promise<string> {
-  return command<string>('open_prompt_profile', { promptId });
+  return hasTauriRuntime()
+    ? command<string>('open_prompt_profile', { promptId })
+    : Promise.resolve('Edit prompts in the in-app editor.');
 }
 
 export function openPipelineProfile(pipelineId: string): Promise<string> {
-  return command<string>('open_pipeline_profile', { pipelineId });
+  return hasTauriRuntime()
+    ? command<string>('open_pipeline_profile', { pipelineId })
+    : Promise.resolve('Edit pipelines in the in-app editor.');
 }
 
 export function readPromptProfile(promptId: string): Promise<string> {
-  return command<string>('read_prompt_profile', { promptId });
+  return hasTauriRuntime()
+    ? command<string>('read_prompt_profile', { promptId })
+    : apiText(`/api/prompts/${encodeURIComponent(promptId)}`);
 }
 
 export function savePromptProfile(promptId: string, content: string): Promise<void> {
-  return command<void>('save_prompt_profile', { promptId, content });
+  return hasTauriRuntime()
+    ? command<void>('save_prompt_profile', { promptId, content })
+    : api<void>(`/api/prompts/${encodeURIComponent(promptId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: content,
+      });
 }
 
 export function readPipelineProfile(pipelineId: string): Promise<string> {
-  return command<string>('read_pipeline_profile', { pipelineId });
+  return hasTauriRuntime()
+    ? command<string>('read_pipeline_profile', { pipelineId })
+    : apiText(`/api/pipelines/${encodeURIComponent(pipelineId)}`);
 }
 
 export function savePipelineProfile(pipelineId: string, content: string): Promise<void> {
-  return command<void>('save_pipeline_profile', { pipelineId, content });
+  return hasTauriRuntime()
+    ? command<void>('save_pipeline_profile', { pipelineId, content })
+    : api<void>(`/api/pipelines/${encodeURIComponent(pipelineId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain' },
+        body: content,
+      });
 }
 
 export function loadPipelineProfile(pipelineId: string): Promise<AppSettings> {
-  return command<AppSettings>('load_pipeline_profile', { pipelineId }, () => DEFAULT_APP_SETTINGS);
+  return hasTauriRuntime()
+    ? command<AppSettings>('load_pipeline_profile', { pipelineId })
+    : api<AppSettings>(`/api/pipelines/${encodeURIComponent(pipelineId)}/load`, {
+        method: 'POST',
+      });
 }
 
 export function getSettings(): Promise<AppSettings> {
-  return command<AppSettings>('get_settings', undefined, () => DEFAULT_APP_SETTINGS);
+  return hasTauriRuntime()
+    ? command<AppSettings>('get_settings')
+    : api<AppSettings>('/api/settings');
 }
 
 export function saveSettings(settings: AppSettings): Promise<void> {
-  return command<void>('save_settings', { settings });
+  return hasTauriRuntime()
+    ? command<void>('save_settings', { settings })
+    : api<void>('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
 }
 
 export function saveLlmApiKey(apiKey: string): Promise<void> {
@@ -474,45 +731,23 @@ export function hasLlmApiKey(): Promise<boolean> {
 }
 
 export function openAppConfig(): Promise<string> {
-  return command<string>('open_app_config');
+  return hasTauriRuntime()
+    ? command<string>('open_app_config')
+    : Promise.resolve('Edit settings in this browser. Server config is stored on the web host.');
 }
 
 export function reloadAppConfig(): Promise<AppSettings> {
-  return command<AppSettings>('reload_app_config', undefined, () => DEFAULT_APP_SETTINGS);
+  return hasTauriRuntime()
+    ? command<AppSettings>('reload_app_config')
+    : api<AppSettings>('/api/config/reload', { method: 'POST' });
 }
 
 export function getAppConfig(): Promise<AppConfig> {
-  return command<AppConfig>('get_app_config', undefined, () => ({
-    config_version: 1,
-    settings: {
-      llm_prompt_id: DEFAULT_APP_SETTINGS.llm_prompt_id,
-      anki_pipeline_id: DEFAULT_APP_SETTINGS.anki_pipeline_id,
-      selection_auto_ask_ai: DEFAULT_APP_SETTINGS.selection_auto_ask_ai,
-      vocabulary_backend_mode: DEFAULT_APP_SETTINGS.vocabulary_backend_mode,
-      visual_memory_scope: DEFAULT_APP_SETTINGS.visual_memory_scope,
-      inline_mini_gloss: DEFAULT_APP_SETTINGS.inline_mini_gloss,
-    },
-    llm: {
-      endpoint: DEFAULT_APP_SETTINGS.llm_endpoint,
-      default_model: DEFAULT_APP_SETTINGS.llm_model,
-    },
-    anki: {
-      endpoint: DEFAULT_APP_SETTINGS.anki_endpoint,
-      note_type_name: DEFAULT_APP_SETTINGS.anki_model_name,
-      fields: {
-        word: DEFAULT_APP_SETTINGS.anki_word_field,
-        sentence: DEFAULT_APP_SETTINGS.anki_sentence_field,
-        book: DEFAULT_APP_SETTINGS.anki_book_field,
-        chapter: DEFAULT_APP_SETTINGS.anki_chapter_field,
-        meaning: DEFAULT_APP_SETTINGS.anki_meaning_field,
-      },
-    },
-    editor: { command: 'code', args: ['-r'] },
-    prompts: {},
-    pipelines: {},
-  }));
+  return hasTauriRuntime() ? command<AppConfig>('get_app_config') : api<AppConfig>('/api/config');
 }
 
 export function saveAppConfig(config: AppConfig): Promise<AppConfig> {
-  return command<AppConfig>('save_app_config', { config });
+  return hasTauriRuntime()
+    ? command<AppConfig>('save_app_config', { config })
+    : api<AppConfig>('/api/config', { method: 'PUT', body: JSON.stringify(config) });
 }

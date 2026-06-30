@@ -7,8 +7,6 @@ mod app_config;
 mod books;
 mod commands;
 mod db;
-mod db_schema;
-mod db_settings;
 mod llm;
 mod models;
 mod settings;
@@ -51,6 +49,8 @@ fn main() {
             commands::list_annotations,
             commands::delete_queued_annotation,
             commands::sync_annotations_to_anki,
+            commands::sync_anki_web,
+            commands::process_web_mode_queue,
             commands::list_anki_sync_conflicts,
             commands::export_queued_annotations_tsv,
             commands::check_anki,

@@ -14,9 +14,10 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getProgress,
+  hasTauriRuntime,
   listAnnotations,
   listAnkiDecks,
   listMeaningGroups,
@@ -36,7 +37,7 @@ import { Button } from '@/components/ui/Button';
 interface BookshelfViewProps {
   books: BookRecord[];
   loading: boolean;
-  onImport: (sourcePath: string) => Promise<void>;
+  onImport: (source: string | File) => Promise<void>;
   onOpenBook: (book: BookRecord) => void;
   onRemoveBook: (bookId: string) => Promise<void>;
 }
@@ -66,6 +67,7 @@ export function BookshelfView({
   const [meanings, setMeanings] = useState<MeaningGroup[]>([]);
   const [decks, setDecks] = useState<AnkiDeck[]>([]);
   const [showImportMenu, setShowImportMenu] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const recentBook = useMemo(
     () =>
@@ -161,12 +163,24 @@ export function BookshelfView({
 
   const chooseBook = async () => {
     setShowImportMenu(false);
+    if (!hasTauriRuntime()) {
+      fileInputRef.current?.click();
+      return;
+    }
     const selected = await open({
       multiple: false,
       filters: [{ name: 'EPUB', extensions: ['epub'] }],
     });
     if (typeof selected === 'string') {
       await onImport(selected);
+    }
+  };
+  const chooseWebFile = async (file: File | undefined) => {
+    if (file) {
+      await onImport(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
   const viewContexts = async (entry: VocabularyEntry) => {
@@ -181,6 +195,13 @@ export function BookshelfView({
 
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <input
+        ref={fileInputRef}
+        className="hidden"
+        type="file"
+        accept=".epub,application/epub+zip"
+        onChange={(event) => void chooseWebFile(event.target.files?.[0])}
+      />
       <header className="border-b border-border/70 bg-card/80 px-4 py-5 backdrop-blur sm:px-8 sm:py-7">
         <div className="mx-auto flex max-w-6xl flex-col gap-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

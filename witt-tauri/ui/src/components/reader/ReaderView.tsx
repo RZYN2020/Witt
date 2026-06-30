@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSettings, listAnnotations, listVocabulary, type BookRecord } from '@/lib/commands';
 import { getSentenceAround, normalizeWord, type HighlightToken } from '@/lib/readerText';
 import { ProfileEditor } from '@/components/ui/ProfileEditor';
+import { AiPanel } from '@/components/ai/AiPanel';
+import { useAiChat } from '@/components/ai/useAiChat';
 import { AnkiPanel } from '@/components/anki/AnkiPanel';
 import { ReaderChrome } from '@/components/reader/ReaderChrome';
 import { ReaderSettingsModal } from '@/components/reader/ReaderSettingsModal';
@@ -15,6 +17,7 @@ import {
   emptyPageInfo,
   pageInfoFromLocation,
   type EpubContents,
+  type ReaderMemoryStyleOptions,
   type Rendition,
 } from '@/components/reader/readerEpub';
 import { type EpubBook, useEpubRendition } from '@/components/reader/useEpubRendition';
@@ -36,7 +39,10 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   const renditionRef = useRef<Rendition | null>(null);
   const epubBookRef = useRef<EpubBook | null>(null);
   const knownWordsRef = useRef<HighlightToken[]>([]);
-  const memoryStyleRef = useRef({ inlineMiniGloss: false });
+  const memoryStyleRef = useRef<ReaderMemoryStyleOptions>({
+    inlineWordDisplay: 'none',
+    highlightKnownWords: true,
+  });
   const displayRef = useRef<ReaderDisplaySettings>(getInitialDisplay());
   const userChangedReaderThemeRef = useRef(false);
 
@@ -49,12 +55,16 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   const [showUI, setShowUI] = useState(true);
   const [showToc, setShowToc] = useState(false);
   const [showAnki, setShowAnki] = useState(false);
+  const [showAi, setShowAi] = useState(false);
+  const [chatChapter, setChatChapter] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [immersive, setImmersive] = useState(false);
+  const [highlightVersion, setHighlightVersion] = useState(0);
   const [display, setDisplay] = useState<ReaderDisplaySettings>(getInitialDisplay);
   const [customTheme, setCustomTheme] = useState<ReaderTheme>(loadCustomTheme);
   const [visualMemoryScope, setVisualMemoryScope] = useState<'library' | 'book'>('library');
-  const [inlineMiniGloss, setInlineMiniGloss] = useState(false);
+  const [inlineWordDisplay, setInlineWordDisplay] = useState<'none' | 'status' | 'meaning'>('none');
+  const [highlightKnownWords, setHighlightKnownWords] = useState(true);
   const markKnownWord = useCallback((word: string) => {
     setKnownWords((prev) => mergeHighlightTokens(prev, [{ word, status: 'learning' }]));
   }, []);
@@ -99,21 +109,40 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     toggleAutoAskAi,
   } = selectionTools;
 
+  const aiChat = useAiChat({
+    bookId: book.id,
+    bookTitle: book.title,
+    bookAuthor: book.author,
+    chapterTitle: chatChapter,
+  });
+
+  const expandToSession = useCallback(() => {
+    if (!aiAnswer) {
+      return;
+    }
+    const question = aiQuestion || 'Explain this in context';
+    aiChat.seedFromPopup(question, aiAnswer);
+    setShowAi(true);
+    setPopup(null);
+  }, [aiAnswer, aiQuestion, aiChat, setPopup, setShowAi]);
+
   useEffect(() => {
     knownWordsRef.current = knownWords;
+    setHighlightVersion((v) => v + 1);
   }, [knownWords]);
   useEffect(() => {
     displayRef.current = display;
   }, [display]);
   useEffect(() => {
-    memoryStyleRef.current = { inlineMiniGloss };
-  }, [inlineMiniGloss]);
+    memoryStyleRef.current = { inlineWordDisplay, highlightKnownWords };
+  }, [inlineWordDisplay, highlightKnownWords]);
 
   useEffect(() => {
     void getSettings()
       .then((settings) => {
         setVisualMemoryScope(settings.visual_memory_scope);
-        setInlineMiniGloss(settings.inline_mini_gloss);
+        setInlineWordDisplay(settings.inline_word_display);
+        setHighlightKnownWords(settings.highlight_known_words);
       })
       .catch(() => undefined);
   }, []);
@@ -178,6 +207,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
       const sentence = getSentenceAround(doc.body?.innerText ?? '', text);
 
       resetPopupTools();
+      setChatChapter(doc.title ?? null);
       setPopup({
         x: iframeRect.left + rect.left + rect.width / 2,
         y: iframeRect.top + rect.bottom + 6,
@@ -208,7 +238,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   // epub.js MUST know the exact pixel dimensions so pagination is correct.
   const epubTop = showUI && !immersive ? HEADER_H : 0;
   const epubBottom = showUI && !immersive ? FOOTER_H : 0;
-  const epubRight = showUI && showAnki ? ANKI_W : 0;
+  const epubRight = showUI && (showAnki || showAi) ? ANKI_W : 0;
 
   // Keyboard navigation
   useEffect(() => {
@@ -243,6 +273,10 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         e.preventDefault();
         setShowAnki((v) => !v);
       }
+      if (e.key === 'h') {
+        e.preventDefault();
+        setShowAi((v) => !v);
+      }
       if (e.key === 'i') {
         e.preventDefault();
         setImmersive((v) => {
@@ -275,6 +309,10 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
           setShowAnki(false);
           return;
         }
+        if (showAi) {
+          setShowAi(false);
+          return;
+        }
         if (immersive) {
           setImmersive(false);
           setShowUI(true);
@@ -285,7 +323,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [immersive, prevPage, nextPage, popup, setPopup, showSettings, showToc, showAnki]);
+  }, [immersive, prevPage, nextPage, popup, setPopup, showSettings, showToc, showAnki, showAi]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
@@ -310,6 +348,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     display,
     displayRef,
     epubBookRef,
+    highlightVersion,
     knownWordsRef,
     memoryStyleRef,
     nextPage,
@@ -374,6 +413,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         onNextPage={nextPage}
         onPrevPage={prevPage}
         onShowSettings={() => setShowSettings(true)}
+        onToggleAi={() => setShowAi((value) => !value)}
         onToggleAnki={() => setShowAnki((value) => !value)}
         onToggleImmersive={() => {
           setImmersive((v) => {
@@ -424,6 +464,25 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         </div>
       )}
 
+      {/* ── AI panel (only when UI is visible) ───────────────────────────── */}
+      {showUI && showAi && (
+        <div
+          className="absolute right-0 z-10 w-96 border-l border-border bg-background"
+          style={{ top: HEADER_H, bottom: FOOTER_H }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <AiPanel
+            session={aiChat.session}
+            inputText={aiChat.inputText}
+            onInputChange={aiChat.setInputText}
+            onSend={() => {
+              void aiChat.sendMessage(aiChat.inputText);
+            }}
+            onClear={aiChat.clearSession}
+          />
+        </div>
+      )}
+
       {/* ── Selection popup ───────────────────────────────────────────────── */}
       {popup && (
         <SelectionPopup
@@ -449,6 +508,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
           onPromptChange={setSelectedPromptId}
           onEditPrompt={() => void editPrompt()}
           onToggleAutoAskAi={() => void toggleAutoAskAi()}
+          onExpandToSession={expandToSession}
         />
       )}
 

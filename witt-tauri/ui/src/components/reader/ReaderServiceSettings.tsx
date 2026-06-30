@@ -77,13 +77,28 @@ export function AnkiConnectionSettings({
           <option value="book">Current book</option>
         </SelectInput>
       </Field>
+      <Field label="Inline word display">
+        <SelectInput
+          value={settings.inline_word_display}
+          onChange={(event) =>
+            onSettingsChange({
+              ...settings,
+              inline_word_display: event.target.value as AppSettings['inline_word_display'],
+            })
+          }
+        >
+          <option value="none">Nothing</option>
+          <option value="status">Status label</option>
+          <option value="meaning">Meaning</option>
+        </SelectInput>
+      </Field>
       <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs">
-        <span className="text-muted-foreground">Inline mini-gloss for learning words</span>
+        <span className="text-muted-foreground">Highlight known words in reader</span>
         <input
           type="checkbox"
-          checked={settings.inline_mini_gloss}
+          checked={settings.highlight_known_words}
           onChange={(event) =>
-            onSettingsChange({ ...settings, inline_mini_gloss: event.target.checked })
+            onSettingsChange({ ...settings, highlight_known_words: event.target.checked })
           }
         />
       </label>
@@ -97,35 +112,6 @@ export function AnkiConnectionSettings({
           }
         />
       </label>
-      <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs">
-        <span className="text-muted-foreground">Enable web-mode queue agent</span>
-        <input
-          type="checkbox"
-          checked={settings.web_mode_enabled}
-          onChange={(event) =>
-            onSettingsChange({ ...settings, web_mode_enabled: event.target.checked })
-          }
-        />
-      </label>
-      <Field label="Web queue endpoint">
-        <TextInput
-          placeholder="https://example.com"
-          value={settings.web_queue_endpoint}
-          onChange={(event) =>
-            onSettingsChange({ ...settings, web_queue_endpoint: event.target.value })
-          }
-        />
-      </Field>
-      <Field label="Web queue token">
-        <TextInput
-          type="password"
-          placeholder="Bearer token"
-          value={settings.web_queue_token}
-          onChange={(event) =>
-            onSettingsChange({ ...settings, web_queue_token: event.target.value })
-          }
-        />
-      </Field>
       <Button size="sm" onClick={onSave}>
         <Save size={15} />
         Save

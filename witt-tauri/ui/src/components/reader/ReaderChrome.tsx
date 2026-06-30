@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Columns2,
   List,
+  MessageSquare,
   PanelRight,
   Settings,
 } from 'lucide-react';
@@ -28,6 +29,7 @@ interface ReaderChromeProps {
   onNextPage: () => void;
   onPrevPage: () => void;
   onShowSettings: () => void;
+  onToggleAi: () => void;
   onToggleAnki: () => void;
   onToggleImmersive: () => void;
   onTogglePageMode: () => void;
@@ -87,6 +89,7 @@ export function ReaderChrome({
   onNextPage,
   onPrevPage,
   onShowSettings,
+  onToggleAi,
   onToggleAnki,
   onToggleImmersive,
   onTogglePageMode,
@@ -176,6 +179,18 @@ export function ReaderChrome({
             }}
           >
             <Columns2 size={16} />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            title="AI Chat"
+            aria-label="AI Chat"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleAi();
+            }}
+          >
+            <MessageSquare size={16} />
           </Button>
           <Button
             size="sm"

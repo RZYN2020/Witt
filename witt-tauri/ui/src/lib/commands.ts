@@ -141,11 +141,26 @@ export interface AppSettings {
   selection_auto_ask_ai: boolean;
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
   visual_memory_scope: 'library' | 'book';
-  inline_mini_gloss: boolean;
+  inline_word_display: 'none' | 'status' | 'meaning';
+  highlight_known_words: boolean;
   anki_auto_sync_web: boolean;
-  web_mode_enabled: boolean;
-  web_queue_endpoint: string;
-  web_queue_token: string;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface ChatRequest {
+  book_id: string;
+  book_title: string;
+  book_author: string;
+  chapter_title?: string | null;
+  messages: ChatMessage[];
+}
+
+export interface ChatResponse {
+  content: string;
 }
 
 export interface SelectionLlmRequest {
@@ -185,11 +200,9 @@ export interface ConfigSettings {
   selection_auto_ask_ai: boolean;
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
   visual_memory_scope: 'library' | 'book';
-  inline_mini_gloss: boolean;
+  inline_word_display: 'none' | 'status' | 'meaning';
+  highlight_known_words: boolean;
   anki_auto_sync_web: boolean;
-  web_mode_enabled: boolean;
-  web_queue_endpoint: string;
-  web_queue_token: string;
 }
 
 export interface LlmConfig {
@@ -252,28 +265,9 @@ export interface ExportSummary {
   exported: number;
 }
 
-export interface WebQueueAnnotationJob {
-  id: string;
-  deck_name: string;
-  annotation: Annotation;
-  settings?: AppSettings | null;
-}
-
-export interface WebQueueJobResult {
-  id: string;
-  summary: SyncSummary;
-}
-
-export interface WebQueueProcessSummary {
-  claimed: number;
-  completed: number;
-  failed: number;
-  results: WebQueueJobResult[];
-}
-
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  llm_endpoint: 'https://api.openai.com/v1/chat/completions',
-  llm_model: 'gpt-4.1-mini',
+  llm_endpoint: 'https://api.deepseek.com/chat/completions',
+  llm_model: 'deepseek-v4-pro',
   llm_prompt_id: 'explain',
   anki_endpoint: 'http://localhost:8765',
   anki_model_name: 'Witt EPUB Sentence',
@@ -291,11 +285,9 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   selection_auto_ask_ai: false,
   vocabulary_backend_mode: 'hybrid',
   visual_memory_scope: 'library',
-  inline_mini_gloss: false,
+  inline_word_display: 'none',
+  highlight_known_words: true,
   anki_auto_sync_web: true,
-  web_mode_enabled: false,
-  web_queue_endpoint: '',
-  web_queue_token: '',
 };
 
 export function hasTauriRuntime() {
@@ -502,10 +494,6 @@ export function syncAnkiWeb(): Promise<SyncSummary> {
     : api<SyncSummary>('/api/anki/sync-web', { method: 'POST' });
 }
 
-export function processWebModeQueue(limit?: number): Promise<WebQueueProcessSummary> {
-  return command<WebQueueProcessSummary>('process_web_mode_queue', { limit: limit ?? null });
-}
-
 export function listAnkiSyncConflicts(): Promise<AnkiSyncConflict[]> {
   return hasTauriRuntime()
     ? command<AnkiSyncConflict[]>('list_anki_sync_conflicts')
@@ -566,8 +554,12 @@ export function refreshAnkiCache(deckName: string): Promise<AnkiNote[]> {
 export function searchAnkiNotes(deckName?: string, query?: string): Promise<AnkiNote[]> {
   if (!hasTauriRuntime()) {
     const params = new URLSearchParams();
-    if (deckName) params.set('deck_name', deckName);
-    if (query) params.set('query', query);
+    if (deckName) {
+      params.set('deck_name', deckName);
+    }
+    if (query) {
+      params.set('query', query);
+    }
     const suffix = params.toString() ? `?${params.toString()}` : '';
     return api<AnkiNote[]>(`/api/anki/notes${suffix}`);
   }
@@ -590,8 +582,12 @@ export function getAnkiNote(noteId: number): Promise<AnkiNote | null> {
 export function listVocabulary(query?: string, bookId?: string): Promise<VocabularyEntry[]> {
   if (!hasTauriRuntime()) {
     const params = new URLSearchParams();
-    if (query) params.set('query', query);
-    if (bookId) params.set('book_id', bookId);
+    if (query) {
+      params.set('query', query);
+    }
+    if (bookId) {
+      params.set('book_id', bookId);
+    }
     const suffix = params.toString() ? `?${params.toString()}` : '';
     return api<VocabularyEntry[]>(`/api/vocabulary${suffix}`);
   }
@@ -632,7 +628,9 @@ export function getDictionaryCache(
 ): Promise<DictionaryCacheEntry | null> {
   if (!hasTauriRuntime()) {
     const params = new URLSearchParams({ word });
-    if (promptId) params.set('prompt_id', promptId);
+    if (promptId) {
+      params.set('prompt_id', promptId);
+    }
     return api<DictionaryCacheEntry | null>(`/api/dictionary-cache?${params.toString()}`);
   }
   return command<DictionaryCacheEntry | null>(
@@ -655,6 +653,12 @@ export function askLlmAboutSelection(request: SelectionLlmRequest): Promise<stri
   return hasTauriRuntime()
     ? command<string>('ask_llm_about_selection', { request })
     : api<string>('/api/llm/selection', { method: 'POST', body: JSON.stringify(request) });
+}
+
+export function askLlmChat(request: ChatRequest): Promise<ChatResponse> {
+  return hasTauriRuntime()
+    ? command<ChatResponse>('ask_llm_chat', { request })
+    : api<ChatResponse>('/api/llm/chat', { method: 'POST', body: JSON.stringify(request) });
 }
 
 export function listPromptProfiles(): Promise<PromptProfile[]> {

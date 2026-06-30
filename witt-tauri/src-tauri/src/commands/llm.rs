@@ -33,3 +33,20 @@ pub async fn ask_llm_about_selection(
         crate::llm::ask_selection(&settings, &api_key, &request).await
     }
 }
+
+#[tauri::command]
+pub async fn ask_llm_chat(
+    state: tauri::State<'_, AppState>,
+    request: ChatRequest,
+) -> Result<ChatResponse, String> {
+    let config = app_config::read_config(&state.config_path)?;
+    let settings = app_config::settings_from_config(&config);
+    let api_key = settings::get_llm_api_key()?;
+    let prompt = config
+        .prompts
+        .get(&settings.llm_prompt_id)
+        .map(|p| p.prompt.as_str())
+        .unwrap_or("You are a concise reading and language-learning assistant.");
+    let content = crate::llm::ask_chat(&settings, &api_key, &request, prompt).await?;
+    Ok(ChatResponse { content })
+}

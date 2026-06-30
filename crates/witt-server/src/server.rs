@@ -229,6 +229,7 @@ fn api_router(state: AppState) -> Router {
         .route("/anki/sync-web", post(sync_anki_web))
         .route("/anki/export.tsv", get(export_annotations_tsv))
         .route("/llm/selection", post(ask_llm_about_selection))
+        .route("/llm/chat", post(ask_llm_chat))
         .route("/llm/key", get(get_llm_key).put(save_llm_key))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
@@ -802,7 +803,7 @@ async fn export_annotations_tsv(State(state): State<AppState>) -> ApiResult<Resp
     .into_iter()
     .filter(|f| !f.trim().is_empty())
     .collect();
-    let mut tsv = String::from(fields.join("\t"));
+    let mut tsv = fields.join("\t");
     tsv.push('\n');
     for annotation in &annotations {
         let values = witt_core::anki_notes::export_fields(&settings, annotation);
@@ -833,14 +834,63 @@ async fn ask_llm_about_selection(
     State(state): State<AppState>,
     Json(request): Json<SelectionLlmRequest>,
 ) -> ApiResult<Json<String>> {
+    if request.selected_text.trim().is_empty() {
+        return Err(ApiError::bad_request("Selected text is required"));
+    }
+    if request.question.trim().is_empty() {
+        return Err(ApiError::bad_request("Question is required"));
+    }
     let api_key_guard = state.llm_api_key.lock().await;
     let api_key = api_key_guard
         .as_deref()
         .ok_or_else(|| ApiError::bad_request("Set WITT_LLM_API_KEY before using Ask AI"))?;
-    let settings = current_settings(&state).await?;
-    Ok(Json(
-        witt_core::llm::ask_selection(&settings, api_key, &request).await?,
-    ))
+    let config = read_app_config(&state)?;
+    let mut settings = witt_core::app_config::settings_from_config(&config);
+    {
+        let conn = state.conn.lock().await;
+        db::save_settings(&conn, &settings).map_err(ApiError::internal)?;
+    }
+    let prompt_id = request
+        .prompt_id
+        .as_deref()
+        .unwrap_or(&settings.llm_prompt_id);
+    if let Some(profile) = config.prompts.get(prompt_id) {
+        if let Some(model) = witt_core::app_config::prompt_model(&config, prompt_id) {
+            settings.llm_model = model;
+        }
+        Ok(Json(
+            witt_core::llm::ask_selection_with_prompt(
+                &settings,
+                api_key,
+                &request,
+                &profile.prompt,
+            )
+            .await?,
+        ))
+    } else {
+        Ok(Json(
+            witt_core::llm::ask_selection(&settings, api_key, &request).await?,
+        ))
+    }
+}
+
+async fn ask_llm_chat(
+    State(state): State<AppState>,
+    Json(request): Json<ChatRequest>,
+) -> ApiResult<Json<ChatResponse>> {
+    let api_key_guard = state.llm_api_key.lock().await;
+    let api_key = api_key_guard
+        .as_deref()
+        .ok_or_else(|| ApiError::bad_request("Set WITT_LLM_API_KEY before using AI chat"))?;
+    let config = read_app_config(&state)?;
+    let settings = witt_core::app_config::settings_from_config(&config);
+    let prompt = config
+        .prompts
+        .get(&settings.llm_prompt_id)
+        .map(|p| p.prompt.as_str())
+        .unwrap_or("You are a concise reading and language-learning assistant.");
+    let content = witt_core::llm::ask_chat(&settings, api_key, &request, prompt).await?;
+    Ok(Json(ChatResponse { content }))
 }
 
 #[derive(Deserialize)]

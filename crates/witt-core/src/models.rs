@@ -171,16 +171,12 @@ pub struct AppSettings {
     pub vocabulary_backend_mode: String,
     #[serde(default = "default_visual_memory_scope")]
     pub visual_memory_scope: String,
-    #[serde(default)]
-    pub inline_mini_gloss: bool,
+    #[serde(default = "default_inline_word_display")]
+    pub inline_word_display: String,
+    #[serde(default = "default_true")]
+    pub highlight_known_words: bool,
     #[serde(default = "default_anki_auto_sync_web")]
     pub anki_auto_sync_web: bool,
-    #[serde(default)]
-    pub web_mode_enabled: bool,
-    #[serde(default)]
-    pub web_queue_endpoint: String,
-    #[serde(default)]
-    pub web_queue_token: String,
 }
 
 impl Default for AppSettings {
@@ -203,13 +199,31 @@ impl Default for AppSettings {
             selection_auto_ask_ai: false,
             vocabulary_backend_mode: default_vocabulary_backend_mode(),
             visual_memory_scope: default_visual_memory_scope(),
-            inline_mini_gloss: false,
+            inline_word_display: default_inline_word_display(),
+            highlight_known_words: true,
             anki_auto_sync_web: default_anki_auto_sync_web(),
-            web_mode_enabled: false,
-            web_queue_endpoint: String::new(),
-            web_queue_token: String::new(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatRequest {
+    pub book_id: String,
+    pub book_title: String,
+    pub book_author: String,
+    pub chapter_title: Option<String>,
+    pub messages: Vec<ChatMessage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatResponse {
+    pub content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -290,16 +304,12 @@ pub struct ConfigSettings {
     pub vocabulary_backend_mode: String,
     #[serde(default = "default_visual_memory_scope")]
     pub visual_memory_scope: String,
-    #[serde(default)]
-    pub inline_mini_gloss: bool,
+    #[serde(default = "default_inline_word_display")]
+    pub inline_word_display: String,
+    #[serde(default = "default_true")]
+    pub highlight_known_words: bool,
     #[serde(default = "default_anki_auto_sync_web")]
     pub anki_auto_sync_web: bool,
-    #[serde(default)]
-    pub web_mode_enabled: bool,
-    #[serde(default)]
-    pub web_queue_endpoint: String,
-    #[serde(default)]
-    pub web_queue_token: String,
 }
 
 impl Default for ConfigSettings {
@@ -310,11 +320,9 @@ impl Default for ConfigSettings {
             selection_auto_ask_ai: false,
             vocabulary_backend_mode: default_vocabulary_backend_mode(),
             visual_memory_scope: default_visual_memory_scope(),
-            inline_mini_gloss: false,
+            inline_word_display: default_inline_word_display(),
+            highlight_known_words: true,
             anki_auto_sync_web: default_anki_auto_sync_web(),
-            web_mode_enabled: false,
-            web_queue_endpoint: String::new(),
-            web_queue_token: String::new(),
         }
     }
 }
@@ -459,29 +467,6 @@ pub enum AnkiWebSyncState {
     Failed,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WebQueueAnnotationJob {
-    pub id: String,
-    pub deck_name: String,
-    pub annotation: Annotation,
-    #[serde(default)]
-    pub settings: Option<AppSettings>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WebQueueJobResult {
-    pub id: String,
-    pub summary: SyncSummary,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WebQueueProcessSummary {
-    pub claimed: usize,
-    pub completed: usize,
-    pub failed: usize,
-    pub results: Vec<WebQueueJobResult>,
-}
-
 fn default_llm_endpoint() -> String {
     DEFAULT_LLM_ENDPOINT.to_string()
 }
@@ -538,7 +523,15 @@ fn default_visual_memory_scope() -> String {
     "library".to_string()
 }
 
+fn default_inline_word_display() -> String {
+    "none".to_string()
+}
+
 fn default_anki_auto_sync_web() -> bool {
+    true
+}
+
+fn default_true() -> bool {
     true
 }
 

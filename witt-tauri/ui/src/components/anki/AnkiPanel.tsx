@@ -4,7 +4,6 @@ import {
   RefreshCcw,
   Search,
   Send,
-  ServerCog,
   Trash2,
   Upload,
   Wifi,
@@ -87,15 +86,6 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
             <Button size="sm" variant="outline" onClick={() => void anki.pushAnkiWeb()}>
               <Upload size={15} />
               AnkiWeb
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void anki.processWebQueue()}
-              disabled={!anki.settings.web_mode_enabled}
-            >
-              <ServerCog size={15} />
-              Web queue
             </Button>
           </div>
         </PanelSection>

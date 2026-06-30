@@ -11,7 +11,6 @@ import {
   listPipelineProfiles,
   loadPipelineProfile,
   openPipelineProfile,
-  processWebModeQueue,
   refreshAnkiCache,
   saveSettings,
   searchAnkiNotes,
@@ -242,20 +241,6 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     }
   };
 
-  const processWebQueue = async () => {
-    setStatus('Processing web-mode queue...');
-    try {
-      await saveSettings(settings);
-      const summary = await processWebModeQueue();
-      flashStatus(
-        `Processed ${summary.claimed} web jobs; ${summary.completed} complete; ${summary.failed} failed`,
-        6000
-      );
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : 'Web queue sync failed');
-    }
-  };
-
   return {
     online,
     decks,
@@ -276,7 +261,6 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     editPipeline,
     exportQueued,
     loadPipeline,
-    processWebQueue,
     pushAnkiWeb,
     refreshDeck,
     saveMapping,

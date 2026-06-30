@@ -102,7 +102,7 @@ pnpm build
 
 ## Backend Structure
 
-Shared Rust domain logic is in `crates/witt-core/src/`. Keep this crate portable: no SQLite, Tauri, app data paths, OS keyring, windows, or editor process launching. Callers pass API keys explicitly. Key modules are `models`, `defaults`, `anki_notes`, `anki_connect`, `sync`, `llm`, `app_config`, and `web_queue`.
+Shared Rust domain logic is in `crates/witt-core/src/`. Keep this crate portable: no SQLite, Tauri, app data paths, OS keyring, windows, or editor process launching. Callers pass API keys explicitly. Key modules are `models`, `defaults`, `anki_notes`, `anki_connect`, `sync`, `llm`, and `app_config`.
 
 Shared persistence and EPUB file operations are in `crates/witt-storage/src/`. Both Tauri and the web server should reuse this crate for SQLite schema, CRUD, settings table access, and EPUB file storage.
 

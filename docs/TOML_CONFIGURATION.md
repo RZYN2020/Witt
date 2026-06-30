@@ -17,9 +17,6 @@ vocabulary_backend_mode = "hybrid"
 visual_memory_scope = "library"
 inline_mini_gloss = false
 anki_auto_sync_web = true
-web_mode_enabled = false
-web_queue_endpoint = ""
-web_queue_token = ""
 
 [llm]
 endpoint = "https://api.openai.com/v1/chat/completions"
@@ -75,9 +72,6 @@ meaning = ""
 - `visual_memory_scope` is `library` for all indexed words or `book` for current-book occurrences only.
 - `inline_mini_gloss` shows cached word meanings inline while reading.
 - `anki_auto_sync_web` calls AnkiConnect's AnkiWeb sync action after Witt creates Anki notes.
-- `web_mode_enabled` lets the desktop app act as a local AnkiConnect agent for queued web-mode jobs.
-- `web_queue_endpoint` points to a remote queue service. The local agent calls `POST /anki/jobs/claim` and `POST /anki/jobs/report`.
-- `web_queue_token` is sent as a Bearer token to the remote queue service.
 
 `[llm]` stores LLM connection defaults. `default_model` is used unless the selected prompt has its own `model`.
 

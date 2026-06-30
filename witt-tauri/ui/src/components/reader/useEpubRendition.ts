@@ -27,6 +27,7 @@ interface UseEpubRenditionArgs {
   display: ReaderDisplaySettings;
   displayRef: MutableRefObject<ReaderDisplaySettings>;
   epubBookRef: MutableRefObject<EpubBook | null>;
+  highlightVersion: number;
   knownWordsRef: MutableRefObject<HighlightToken[]>;
   memoryStyleRef: MutableRefObject<ReaderMemoryStyleOptions>;
   nextPage: () => void;
@@ -49,6 +50,7 @@ export function useEpubRendition({
   display,
   displayRef,
   epubBookRef,
+  highlightVersion,
   knownWordsRef,
   memoryStyleRef,
   nextPage,
@@ -412,4 +414,14 @@ export function useEpubRendition({
         installReaderDocumentStyles(contents.document, theme, memoryStyleRef.current)
       );
   }, [display, memoryStyleRef, renditionRef, theme]);
+
+  useEffect(() => {
+    const rendition = renditionRef.current;
+    if (!rendition) {
+      return;
+    }
+    rendition
+      .getContents()
+      .forEach((contents) => applyHighlights(contents.document, knownWordsRef.current));
+  }, [highlightVersion, knownWordsRef, renditionRef]);
 }

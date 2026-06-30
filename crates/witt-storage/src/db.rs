@@ -625,6 +625,19 @@ pub fn save_dictionary_cache(
         ],
     )
     .map_err(|error| error.to_string())?;
+    upsert_vocabulary(
+        conn,
+        VocabularyUpsert {
+            word: &normalized,
+            source: "dictionary_cache",
+            anki_note_id: None,
+            deck_name: None,
+            model_name: None,
+            raw_fields_json: None,
+            first_seen_at: updated_at,
+            updated_at,
+        },
+    )?;
     upsert_meaning_group(
         conn,
         &normalized,

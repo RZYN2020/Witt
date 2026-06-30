@@ -2,7 +2,7 @@
 
 ## Overview
 
-Witt has a shared Rust core, a shared storage adapter, a Tauri desktop adapter, and an Axum web adapter. `witt-core` owns domain types, Anki note construction, AnkiConnect access, sync orchestration, LLM helpers, config mapping, and queue logic. `witt-storage` owns SQLite and EPUB file storage. Tauri owns desktop OS integration. `witt-server` exposes the same product workflow over HTTP for browser access.
+Witt has a shared Rust core, a shared storage adapter, a Tauri desktop adapter, and an Axum web adapter. `witt-core` owns domain types, Anki note construction, AnkiConnect access, sync orchestration, LLM helpers, and config mapping. `witt-storage` owns SQLite and EPUB file storage. Tauri owns desktop OS integration. `witt-server` exposes the same product workflow over HTTP for browser access.
 
 ```
 witt/
@@ -14,8 +14,7 @@ witt/
 │       ├── anki_connect.rs # Portable AnkiConnect HTTP client
 │       ├── sync.rs         # Storage-agnostic annotation-to-Anki sync orchestration
 │       ├── llm.rs          # OpenAI-compatible chat and preprocess helpers
-│       ├── app_config.rs   # Pure settings/config normalization and mapping
-│       └── web_queue.rs    # Claim/report client and queue processing helper
+│       └── app_config.rs   # Pure settings/config normalization and mapping
 │   └── witt-storage/src/   # Shared SQLite schema/CRUD/settings and EPUB file storage
 │   └── witt-server/src/    # Axum HTTP API and static web app server
 ├── witt-tauri/
@@ -137,17 +136,6 @@ Tauri adapters are responsible for:
 - Reading, writing, and opening `settings.toml`.
 - Filesystem access for EPUB imports, exports, app data, and windows/tray behavior.
 - Persisting `(annotation_id, note_id)` pairs returned by `witt_core::sync::sync_annotations_to_anki`.
-
-## Web Queue Contract
-
-When web mode is enabled, the desktop app acts as an Anki worker for a remote queue. Tauri loads local settings and the optional LLM API key, then delegates claim, sync, AnkiWeb push, and report behavior to `witt_core::web_queue::process_queue`.
-
-The queue endpoint in settings is treated as a base URL. Core calls:
-
-- `POST {base}/anki/jobs/claim` with JSON `{ "limit": number }`, returning `WebQueueAnnotationJob[]`.
-- `POST {base}/anki/jobs/report` with `WebQueueProcessSummary`.
-
-If `web_queue_token` is set, both requests use bearer auth. Each claimed job may include job-specific `settings`, but the local worker always overrides the Anki endpoint and fills missing queue endpoint/token values from local settings. A job is classified complete only when at least one note was created, there are no failed entries, and optional AnkiWeb sync did not fail.
 
 ## Vocabulary Model
 

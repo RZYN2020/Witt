@@ -87,6 +87,7 @@ export function applyHighlights(document: Document, tokens: Array<HighlightToken
       const status = statusByWord.get(normalized) ?? 'learning';
       mark.dataset.wittWord = normalized;
       mark.dataset.wittStatus = status;
+      mark.dataset.wittStatusLabel = statusLabel(status);
       const meaning = meaningByWord.get(normalized) ?? '';
       if (meaning) {
         mark.dataset.wittMeaning = compactMeaning(meaning);

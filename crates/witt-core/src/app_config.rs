@@ -24,11 +24,9 @@ pub fn settings_from_config(config: &AppConfig) -> AppSettings {
         selection_auto_ask_ai: config.settings.selection_auto_ask_ai,
         vocabulary_backend_mode: config.settings.vocabulary_backend_mode.clone(),
         visual_memory_scope: config.settings.visual_memory_scope.clone(),
-        inline_mini_gloss: config.settings.inline_mini_gloss,
+        inline_word_display: config.settings.inline_word_display.clone(),
+        highlight_known_words: config.settings.highlight_known_words,
         anki_auto_sync_web: config.settings.anki_auto_sync_web,
-        web_mode_enabled: config.settings.web_mode_enabled,
-        web_queue_endpoint: config.settings.web_queue_endpoint.clone(),
-        web_queue_token: config.settings.web_queue_token.clone(),
     };
     apply_pipeline_to_settings(config, &mut settings);
     settings
@@ -40,11 +38,9 @@ pub fn update_config_from_settings(config: &mut AppConfig, settings: AppSettings
     config.settings.selection_auto_ask_ai = settings.selection_auto_ask_ai;
     config.settings.vocabulary_backend_mode = settings.vocabulary_backend_mode.clone();
     config.settings.visual_memory_scope = settings.visual_memory_scope.clone();
-    config.settings.inline_mini_gloss = settings.inline_mini_gloss;
+    config.settings.inline_word_display = settings.inline_word_display.clone();
+    config.settings.highlight_known_words = settings.highlight_known_words;
     config.settings.anki_auto_sync_web = settings.anki_auto_sync_web;
-    config.settings.web_mode_enabled = settings.web_mode_enabled;
-    config.settings.web_queue_endpoint = settings.web_queue_endpoint.clone();
-    config.settings.web_queue_token = settings.web_queue_token.clone();
     config.llm.endpoint = settings.llm_endpoint.clone();
     config.llm.default_model = settings.llm_model.clone();
     config.anki.endpoint = settings.anki_endpoint.clone();
@@ -153,11 +149,9 @@ pub fn config_from_settings(settings: &AppSettings) -> AppConfig {
             selection_auto_ask_ai: settings.selection_auto_ask_ai,
             vocabulary_backend_mode: settings.vocabulary_backend_mode.clone(),
             visual_memory_scope: settings.visual_memory_scope.clone(),
-            inline_mini_gloss: settings.inline_mini_gloss,
+            inline_word_display: settings.inline_word_display.clone(),
+            highlight_known_words: settings.highlight_known_words,
             anki_auto_sync_web: settings.anki_auto_sync_web,
-            web_mode_enabled: settings.web_mode_enabled,
-            web_queue_endpoint: settings.web_queue_endpoint.clone(),
-            web_queue_token: settings.web_queue_token.clone(),
         },
         llm: LlmConfig {
             endpoint: settings.llm_endpoint.clone(),
@@ -210,6 +204,9 @@ pub fn normalize_config(config: &mut AppConfig) {
     if !["library", "book"].contains(&config.settings.visual_memory_scope.as_str()) {
         config.settings.visual_memory_scope = "library".to_string();
     }
+    if !["none", "status", "meaning"].contains(&config.settings.inline_word_display.as_str()) {
+        config.settings.inline_word_display = "none".to_string();
+    }
     trim_prompts(config);
 }
 
@@ -253,7 +250,7 @@ pub fn default_prompts() -> BTreeMap<String, PromptConfig> {
             "explain".to_string(),
             PromptConfig {
                 name: "Explain in context".to_string(),
-                model: Some("gpt-4.1-mini".to_string()),
+                model: None,
                 prompt: "You are a concise reading and language-learning assistant. Explain the selected text in context. Include meaning, grammar or usage notes when helpful, and answer the user question directly.".to_string(),
             },
         ),
@@ -261,7 +258,7 @@ pub fn default_prompts() -> BTreeMap<String, PromptConfig> {
             "translate".to_string(),
             PromptConfig {
                 name: "Translate and parse".to_string(),
-                model: Some("gpt-4.1-mini".to_string()),
+                model: None,
                 prompt: "Translate the selected text into Chinese, then briefly explain important vocabulary and sentence structure.".to_string(),
             },
         ),

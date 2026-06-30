@@ -158,7 +158,8 @@ fn insert_default_settings(conn: &Connection) -> Result<(), String> {
     set_default_setting(conn, "selection_auto_ask_ai", "false")?;
     set_default_setting(conn, "vocabulary_backend_mode", "hybrid")?;
     set_default_setting(conn, "visual_memory_scope", "library")?;
-    set_default_setting(conn, "inline_mini_gloss", "false")?;
+    set_default_setting(conn, "inline_word_display", "none")?;
+    set_default_setting(conn, "highlight_known_words", "true")?;
     Ok(())
 }
 
@@ -237,6 +238,14 @@ fn backfill_vocabulary(conn: &Connection) -> Result<(), String> {
             anki_note_id = COALESCE(excluded.anki_note_id, vocabulary.anki_note_id),
             deck_name = COALESCE(excluded.deck_name, vocabulary.deck_name),
             raw_fields_json = COALESCE(excluded.raw_fields_json, vocabulary.raw_fields_json),
+            updated_at = excluded.updated_at;
+
+        INSERT INTO vocabulary
+        (normalized_word, display_word, status, source, first_seen_at, updated_at)
+        SELECT normalized_word, display_word, 'learning', 'dictionary_cache', updated_at, updated_at
+        FROM dictionary_cache
+        WHERE TRIM(meaning) != ''
+        ON CONFLICT(normalized_word) DO UPDATE SET
             updated_at = excluded.updated_at;
 
         INSERT INTO meaning_groups

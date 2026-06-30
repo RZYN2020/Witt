@@ -28,7 +28,8 @@ export interface SelectionPopupModel {
 }
 
 export interface ReaderMemoryStyleOptions {
-  inlineMiniGloss: boolean;
+  inlineWordDisplay: 'none' | 'status' | 'meaning';
+  highlightKnownWords: boolean;
 }
 
 export const emptyPageInfo: PageInfo = {
@@ -137,7 +138,7 @@ export const applyReaderTypography = (
 export const installReaderDocumentStyles = (
   document: Document,
   theme: ReaderTheme,
-  memory: ReaderMemoryStyleOptions = { inlineMiniGloss: false }
+  memory: ReaderMemoryStyleOptions = { inlineWordDisplay: 'none', highlightKnownWords: true }
 ) => {
   const styleId = 'witt-reader-polish';
   const existing = document.getElementById(styleId);
@@ -160,13 +161,27 @@ export const installReaderDocumentStyles = (
       padding-inline: clamp(1.75rem, 5vw, 4.5rem) !important;
       -webkit-touch-callout: none;
     }
-    body.witt-inline-mini-gloss .witt-highlight[data-witt-meaning]::after {
+    body.witt-inline-word-display-status .witt-highlight::after {
+      content: " " attr(data-witt-status-label);
+      display: inline;
+      color: color-mix(in srgb, ${theme.foreground} 55%, transparent) !important;
+      font-size: 0.68em;
+      font-weight: 500;
+      letter-spacing: 0;
+    }
+    body.witt-inline-word-display-meaning .witt-highlight[data-witt-meaning]::after {
       content: " " attr(data-witt-meaning);
       display: inline;
       color: color-mix(in srgb, ${theme.foreground} 64%, transparent) !important;
       font-size: 0.72em;
       font-weight: 500;
       letter-spacing: 0;
+    }
+    body.witt-no-highlights .witt-highlight {
+      background: transparent !important;
+      color: inherit !important;
+      box-shadow: none !important;
+      cursor: text;
     }
     p {
       margin-block: 0 0.9em;
@@ -204,5 +219,13 @@ export const installReaderDocumentStyles = (
   if (!existing) {
     document.head.appendChild(style);
   }
-  document.body?.classList.toggle('witt-inline-mini-gloss', memory.inlineMiniGloss);
+  document.body?.classList.toggle(
+    'witt-inline-word-display-status',
+    memory.inlineWordDisplay === 'status'
+  );
+  document.body?.classList.toggle(
+    'witt-inline-word-display-meaning',
+    memory.inlineWordDisplay === 'meaning'
+  );
+  document.body?.classList.toggle('witt-no-highlights', !memory.highlightKnownWords);
 };

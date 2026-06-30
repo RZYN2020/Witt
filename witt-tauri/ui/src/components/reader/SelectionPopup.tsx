@@ -1,5 +1,7 @@
-import { Save, Sparkles, X } from 'lucide-react';
+import { ExternalLink, Save, Sparkles, X } from 'lucide-react';
 import { type ButtonHTMLAttributes } from 'react';
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { type PromptProfile } from '@/lib/commands';
 import { cn } from '@/lib/utils';
 import { type SelectionPopupModel } from '@/components/reader/readerEpub';
@@ -26,6 +28,7 @@ interface SelectionPopupProps {
   onPromptChange: (promptId: string) => void;
   onEditPrompt: () => void;
   onToggleAutoAskAi: () => void;
+  onExpandToSession: () => void;
 }
 
 function PopupAction({
@@ -78,15 +81,21 @@ export function SelectionPopup({
   onPromptChange,
   onEditPrompt,
   onToggleAutoAskAi,
+  onExpandToSession,
 }: SelectionPopupProps) {
   const showAi = mode === 'ai';
   const explanationLabel = explanationState === 'cached' ? 'Cached explanation' : 'AI explanation';
   const width = 360;
   const margin = 12;
-  const estimatedHeight = showAi ? 420 : 220;
+  const gap = 6;
+  const estimatedHeight = showAi ? 560 : 220;
   const left = clamp(popup.x - width / 2, margin, window.innerWidth - width - margin);
-  const top = clamp(popup.y, margin, window.innerHeight - estimatedHeight - margin);
-  const maxHeight = Math.max(160, window.innerHeight - top - margin);
+  const spaceBelow = window.innerHeight - popup.y - margin;
+  const flip = spaceBelow < estimatedHeight;
+  const top = flip
+    ? clamp(popup.y - estimatedHeight - gap, margin, window.innerHeight - estimatedHeight - margin)
+    : clamp(popup.y, margin, window.innerHeight - estimatedHeight - margin);
+  const maxHeight = Math.max(160, (flip ? popup.y - top - gap : window.innerHeight - top) - margin);
   const arrowLeft = clamp(popup.x - left, 14, width - 14);
 
   return (
@@ -101,7 +110,11 @@ export function SelectionPopup({
       onClick={(e) => e.stopPropagation()}
     >
       <div
-        className="absolute -top-[6px] h-0 w-0 border-x-[5px] border-b-[6px] border-x-transparent border-b-card"
+        className={
+          flip
+            ? 'absolute -bottom-[6px] h-0 w-0 border-x-[5px] border-t-[6px] border-x-transparent border-t-card'
+            : 'absolute -top-[6px] h-0 w-0 border-x-[5px] border-b-[6px] border-x-transparent border-b-card'
+        }
         style={{ left: arrowLeft, transform: 'translateX(-50%)' }}
       />
       <div className="max-h-[inherit] overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-xl">
@@ -135,14 +148,43 @@ export function SelectionPopup({
           </div>
 
           {(showAi || askingAi || aiAnswer || explanationState === 'loading') && (
-            <div className="rounded-md bg-muted/70 p-3">
-              <PopupSectionLabel>{explanationLabel}</PopupSectionLabel>
-              <p className="mt-1 max-h-36 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
-                {aiAnswer ||
-                  (askingAi || explanationState === 'loading'
-                    ? 'Loading explanation...'
-                    : 'Choose Ask AI for a contextual explanation.')}
-              </p>
+            <div className="rounded-lg border border-border bg-card p-3.5">
+              <div className="mb-2 flex items-center justify-between">
+                <PopupSectionLabel>{explanationLabel}</PopupSectionLabel>
+                {aiAnswer && !askingAi && explanationState !== 'loading' && (
+                  <button
+                    className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    onClick={onExpandToSession}
+                    title="Continue in full chat panel"
+                  >
+                    <ExternalLink size={11} />
+                    Expand
+                  </button>
+                )}
+              </div>
+              {askingAi || explanationState === 'loading' ? (
+                <p className="animate-pulse text-sm text-muted-foreground">
+                  Loading explanation...
+                </p>
+              ) : aiAnswer ? (
+                <div
+                  className="prose prose-sm dark:prose-invert max-w-none overflow-y-auto text-sm leading-relaxed text-foreground
+                  [&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs
+                  [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:text-xs [&_code]:before:content-none [&_code]:after:content-none
+                  [&_table]:w-full [&_table]:text-xs
+                  [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1
+                  [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1
+                  [&_blockquote]:border-l-2 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground
+                  [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
+                  max-h-96"
+                >
+                  <Markdown remarkPlugins={[remarkGfm]}>{aiAnswer}</Markdown>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Choose Ask AI for a contextual explanation.
+                </p>
+              )}
             </div>
           )}
         </div>

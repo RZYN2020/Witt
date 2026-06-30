@@ -8,7 +8,6 @@ use crate::state::AppState;
 use chrono::Utc;
 use std::fs;
 use witt_core::sync::{sync_annotations_to_anki as core_sync_annotations_to_anki, SyncInput};
-use witt_core::web_queue::{process_queue, WebQueueInput};
 
 #[tauri::command]
 pub async fn sync_annotations_to_anki(
@@ -79,34 +78,6 @@ pub async fn sync_anki_web(state: tauri::State<'_, AppState>) -> Result<SyncSumm
         }
     }
     Ok(summary)
-}
-
-#[tauri::command]
-pub async fn process_web_mode_queue(
-    state: tauri::State<'_, AppState>,
-    limit: Option<usize>,
-) -> Result<WebQueueProcessSummary, String> {
-    let settings = {
-        let conn = state.conn.lock().await;
-        let settings =
-            app_config::settings_from_config(&app_config::read_config(&state.config_path)?);
-        db::save_settings(&conn, &settings)?;
-        settings
-    };
-    if !settings.web_mode_enabled {
-        return Err("Web mode is disabled in settings".to_string());
-    }
-    if settings.web_queue_endpoint.trim().is_empty() {
-        return Err("Set a web queue endpoint before processing web-mode jobs".to_string());
-    }
-
-    let llm_api_key = settings::get_llm_api_key().ok();
-    process_queue(WebQueueInput {
-        settings,
-        limit: limit.unwrap_or(20),
-        llm_api_key,
-    })
-    .await
 }
 
 #[tauri::command]

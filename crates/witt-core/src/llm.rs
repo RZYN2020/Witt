@@ -1,4 +1,4 @@
-use crate::models::{Annotation, AppSettings, SelectionLlmRequest};
+use crate::models::{Annotation, AppSettings, ChatRequest, SelectionLlmRequest};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -6,18 +6,23 @@ use serde_json::{json, Value};
 pub use crate::defaults::{default_preprocess_prompt, default_preprocess_template};
 
 #[derive(Debug, Deserialize)]
-struct ChatResponse {
-    choices: Option<Vec<ChatChoice>>,
+struct ApiChatResponse {
+    choices: Option<Vec<ApiChatChoice>>,
 }
 
 #[derive(Debug, Deserialize)]
-struct ChatChoice {
-    message: Option<ChatMessage>,
+struct ApiChatChoice {
+    message: Option<ApiChatMessage>,
 }
 
 #[derive(Debug, Deserialize)]
-struct ChatMessage {
+struct ApiChatMessage {
     content: Option<String>,
+}
+
+pub struct LlmMessage {
+    pub role: String,
+    pub content: String,
 }
 
 pub async fn ask_selection(
@@ -75,24 +80,52 @@ pub async fn preprocess_annotation(
         .map_err(|error| format!("LLM returned invalid JSON: {error}"))
 }
 
-async fn chat(
+pub async fn ask_chat(
     settings: &AppSettings,
     api_key: &str,
-    system: &str,
-    user: &str,
+    request: &ChatRequest,
+    prompt: &str,
+) -> Result<String, String> {
+    let chapter_hint = request
+        .chapter_title
+        .as_ref()
+        .map(|c| format!("Current chapter: \"{}\". ", c))
+        .unwrap_or_default();
+    let system = format!(
+        "You are a reading companion and language-learning assistant. The user is reading \"{}\" by {}. {}{}",
+        request.book_title, request.book_author, chapter_hint, prompt,
+    );
+    let mut messages = vec![LlmMessage {
+        role: "system".to_string(),
+        content: system,
+    }];
+    for msg in &request.messages {
+        messages.push(LlmMessage {
+            role: msg.role.clone(),
+            content: msg.content.clone(),
+        });
+    }
+    chat_messages(settings, api_key, &messages).await
+}
+
+pub async fn chat_messages(
+    settings: &AppSettings,
+    api_key: &str,
+    messages: &[LlmMessage],
 ) -> Result<String, String> {
     if api_key.trim().is_empty() {
         return Err("LLM API key is not configured".to_string());
     }
+    let msgs: Vec<Value> = messages
+        .iter()
+        .map(|m| json!({ "role": m.role, "content": m.content }))
+        .collect();
     let response = Client::new()
         .post(&settings.llm_endpoint)
         .bearer_auth(api_key)
         .json(&json!({
             "model": settings.llm_model,
-            "messages": [
-                { "role": "system", "content": system },
-                { "role": "user", "content": user }
-            ],
+            "messages": msgs,
             "temperature": 0.2
         }))
         .send()
@@ -104,7 +137,7 @@ async fn chat(
     }
 
     let payload = response
-        .json::<ChatResponse>()
+        .json::<ApiChatResponse>()
         .await
         .map_err(|error| error.to_string())?;
     payload
@@ -114,4 +147,27 @@ async fn chat(
         .and_then(|message| message.content)
         .filter(|content| !content.trim().is_empty())
         .ok_or_else(|| "LLM returned no content".to_string())
+}
+
+async fn chat(
+    settings: &AppSettings,
+    api_key: &str,
+    system: &str,
+    user: &str,
+) -> Result<String, String> {
+    chat_messages(
+        settings,
+        api_key,
+        &[
+            LlmMessage {
+                role: "system".to_string(),
+                content: system.to_string(),
+            },
+            LlmMessage {
+                role: "user".to_string(),
+                content: user.to_string(),
+            },
+        ],
+    )
+    .await
 }

@@ -9,6 +9,7 @@ interface ReaderSettingsModalProps {
   onClose: () => void;
   onCustomThemeChange: (theme: ReaderTheme) => void;
   onDisplayChange: (settings: ReaderDisplaySettings) => void;
+  onSettingsChanged?: () => void;
 }
 
 export function ReaderSettingsModal({
@@ -17,6 +18,7 @@ export function ReaderSettingsModal({
   onClose,
   onCustomThemeChange,
   onDisplayChange,
+  onSettingsChanged,
 }: ReaderSettingsModalProps) {
   return (
     <div
@@ -36,7 +38,7 @@ export function ReaderSettingsModal({
               Reading settings
             </h2>
             <p className="text-xs text-muted-foreground">
-              Reading comfort first. Advanced services stay available below.
+              Adjust fonts, colors, and layout. Anki &amp; AI settings in tabs below.
             </p>
           </div>
           <button
@@ -52,6 +54,7 @@ export function ReaderSettingsModal({
           customTheme={customTheme}
           onDisplayChange={onDisplayChange}
           onCustomThemeChange={onCustomThemeChange}
+          onSettingsChanged={onSettingsChanged}
         />
       </section>
     </div>

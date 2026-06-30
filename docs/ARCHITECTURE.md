@@ -37,7 +37,8 @@ witt/
 │       ├── components/bookshelf/            # Bookshelf view
 │       ├── components/reader/               # epub.js reader, chrome, selection tools
 │       ├── components/anki/                 # Anki panel (deck picker, cache, search)
-│       ├── components/ui/Button.tsx
+│       ├── components/ai/                   # AI chat panel and session management
+│       ├── components/ui/                   # Shared primitives (Button, Tabs, Form, ProfileEditor, etc.)
 │       ├── lib/commands.ts                  # Typed wrappers for Tauri IPC and browser HTTP
 │       ├── lib/readerText.ts                # Sentence extraction, word highlighting
 │       ├── lib/extensions.ts                # Extension registry interface
@@ -82,15 +83,16 @@ Important API groups:
 - Vocabulary/cache: `/api/vocabulary`, `/api/word-occurrences/:word`, `/api/meaning-groups/:word`, `/api/dictionary-cache`.
 - Anki: `/api/anki/status`, decks, models, cache refresh, notes, conflicts, sync, and AnkiWeb sync.
 - Config/profiles: `/api/settings`, `/api/config`, `/api/prompts`, `/api/pipelines`.
-- LLM: `POST /api/llm/selection`, `GET /api/llm/key`, `PUT /api/llm/key`; the server reads `WITT_LLM_API_KEY` from the environment at startup, and the key can be updated at runtime via the API.
+- LLM: `POST /api/llm/selection`, `POST /api/llm/chat`, `GET /api/llm/key`, `PUT /api/llm/key`; the server reads `WITT_LLM_API_KEY` from the environment at startup, and the key can be updated at runtime via the API.
 
-**Books:** `import_book`, `list_books`, `get_book`, `remove_book`, `get_book_file`  
+**Books:** `import_book`, `list_books`, `get_book`, `open_reader_window`, `remove_book`, `get_book_file`  
 **Progress:** `save_progress`, `get_progress`  
-**Annotations:** `create_annotation`, `list_annotations`, `sync_annotations_to_anki`  
-**Anki:** `check_anki`, `list_anki_decks`, `select_anki_deck`, `refresh_anki_cache`, `search_anki_notes`, `get_anki_note`, `list_anki_sync_conflicts`, `export_queued_annotations_tsv`
-**Vocabulary:** `list_vocabulary`, `update_vocabulary_status`, `list_word_occurrences`, `list_meaning_groups`, `get_dictionary_cache`, `save_dictionary_cache`
-**Profiles:** `list_prompt_profiles`, `read_prompt_profile`, `save_prompt_profile`, `list_pipeline_profiles`, `load_pipeline_profile`  
-**Settings:** `get_settings`, `save_settings`, `get_app_config`, `save_app_config`, `open_app_config`, `reload_app_config`, `save_llm_api_key`, `has_llm_api_key`
+**Annotations:** `create_annotation`, `update_annotation`, `list_annotations`, `delete_queued_annotation`, `sync_annotations_to_anki`, `sync_anki_web`, `list_anki_sync_conflicts`, `export_queued_annotations_tsv`  
+**Anki:** `check_anki`, `list_anki_decks`, `list_anki_models`, `select_anki_deck`, `refresh_anki_cache`, `search_anki_notes`, `get_anki_note`  
+**LLM:** `ask_llm_about_selection`, `ask_llm_chat`, `ask_llm_chat_stream`  
+**Vocabulary:** `list_vocabulary`, `update_vocabulary_status`, `list_word_occurrences`, `list_meaning_groups`, `get_dictionary_cache`, `save_dictionary_cache`  
+**Profiles:** `list_prompt_profiles`, `list_pipeline_profiles`, `open_prompt_profile`, `open_pipeline_profile`, `read_prompt_profile`, `save_prompt_profile`, `read_pipeline_profile`, `save_pipeline_profile`, `load_pipeline_profile`  
+**Settings:** `get_settings`, `save_settings`, `save_llm_api_key`, `has_llm_api_key`, `open_app_config`, `reload_app_config`, `get_app_config`, `save_app_config`, `read_app_config_toml`, `save_app_config_toml`
 
 ## Data Flow
 
@@ -148,7 +150,7 @@ Anki can be the learner's long-term review backend, but the reader should not de
 - `dictionary_cache` stores reusable AI explanations so repeated selections do not call the LLM again.
 - `meaning_groups` is updated from dictionary cache saves and feeds the Vocabulary context drawer.
 
-This keeps the default mode hybrid without making Anki the only internal model. `vocabulary_backend_mode` supports `hybrid`, `anki_first`, and `witt_first`; the current implementation uses it as an explicit product setting while the local cache keeps reading fast. `visual_memory_scope` controls all-library versus current-book highlighting, and `inline_mini_gloss` can show cached meanings directly in the reader. Future review state, meaning grouping, export, and visual memory features should extend this vocabulary layer instead of duplicating word lists in reader components.
+This keeps the default mode hybrid without making Anki the only internal model. `vocabulary_backend_mode` supports `hybrid`, `anki_first`, and `witt_first`; the current implementation uses it as an explicit product setting while the local cache keeps reading fast. `visual_memory_scope` controls all-library versus current-book highlighting, `inline_word_display` controls what appears inline next to highlighted words (`none`, `status`, or `meaning`), and `highlight_known_words` toggles background highlighting. Future review state, meaning grouping, export, and visual memory features should extend this vocabulary layer instead of duplicating word lists in reader components.
 
 ## Learning Workspace
 
@@ -184,6 +186,20 @@ The reader is intentionally split so the EPUB lifecycle, chrome, selection UI, a
 
 EPUB content is rendered inside epub.js iframes. Selection and right-click behavior must therefore be attached to the EPUB document through `rendition.hooks.content` or `rendition.on('selected')`; parent-window React handlers do not see normal iframe DOM events. Tauri capabilities are only required for IPC/plugin permissions, not for DOM selection or context-menu events.
 
+## AI Chat Frontend Boundaries
+
+The AI Chat side panel provides a reading companion with streaming responses, page-aware context, and multi-line Markdown input:
+
+| Module             | Responsibility                                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `AiPanel.tsx`      | Panel shell, auto-resizing textarea input (Enter to send, Shift+Enter for newline), wrapping layout                          |
+| `useAiChat.ts`     | Chat session state, streaming send/receive via Tauri events, browser fallback, seed-from-popup, and quote-in-chat            |
+| `AiChatView.tsx`   | Renders chat messages with Markdown formatting via `ProseMarkdown`; shows animated loading dots during streaming             |
+
+The streaming flow: frontend registers `chat-stream-chunk`/`chat-stream-done`/`chat-stream-error` event listeners, then calls `ask_llm_chat_stream`. The backend spawns a tokio task that streams SSE chunks from the LLM API and emits Tauri events per content delta. The frontend accumulates deltas into the last assistant message and shows them in real time. On `chat-stream-done` the loading state ends; on `chat-stream-error` the error is appended to the message.
+
+The system prompt includes book title, author, current chapter, and page number (`page X of Y`) when available. The "Quote in Chat" button on multi-word selections pre-fills the input with a Markdown blockquote of the selected text.
+
 ## Anki Frontend Boundaries
 
 The Anki side panel is split so cache/deck orchestration, sync configuration, and cached card rendering can evolve independently:
@@ -191,7 +207,7 @@ The Anki side panel is split so cache/deck orchestration, sync configuration, an
 | Module                 | Responsibility                                                                                                                 |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `AnkiPanel.tsx`        | Panel shell and layout; wires state/actions from `useAnkiPanel` into presentation components                                   |
-| `useAnkiPanel.ts`      | AnkiConnect status, deck/model/pipeline loading, cache refresh, queued annotation sync, and shared TOML pipeline editing state |
+| `useAnkiPanel.ts`      | AnkiConnect status, deck/model/pipeline loading, cache refresh, queued annotation sync, and inline pipeline editing state |
 | `AnkiSyncSettings.tsx` | Note type, field mapping, pipeline, and preprocess template/LLM configuration                                                  |
 | `AnkiNoteList.tsx`     | Cached Anki note list and empty state                                                                                          |
 
@@ -204,7 +220,9 @@ Shared controls live in `components/ui/` and should be preferred over repeating 
 | `Button.tsx`        | Command buttons and icon buttons                                                                                                           |
 | `Tabs.tsx`          | Small segmented tab navigation                                                                                                             |
 | `Form.tsx`          | Form fields, text inputs, selects, textareas, status text, and small choice grids                                                          |
-| `ProfileEditor.tsx` | Text editing modal for prompt sections from `settings.toml`; pipeline editing opens the shared TOML file in the configured external editor |
+| `ProfileEditor.tsx` | Text editing modal for prompt/pipeline profiles and `settings.toml`; supports JSON and TOML content |
+| `LoadingDots.tsx`   | Animated loading indicator used during AI streaming                                                       |
+| `ProseMarkdown.tsx` | Markdown renderer for AI chat messages and explanations                                                   |
 
 Reader settings and Anki configuration panels should compose these primitives. New input rows should start with `Field`, `TextInput`, `SelectInput`, or `TextArea` instead of duplicating border, background, text, and spacing classes.
 

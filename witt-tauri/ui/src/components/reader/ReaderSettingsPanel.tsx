@@ -5,9 +5,12 @@ import {
   getAppConfig,
   getSettings,
   hasLlmApiKey,
+  hasTauriRuntime,
   openAppConfig,
+  readAppConfigToml,
   reloadAppConfig,
   saveAppConfig,
+  saveAppConfigToml,
   saveLlmApiKey,
   saveSettings,
   type AppConfig,
@@ -17,6 +20,7 @@ import {
 import { DEFAULT_CUSTOM_THEME, type ReaderTheme, saveCustomTheme } from '@/lib/themes';
 import { Button } from '@/components/ui/Button';
 import { StatusText } from '@/components/ui/Form';
+import { ProfileEditor } from '@/components/ui/ProfileEditor';
 import { Tabs } from '@/components/ui/Tabs';
 import { CustomThemeEditor } from './CustomThemeEditor';
 import { ReaderAppearanceSettings } from './ReaderAppearanceSettings';
@@ -28,6 +32,7 @@ interface ReaderSettingsPanelProps {
   customTheme: ReaderTheme;
   onDisplayChange: (settings: ReaderDisplaySettings) => void;
   onCustomThemeChange: (theme: ReaderTheme) => void;
+  onSettingsChanged?: () => void;
 }
 
 const TABS = [
@@ -49,15 +54,20 @@ export function ReaderSettingsPanel({
   customTheme,
   onDisplayChange,
   onCustomThemeChange,
+  onSettingsChanged,
 }: ReaderSettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [tab, setTab] = useState('reader');
   const [apiKey, setApiKey] = useState('');
+  const [apiKeyDirty, setApiKeyDirty] = useState(false);
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [hasKey, setHasKey] = useState(false);
   const [status, setStatus] = useState('');
   const [ankiTestResult, setAnkiTestResult] = useState<string>('');
   const [themeDraft, setThemeDraft] = useState<ReaderTheme>(customTheme);
+  const [editingToml, setEditingToml] = useState(false);
+  const [tomlContent, setTomlContent] = useState('');
+  const isTauri = hasTauriRuntime();
 
   useEffect(() => {
     void Promise.all([getSettings(), hasLlmApiKey(), getAppConfig()]).then(
@@ -81,14 +91,25 @@ export function ReaderSettingsPanel({
   const persistSettings = async () => {
     try {
       await saveSettings(settings);
-      if (apiKey.trim()) {
-        await saveLlmApiKey(apiKey.trim());
-        setApiKey('');
-        setHasKey(true);
-      }
       flashStatus('Settings saved');
+      onSettingsChanged?.();
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Save failed');
+      return;
+    }
+
+    if (apiKeyDirty && apiKey.trim()) {
+      try {
+        await saveLlmApiKey(apiKey.trim());
+        setApiKey('');
+        setApiKeyDirty(false);
+        setHasKey(true);
+      } catch (err) {
+        setApiKeyDirty(false);
+        setStatus(
+          `Settings saved, but API key failed: ${err instanceof Error ? err.message : 'keyring error'}`
+        );
+      }
     }
   };
 
@@ -96,6 +117,13 @@ export function ReaderSettingsPanel({
     setAnkiTestResult('Testing…');
     try {
       await saveSettings(settings);
+    } catch (err) {
+      setAnkiTestResult(
+        `Save before testing failed: ${err instanceof Error ? err.message : 'unknown error'}`
+      );
+      return;
+    }
+    try {
       const result = await checkAnki();
       setAnkiTestResult(
         result.available
@@ -148,11 +176,34 @@ export function ReaderSettingsPanel({
   const openConfigFile = async () => {
     try {
       await saveSettings(settings);
-      const path = await openAppConfig();
-      flashStatus(`Opened ${path}`);
+    } catch (err) {
+      setStatus(
+        `Save before opening failed: ${err instanceof Error ? err.message : 'unknown error'}`
+      );
+      return;
+    }
+    try {
+      if (isTauri) {
+        const path = await openAppConfig();
+        flashStatus(`Opened ${path}`);
+      } else {
+        const content = await readAppConfigToml();
+        setTomlContent(content);
+        setEditingToml(true);
+      }
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to open settings.toml');
     }
+  };
+
+  const saveTomlContent = async (content: string) => {
+    await saveAppConfigToml(content);
+    const nextSettings = await reloadAppConfig();
+    const nextConfig = await getAppConfig();
+    setSettings(nextSettings);
+    setAppConfig(nextConfig);
+    flashStatus('Saved settings.toml');
+    onSettingsChanged?.();
   };
 
   const reloadConfigFile = async () => {
@@ -229,7 +280,10 @@ export function ReaderSettingsPanel({
             hasKey={hasKey}
             settings={settings}
             status={status}
-            onApiKeyChange={setApiKey}
+            onApiKeyChange={(key) => {
+              setApiKey(key);
+              setApiKeyDirty(true);
+            }}
             onSave={() => void persistSettings()}
             onSettingsChange={setSettings}
           />
@@ -238,10 +292,21 @@ export function ReaderSettingsPanel({
 
       <ConfigFileHeader
         appConfig={appConfig}
+        isTauri={isTauri}
         onEditorChange={(command) => void saveEditorCommand(command)}
         onOpenConfig={() => void openConfigFile()}
         onReloadConfig={() => void reloadConfigFile()}
       />
+
+      {editingToml && (
+        <ProfileEditor
+          title="Edit settings.toml"
+          initialContent={tomlContent}
+          language="toml"
+          onSave={saveTomlContent}
+          onClose={() => setEditingToml(false)}
+        />
+      )}
     </section>
   );
 
@@ -268,11 +333,13 @@ export function ReaderSettingsPanel({
 
 function ConfigFileHeader({
   appConfig,
+  isTauri,
   onEditorChange,
   onOpenConfig,
   onReloadConfig,
 }: {
   appConfig: AppConfig | null;
+  isTauri: boolean;
   onEditorChange: (command: string) => void;
   onOpenConfig: () => void;
   onReloadConfig: () => void;
@@ -292,26 +359,30 @@ function ConfigFileHeader({
       </summary>
       <div className="mt-3 space-y-3 border-t border-border pt-3">
         <p className="text-xs text-muted-foreground">
-          Open the TOML file for prompts, pipelines, API endpoints, and behavior.
+          {isTauri
+            ? 'Open the TOML file for prompts, pipelines, API endpoints, and behavior.'
+            : 'Edit prompts, pipelines, API endpoints, and behavior directly.'}
         </p>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex h-9 items-center gap-2 rounded-md border border-input bg-background pl-3 pr-2 text-xs text-muted-foreground">
-            Editor
-            <select
-              className="h-7 min-w-24 border-0 bg-transparent px-0 py-0 text-xs text-foreground outline-none focus:ring-0"
-              value={selectedPreset}
-              onChange={(event) => onEditorChange(event.target.value)}
-            >
-              {EDITOR_OPTIONS.map((option) => (
-                <option key={option.command} value={option.command}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {isTauri && (
+            <label className="flex h-9 items-center gap-2 rounded-md border border-input bg-background pl-3 pr-2 text-xs text-muted-foreground">
+              Editor
+              <select
+                className="h-7 min-w-24 border-0 bg-transparent px-0 py-0 text-xs text-foreground outline-none focus:ring-0"
+                value={selectedPreset}
+                onChange={(event) => onEditorChange(event.target.value)}
+              >
+                {EDITOR_OPTIONS.map((option) => (
+                  <option key={option.command} value={option.command}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <Button size="sm" variant="outline" onClick={onOpenConfig}>
             <FileText size={15} />
-            Open TOML
+            {isTauri ? 'Open TOML' : 'Edit TOML'}
           </Button>
           <Button size="sm" variant="ghost" onClick={onReloadConfig}>
             <RefreshCw size={15} />

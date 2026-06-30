@@ -1,12 +1,10 @@
 import {
   ArrowLeft,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   Columns2,
   List,
   MessageSquare,
-  PanelRight,
   Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -31,7 +29,6 @@ interface ReaderChromeProps {
   onShowSettings: () => void;
   onToggleAi: () => void;
   onToggleAnki: () => void;
-  onToggleImmersive: () => void;
   onTogglePageMode: () => void;
   onToggleToc: () => void;
   onRevealChrome: () => void;
@@ -91,7 +88,6 @@ export function ReaderChrome({
   onShowSettings,
   onToggleAi,
   onToggleAnki,
-  onToggleImmersive,
   onTogglePageMode,
   onToggleToc,
   onRevealChrome,
@@ -202,19 +198,7 @@ export function ReaderChrome({
               onToggleAnki();
             }}
           >
-            <PanelRight size={16} />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            title={immersive ? 'Exit immersive' : 'Immersive'}
-            aria-label={immersive ? 'Exit immersive' : 'Immersive'}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleImmersive();
-            }}
-          >
-            <BookOpen size={16} />
+            <AnkiStar size={16} />
           </Button>
         </div>
       </header>
@@ -227,5 +211,22 @@ export function ReaderChrome({
         <span className="text-xs tabular-nums text-muted-foreground">{pageText}</span>
       </footer>
     </>
+  );
+}
+
+function AnkiStar({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 2l2.5 6.5L21 9l-5 4.5 1.5 7L12 17l-5.5 3.5L8 13.5 3 9l6.5-.5z" />
+    </svg>
   );
 }

@@ -39,19 +39,45 @@ export const emptyPageInfo: PageInfo = {
   sectionTotal: 0,
 };
 
-export const locationToPage = (location: number | undefined, total: number) => {
-  if (typeof location !== 'number' || location < 0 || total <= 0) {
-    return 0;
-  }
-  return Math.min(total, location + 1);
-};
+/** Locked-at-init page estimates so the total never changes. */
+export interface PageEstimate {
+  estimatedSectionPages: Record<string, number>; // href → estimated visual pages
+  estimatedTotal: number;
+}
 
-export const pageInfoFromLocation = (location: EpubLocation, total: number): PageInfo => ({
-  current: locationToPage(location.start?.location, total),
-  total,
-  sectionCurrent: location.start?.displayed?.page ?? 0,
-  sectionTotal: location.start?.displayed?.total ?? 0,
-});
+/**
+ * Compute the global visual page number from a locked PageEstimate.
+ * The estimate is computed once when the book opens and never changes,
+ * so the total is stable and page numbers are consistent with the TOC.
+ */
+export const computeVisualPageInfo = (
+  location: EpubLocation,
+  pageEstimate: PageEstimate | undefined,
+  spineItems: Array<{ href: string }>
+): PageInfo => {
+  const href = location.start?.href ?? '';
+  const sectionPage = location.start?.displayed?.page ?? 0;
+  const sectionTotal = location.start?.displayed?.total ?? 0;
+
+  if (!pageEstimate || pageEstimate.estimatedTotal <= 0) {
+    return { current: sectionPage, total: 0, sectionCurrent: sectionPage, sectionTotal };
+  }
+
+  let pagesBefore = 0;
+  for (const item of spineItems) {
+    if (item.href === href) {
+      break;
+    }
+    pagesBefore += pageEstimate.estimatedSectionPages[item.href] ?? 0;
+  }
+
+  return {
+    current: pagesBefore + sectionPage,
+    total: pageEstimate.estimatedTotal,
+    sectionCurrent: sectionPage,
+    sectionTotal,
+  };
+};
 
 export const sectionStartCfi = (cfiBase: string) => `epubcfi(${cfiBase}!/4/2)`;
 
@@ -153,12 +179,8 @@ export const installReaderDocumentStyles = (
       text-rendering: optimizeLegibility;
     }
     body {
-      box-sizing: border-box;
       color: ${theme.foreground} !important;
       background: transparent !important;
-      max-width: 42rem;
-      margin-inline: auto !important;
-      padding-inline: clamp(1.75rem, 5vw, 4.5rem) !important;
       -webkit-touch-callout: none;
     }
     body.witt-inline-word-display-status .witt-highlight::after {

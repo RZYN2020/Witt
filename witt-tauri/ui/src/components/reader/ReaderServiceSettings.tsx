@@ -1,7 +1,8 @@
 import { KeyRound, Save, Wifi } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Field, SelectInput, StatusText, TextInput } from '@/components/ui/Form';
-import { type AppSettings } from '@/lib/commands';
+import { listPromptProfiles, type AppSettings, type PromptProfile } from '@/lib/commands';
 
 interface AnkiConnectionSettingsProps {
   result: string;
@@ -130,6 +131,14 @@ export function LlmApiSettings({
   onSave,
   onSettingsChange,
 }: LlmApiSettingsProps) {
+  const [promptProfiles, setPromptProfiles] = useState<PromptProfile[]>([]);
+
+  useEffect(() => {
+    listPromptProfiles()
+      .then(setPromptProfiles)
+      .catch(() => setPromptProfiles([]));
+  }, []);
+
   return (
     <div className="space-y-4">
       <div>
@@ -167,6 +176,49 @@ export function LlmApiSettings({
           </Button>
         </div>
       </Field>
+
+      <div className="border-t border-border pt-4">
+        <h3 className="text-sm font-semibold">Selection popup</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Control the Ask AI button in the word selection popup.
+        </p>
+      </div>
+      <label className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-xs">
+        <span className="text-muted-foreground">Show Ask AI button in selection popup</span>
+        <input
+          type="checkbox"
+          checked={settings.selection_ask_ai_enabled}
+          onChange={(event) =>
+            onSettingsChange({ ...settings, selection_ask_ai_enabled: event.target.checked })
+          }
+        />
+      </label>
+      <Field label="Default Ask AI prompt">
+        <SelectInput
+          value={settings.selection_ask_ai_prompt_id}
+          onChange={(event) =>
+            onSettingsChange({
+              ...settings,
+              selection_ask_ai_prompt_id: event.target.value,
+            })
+          }
+        >
+          {promptProfiles.length === 0 && (
+            <option value={settings.selection_ask_ai_prompt_id}>
+              {settings.selection_ask_ai_prompt_id || 'explain'}
+            </option>
+          )}
+          {promptProfiles.map((profile) => (
+            <option key={profile.id} value={profile.id}>
+              {profile.name}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+      <Button size="sm" onClick={onSave}>
+        <Save size={15} />
+        Save
+      </Button>
       <StatusText>{status}</StatusText>
     </div>
   );

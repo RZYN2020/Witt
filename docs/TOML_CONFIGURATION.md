@@ -12,15 +12,17 @@ config_version = 1
 [settings]
 llm_prompt_id = "explain"
 anki_pipeline_id = "default"
-selection_auto_ask_ai = false
+selection_ask_ai_enabled = true
+selection_ask_ai_prompt_id = "explain"
 vocabulary_backend_mode = "hybrid"
 visual_memory_scope = "library"
-inline_mini_gloss = false
+inline_word_display = "none"
+highlight_known_words = true
 anki_auto_sync_web = true
 
 [llm]
-endpoint = "https://api.openai.com/v1/chat/completions"
-default_model = "gpt-4.1-mini"
+endpoint = "https://api.deepseek.com/chat/completions"
+default_model = "deepseek-v4-flash"
 
 [anki]
 endpoint = "http://localhost:8765"
@@ -39,7 +41,6 @@ args = ["-r"]
 
 [prompts.explain]
 name = "Explain in context"
-model = "gpt-4.1-mini"
 prompt = """
 Explain the selected text in context.
 """
@@ -67,10 +68,12 @@ meaning = ""
 
 - `llm_prompt_id` points to `[prompts.<id>]`.
 - `anki_pipeline_id` points to `[pipelines.<id>]`.
-- `selection_auto_ask_ai` controls whether selection automatically calls Ask AI.
+- `selection_ask_ai_enabled` controls whether the Ask AI button appears in the selection popup.
+- `selection_ask_ai_prompt_id` sets the default prompt used by the Ask AI button.
 - `vocabulary_backend_mode` is `hybrid`, `anki_first`, or `witt_first`.
 - `visual_memory_scope` is `library` for all indexed words or `book` for current-book occurrences only.
-- `inline_mini_gloss` shows cached word meanings inline while reading.
+- `inline_word_display` controls what appears inline next to highlighted words: `none`, `status`, or `meaning`.
+- `highlight_known_words` enables background highlighting for known words in the reader.
 - `anki_auto_sync_web` calls AnkiConnect's AnkiWeb sync action after Witt creates Anki notes.
 
 `[llm]` stores LLM connection defaults. `default_model` is used unless the selected prompt has its own `model`.
@@ -91,7 +94,7 @@ args = ["-r"]
 
 Use `command = "cursor"` or `command = "zed"` if those commands are installed.
 
-`[prompts.<id>]` defines Ask AI prompt profiles. `model` is optional. If present, it overrides `[llm].default_model` for that prompt. The app trims leading and trailing whitespace from prompt text after loading.
+`[prompts.<id>]` defines Ask AI prompt profiles. An optional `model` field overrides `[llm].default_model` for that prompt. Leading and trailing whitespace is trimmed from prompt text after loading.`
 
 `[pipelines.<id>]` defines Anki preprocessing profiles. `mode = "template"` uses `[pipelines.<id>.template]`; `mode = "llm"` uses the pipeline `prompt` to ask the LLM for Anki fields.
 

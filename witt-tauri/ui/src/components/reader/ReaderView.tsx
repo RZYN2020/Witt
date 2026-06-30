@@ -1,4 +1,4 @@
-import { type EpubNavigationItem } from 'epubjs';
+import { type EpubLocation, type EpubNavigationItem } from 'epubjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSettings, listAnnotations, listVocabulary, type BookRecord } from '@/lib/commands';
 import { getSentenceAround, normalizeWord, type HighlightToken } from '@/lib/readerText';
@@ -14,9 +14,10 @@ import { SelectionPopup } from '@/components/reader/SelectionPopup';
 import { useSelectionTools } from '@/components/reader/useSelectionTools';
 import { ANKI_W, FOOTER_H, getInitialDisplay, HEADER_H } from '@/components/reader/readerConstants';
 import {
+  computeVisualPageInfo,
   emptyPageInfo,
-  pageInfoFromLocation,
   type EpubContents,
+  type PageEstimate,
   type ReaderMemoryStyleOptions,
   type Rendition,
 } from '@/components/reader/readerEpub';
@@ -44,6 +45,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     highlightKnownWords: true,
   });
   const displayRef = useRef<ReaderDisplaySettings>(getInitialDisplay());
+  const pageEstimateRef = useRef<PageEstimate | undefined>(undefined);
   const userChangedReaderThemeRef = useRef(false);
 
   const [toc, setToc] = useState<EpubNavigationItem[]>([]);
@@ -51,7 +53,6 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   const [pageInfo, setPageInfo] = useState(emptyPageInfo);
   const [knownWords, setKnownWords] = useState<HighlightToken[]>([]);
   const [status, setStatus] = useState('Loading…');
-  // showUI = false → immersive: header, footer, TOC, and Anki all hidden
   const [showUI, setShowUI] = useState(true);
   const [showToc, setShowToc] = useState(false);
   const [showAnki, setShowAnki] = useState(false);
@@ -83,10 +84,8 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
   });
   const {
     aiAnswer,
-    aiQuestion,
     askAi,
     askingAi,
-    autoAskAi,
     captureSelection,
     capturing,
     closePromptEditor,
@@ -95,18 +94,13 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     editingPromptId,
     explanationState,
     popup,
-    popupMode,
     promptProfiles,
     resetPopupTools,
     savePrompt,
     savedWord,
-    selectedPromptId,
+    askAiEnabled,
     setAiAnswer,
-    setAiQuestion,
     setPopup,
-    setPopupMode,
-    setSelectedPromptId,
-    toggleAutoAskAi,
   } = selectionTools;
 
   const aiChat = useAiChat({
@@ -114,17 +108,28 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     bookTitle: book.title,
     bookAuthor: book.author,
     chapterTitle: chatChapter,
+    pageNumber: pageInfo.current || null,
+    totalPages: pageInfo.total || null,
   });
 
   const expandToSession = useCallback(() => {
     if (!aiAnswer) {
       return;
     }
-    const question = aiQuestion || 'Explain this in context';
-    aiChat.seedFromPopup(question, aiAnswer);
+    aiChat.seedFromPopup('Explain this in context', aiAnswer);
     setShowAi(true);
     setPopup(null);
-  }, [aiAnswer, aiQuestion, aiChat, setPopup, setShowAi]);
+  }, [aiAnswer, aiChat, setPopup, setShowAi]);
+
+  const quoteInChat = useCallback(() => {
+    if (!popup) {
+      return;
+    }
+    aiChat.quoteSelection(popup.selectedText);
+    setShowAi(true);
+    setShowAnki(false);
+    setPopup(null);
+  }, [aiChat, popup, setPopup, setShowAi]);
 
   useEffect(() => {
     knownWordsRef.current = knownWords;
@@ -137,7 +142,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     memoryStyleRef.current = { inlineWordDisplay, highlightKnownWords };
   }, [inlineWordDisplay, highlightKnownWords]);
 
-  useEffect(() => {
+  const refreshReaderSettings = useCallback(() => {
     void getSettings()
       .then((settings) => {
         setVisualMemoryScope(settings.visual_memory_scope);
@@ -146,6 +151,15 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
       })
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    refreshReaderSettings();
+  }, [refreshReaderSettings]);
+
+  const handleSettingsChanged = useCallback(() => {
+    refreshReaderSettings();
+    selectionTools.refreshSettings();
+  }, [refreshReaderSettings, selectionTools]);
 
   const currentTheme = useMemo(
     () => themeById(display.themeId, customTheme),
@@ -169,9 +183,17 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     setDisplay(settings);
   }, []);
 
-  const updatePageInfo = useCallback((location: Parameters<typeof pageInfoFromLocation>[0]) => {
-    const total = epubBookRef.current?.locations.length() ?? 0;
-    setPageInfo(pageInfoFromLocation(location, total));
+  const updatePageInfo = useCallback((location: EpubLocation) => {
+    if (!pageEstimateRef.current) {
+      return;
+    }
+    const book = epubBookRef.current as { spine?: { spineItems?: Array<{ href: string }> } } | null;
+    const spineItems = book?.spine?.spineItems ?? [];
+    setPageInfo(computeVisualPageInfo(location, pageEstimateRef.current, spineItems));
+  }, []);
+
+  const handleLocationsReady = useCallback((estimate: PageEstimate) => {
+    pageEstimateRef.current = estimate;
   }, []);
   const closePopup = useCallback(() => setPopup(null), [setPopup]);
 
@@ -234,7 +256,6 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     [openRangePopup, setPopup]
   );
 
-  // epub container insets — derived from UI state.
   // epub.js MUST know the exact pixel dimensions so pagination is correct.
   const epubTop = showUI && !immersive ? HEADER_H : 0;
   const epubBottom = showUI && !immersive ? FOOTER_H : 0;
@@ -355,6 +376,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     onOpenRangePopup: openRangePopup,
     onOpenSelectionPopup: openSelectionPopup,
     onOpenToc: openToc,
+    onLocationsReady: handleLocationsReady,
     onUpdatePageInfo: updatePageInfo,
     prevPage,
     renditionRef,
@@ -389,9 +411,7 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
       className="witt-reader-shell fixed inset-0 overflow-hidden"
       style={{ background: bgColor }}
     >
-      {/* ── epub.js render target ──────────────────────────────────────────────
-          Insets are set so epub.js sees EXACTLY the visible content area.
-          ResizeObserver calls rendition.resize() whenever these change.      */}
+      {/* Insets must match the visible content area exactly — epub.js pagination depends on them. */}
       <div
         ref={containerRef}
         className="absolute left-0 overflow-hidden"
@@ -413,13 +433,17 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         onNextPage={nextPage}
         onPrevPage={prevPage}
         onShowSettings={() => setShowSettings(true)}
-        onToggleAi={() => setShowAi((value) => !value)}
-        onToggleAnki={() => setShowAnki((value) => !value)}
-        onToggleImmersive={() => {
-          setImmersive((v) => {
-            setShowUI(v);
-            return !v;
-          });
+        onToggleAi={() => {
+          setShowAi((v) => !v);
+          if (!showAi) {
+            setShowAnki(false);
+          }
+        }}
+        onToggleAnki={() => {
+          setShowAnki((v) => !v);
+          if (!showAnki) {
+            setShowAi(false);
+          }
         }}
         onTogglePageMode={() => {
           handleDisplayChange({
@@ -432,7 +456,6 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         onHideChrome={() => setShowUI(false)}
       />
 
-      {/* ── Floating TOC (only when UI is visible) ───────────────────────── */}
       {showUI && showToc && (
         <ReaderToc
           items={toc}
@@ -442,7 +465,6 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         />
       )}
 
-      {/* ── Settings modal ───────────────────────────────────────────────── */}
       {showSettings && (
         <ReaderSettingsModal
           display={display}
@@ -450,10 +472,10 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
           onClose={() => setShowSettings(false)}
           onDisplayChange={handleDisplayChange}
           onCustomThemeChange={setCustomTheme}
+          onSettingsChanged={handleSettingsChanged}
         />
       )}
 
-      {/* ── Anki panel (only when UI is visible) ─────────────────────────── */}
       {showUI && showAnki && (
         <div
           className="absolute right-0 z-10 w-96 overflow-y-auto border-l border-border bg-background"
@@ -464,7 +486,6 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         </div>
       )}
 
-      {/* ── AI panel (only when UI is visible) ───────────────────────────── */}
       {showUI && showAi && (
         <div
           className="absolute right-0 z-10 w-96 border-l border-border bg-background"
@@ -483,32 +504,25 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         </div>
       )}
 
-      {/* ── Selection popup ───────────────────────────────────────────────── */}
       {popup && (
         <SelectionPopup
           popup={popup}
-          mode={popupMode}
           savedWord={savedWord}
           saving={capturing}
           askingAi={askingAi}
           aiAnswer={aiAnswer}
           explanationState={explanationState}
-          aiQuestion={aiQuestion}
           promptProfiles={promptProfiles}
-          selectedPromptId={selectedPromptId}
-          autoAskAi={autoAskAi}
+          askAiEnabled={askAiEnabled}
           onClose={() => setPopup(null)}
           onSave={() => void captureSelection()}
-          onAskAi={() => {
+          onAskAi={(promptId) => {
             setAiAnswer('');
-            void askAi();
+            void askAi(promptId);
           }}
-          onModeChange={setPopupMode}
-          onQuestionChange={setAiQuestion}
-          onPromptChange={setSelectedPromptId}
           onEditPrompt={() => void editPrompt()}
-          onToggleAutoAskAi={() => void toggleAutoAskAi()}
           onExpandToSession={expandToSession}
+          onQuoteInChat={quoteInChat}
         />
       )}
 

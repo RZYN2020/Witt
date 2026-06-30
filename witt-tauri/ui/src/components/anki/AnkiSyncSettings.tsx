@@ -1,7 +1,12 @@
-import { ChevronDown, FileText, Save, Settings2 } from 'lucide-react';
+import { ChevronDown, Edit3, FileText, Save, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Field, SelectInput, TextArea } from '@/components/ui/Form';
-import { type AnkiModelInfo, type AppSettings, type PipelineProfile } from '@/lib/commands';
+import {
+  hasTauriRuntime,
+  type AnkiModelInfo,
+  type AppSettings,
+  type PipelineProfile,
+} from '@/lib/commands';
 
 interface AnkiSyncSettingsProps {
   defaultModel: AnkiModelInfo;
@@ -11,6 +16,7 @@ interface AnkiSyncSettingsProps {
   selectedModel: AnkiModelInfo;
   settings: AppSettings;
   onEditPipeline: () => void;
+  onEditPipelineInline: () => void;
   onLoadPipeline: (pipelineId: string) => void;
   onSaveMapping: () => void;
   onSettingsChange: (settings: AppSettings) => void;
@@ -76,11 +82,13 @@ export function AnkiSyncSettings({
   selectedModel,
   settings,
   onEditPipeline,
+  onEditPipelineInline,
   onLoadPipeline,
   onSaveMapping,
   onSettingsChange,
   onToggle,
 }: AnkiSyncSettingsProps) {
+  const isTauri = hasTauriRuntime();
   const updateSettings = (patch: Partial<AppSettings>) =>
     onSettingsChange({ ...settings, ...patch });
   const editorValue =
@@ -89,7 +97,7 @@ export function AnkiSyncSettings({
       : settings.anki_preprocess_template;
 
   return (
-    <div className="mt-3 rounded-md border border-border bg-card">
+    <div className="rounded-md border border-border bg-card">
       <button
         className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-medium text-foreground"
         onClick={onToggle}
@@ -184,10 +192,17 @@ export function AnkiSyncSettings({
                     </option>
                   ))}
                 </SelectInput>
-                <Button size="sm" variant="outline" onClick={onEditPipeline}>
-                  <FileText size={14} />
-                  TOML
-                </Button>
+                {isTauri ? (
+                  <Button size="sm" variant="outline" onClick={onEditPipeline}>
+                    <FileText size={14} />
+                    TOML
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={onEditPipelineInline}>
+                    <Edit3 size={14} />
+                    Edit
+                  </Button>
+                )}
               </div>
             </Field>
             <Field label="Preprocess">

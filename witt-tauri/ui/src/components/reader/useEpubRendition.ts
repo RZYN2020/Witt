@@ -1,4 +1,4 @@
-import ePub, { type EpubNavigationItem } from 'epubjs';
+import ePub, { type EpubLocation, type EpubNavigationItem } from 'epubjs';
 import { useEffect, type MutableRefObject } from 'react';
 import { getBookFile, getProgress, saveProgress } from '@/lib/commands';
 import { applyHighlights, type HighlightToken } from '@/lib/readerText';
@@ -8,11 +8,10 @@ import {
   expandRangeToWord,
   getCaretRangeFromPoint,
   installReaderDocumentStyles,
-  locationToPage,
-  type pageInfoFromLocation,
   sectionStartCfi,
   tocItems,
   type EpubContents,
+  type PageEstimate,
   type Rendition,
   type ReaderMemoryStyleOptions,
 } from '@/components/reader/readerEpub';
@@ -34,7 +33,8 @@ interface UseEpubRenditionArgs {
   onOpenRangePopup: (contents: EpubContents, range: Range, cfiRange?: string) => void;
   onOpenSelectionPopup: (contents: EpubContents) => void;
   onOpenToc: () => void;
-  onUpdatePageInfo: (location: Parameters<typeof pageInfoFromLocation>[0]) => void;
+  onUpdatePageInfo: (location: EpubLocation) => void;
+  onLocationsReady: (estimate: PageEstimate) => void;
   prevPage: () => void;
   renditionRef: MutableRefObject<Rendition | null>;
   setStatus: (status: string) => void;
@@ -57,6 +57,7 @@ export function useEpubRendition({
   onOpenRangePopup,
   onOpenSelectionPopup,
   onOpenToc,
+  onLocationsReady,
   onUpdatePageInfo,
   prevPage,
   renditionRef,
@@ -119,7 +120,7 @@ export function useEpubRendition({
       const observer = new ResizeObserver(([entry]) => {
         const { width: nextWidth, height: nextHeight } = entry.contentRect;
         if (nextWidth > 0 && nextHeight > 0) {
-          rendition.resize(Math.floor(nextWidth), nextHeight);
+          rendition.resize(Math.floor(nextWidth / 2) * 2, nextHeight);
         }
       });
       observer.observe(container);
@@ -352,18 +353,62 @@ export function useEpubRendition({
         return;
       }
       const totalLocations = epubBook.locations.length();
-      const nextTocPages = Object.fromEntries(
-        tocItems(navigation.toc).map((item) => {
-          const section = epubBook.spine.get(item.href);
-          if (!section) {
-            return [item.href, 0];
-          }
-          const location = epubBook.locations.locationFromCfi(sectionStartCfi(section.cfiBase));
-          return [item.href, locationToPage(location, totalLocations)];
-        })
-      );
-      setTocPages(nextTocPages);
+
+      // Per-section epubjs location counts (proportional to character count)
+      const rawSpine = epubBook.spine as { spineItems?: Array<{ href: string; cfiBase: string }> };
+      const spineEntries = rawSpine?.spineItems ?? [];
+      const sectionLocations: Record<string, number> = {};
+      for (let i = 0; i < spineEntries.length; i++) {
+        const item = spineEntries[i];
+        const start = epubBook.locations.locationFromCfi(sectionStartCfi(item.cfiBase)) ?? 0;
+        const nextCfi = spineEntries[i + 1]?.cfiBase;
+        const end = nextCfi
+          ? (epubBook.locations.locationFromCfi(sectionStartCfi(nextCfi)) ?? totalLocations)
+          : totalLocations;
+        sectionLocations[item.href] = Math.max(0, end - start);
+      }
+
+      // Lock the pages-per-location ratio from the first rendered section.
+      // This ratio stays fixed so the total never changes.
       const currentLocation = await Promise.resolve(rendition.currentLocation());
+      const firstHref = currentLocation.start?.href ?? '';
+      const firstVisualPages = currentLocation.start?.displayed?.total ?? 0;
+      const firstLocs = sectionLocations[firstHref] ?? 0;
+      const pagesPerLoc = firstLocs > 0 && firstVisualPages > 0 ? firstVisualPages / firstLocs : 0;
+
+      // Estimate every section from the locked ratio
+      const estimatedSectionPages: Record<string, number> = {};
+      let estimatedTotal = 0;
+      for (const item of spineEntries) {
+        const locs = sectionLocations[item.href] ?? 0;
+        const pages = pagesPerLoc > 0 && locs > 0 ? Math.max(1, Math.round(locs * pagesPerLoc)) : 0;
+        estimatedSectionPages[item.href] = pages;
+        estimatedTotal += pages;
+      }
+
+      // Publish the locked estimates so ReaderView and TOC use the same numbers
+      const pageEstimate: PageEstimate = { estimatedSectionPages, estimatedTotal };
+      onLocationsReady(pageEstimate);
+
+      // Build TOC page numbers from the same estimates.
+      // TOC item hrefs may include fragments (e.g. "ch1.xhtml#s1"); match by spine section href.
+      const nextTocPages: Record<string, number> = {};
+      for (const item of tocItems(navigation.toc)) {
+        const section = epubBook.spine.get(item.href);
+        if (!section) {
+          nextTocPages[item.href] = 0;
+          continue;
+        }
+        let page = 0;
+        for (const spineItem of spineEntries) {
+          if (spineItem.href === section.href) {
+            break;
+          }
+          page += estimatedSectionPages[spineItem.href] ?? 0;
+        }
+        nextTocPages[item.href] = page + 1;
+      }
+      setTocPages(nextTocPages);
       onUpdatePageInfo(currentLocation);
       setStatus('');
     };
@@ -391,6 +436,7 @@ export function useEpubRendition({
     knownWordsRef,
     memoryStyleRef,
     nextPage,
+    onLocationsReady,
     onOpenRangePopup,
     onOpenSelectionPopup,
     onOpenToc,

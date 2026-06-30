@@ -21,7 +21,8 @@ pub fn settings_from_config(config: &AppConfig) -> AppSettings {
         anki_pipeline_id: config.settings.anki_pipeline_id.clone(),
         anki_preprocess_template: crate::llm::default_preprocess_template(),
         anki_preprocess_prompt: crate::llm::default_preprocess_prompt().to_string(),
-        selection_auto_ask_ai: config.settings.selection_auto_ask_ai,
+        selection_ask_ai_enabled: config.settings.selection_ask_ai_enabled,
+        selection_ask_ai_prompt_id: config.settings.selection_ask_ai_prompt_id.clone(),
         vocabulary_backend_mode: config.settings.vocabulary_backend_mode.clone(),
         visual_memory_scope: config.settings.visual_memory_scope.clone(),
         inline_word_display: config.settings.inline_word_display.clone(),
@@ -35,7 +36,8 @@ pub fn settings_from_config(config: &AppConfig) -> AppSettings {
 pub fn update_config_from_settings(config: &mut AppConfig, settings: AppSettings) -> AppSettings {
     config.settings.llm_prompt_id = settings.llm_prompt_id.clone();
     config.settings.anki_pipeline_id = settings.anki_pipeline_id.clone();
-    config.settings.selection_auto_ask_ai = settings.selection_auto_ask_ai;
+    config.settings.selection_ask_ai_enabled = settings.selection_ask_ai_enabled;
+    config.settings.selection_ask_ai_prompt_id = settings.selection_ask_ai_prompt_id.clone();
     config.settings.vocabulary_backend_mode = settings.vocabulary_backend_mode.clone();
     config.settings.visual_memory_scope = settings.visual_memory_scope.clone();
     config.settings.inline_word_display = settings.inline_word_display.clone();
@@ -146,7 +148,8 @@ pub fn config_from_settings(settings: &AppSettings) -> AppConfig {
         settings: crate::models::ConfigSettings {
             llm_prompt_id: settings.llm_prompt_id.clone(),
             anki_pipeline_id: settings.anki_pipeline_id.clone(),
-            selection_auto_ask_ai: settings.selection_auto_ask_ai,
+            selection_ask_ai_enabled: settings.selection_ask_ai_enabled,
+            selection_ask_ai_prompt_id: settings.selection_ask_ai_prompt_id.clone(),
             vocabulary_backend_mode: settings.vocabulary_backend_mode.clone(),
             visual_memory_scope: settings.visual_memory_scope.clone(),
             inline_word_display: settings.inline_word_display.clone(),
@@ -189,6 +192,12 @@ pub fn normalize_config(config: &mut AppConfig) {
     }
     if !config.prompts.contains_key(&config.settings.llm_prompt_id) {
         config.settings.llm_prompt_id = "explain".to_string();
+    }
+    if !config
+        .prompts
+        .contains_key(&config.settings.selection_ask_ai_prompt_id)
+    {
+        config.settings.selection_ask_ai_prompt_id = "explain".to_string();
     }
     if !config
         .pipelines
@@ -241,6 +250,11 @@ fn sync_selected_pipeline_from_settings(config: &mut AppConfig, settings: &AppSe
         serde_json::from_str::<BTreeMap<String, String>>(&settings.anki_preprocess_template)
     {
         pipeline.template = template;
+    } else {
+        eprintln!(
+            "[witt] invalid anki_preprocess_template JSON, keeping previous template: {}",
+            settings.anki_preprocess_template
+        );
     }
 }
 
@@ -302,8 +316,38 @@ pub fn from_toml<T: DeserializeOwned>(content: &str) -> Result<T, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{config_from_settings, normalize_config, to_toml, update_config_from_settings};
+    use super::{
+        config_from_settings, normalize_config, settings_from_config, to_toml,
+        update_config_from_settings,
+    };
     use crate::models::AppSettings;
+
+    #[test]
+    fn endpoint_save_read_cycle_preserves_value() {
+        let mut config = config_from_settings(&AppSettings::default());
+        normalize_config(&mut config);
+
+        let updated = AppSettings {
+            llm_endpoint: "https://custom.api.example.com/v1".to_string(),
+            llm_model: "custom-model".to_string(),
+            ..AppSettings::default()
+        };
+        let result = update_config_from_settings(&mut config, updated);
+        assert_eq!(result.llm_endpoint, "https://custom.api.example.com/v1");
+        assert_eq!(result.llm_model, "custom-model");
+        assert_eq!(config.llm.endpoint, "https://custom.api.example.com/v1");
+
+        // Serialize to TOML and re-parse to simulate file write → read cycle
+        let raw = to_toml(&config).expect("serialize");
+        let reloaded: crate::models::AppConfig =
+            toml::from_str(&raw).expect("deserialize");
+        let reloaded_settings = settings_from_config(&reloaded);
+        assert_eq!(
+            reloaded_settings.llm_endpoint,
+            "https://custom.api.example.com/v1"
+        );
+        assert_eq!(reloaded_settings.llm_model, "custom-model");
+    }
 
     #[test]
     fn stores_prompts_and_pipelines_as_named_tables() {

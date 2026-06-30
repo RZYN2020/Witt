@@ -25,9 +25,11 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings, String> {
             .unwrap_or(defaults.anki_preprocess_template),
         anki_preprocess_prompt: get_setting(conn, "anki_preprocess_prompt")?
             .unwrap_or(defaults.anki_preprocess_prompt),
-        selection_auto_ask_ai: get_setting(conn, "selection_auto_ask_ai")?
+        selection_ask_ai_enabled: get_setting(conn, "selection_ask_ai_enabled")?
             .map(|value| value == "true")
-            .unwrap_or(defaults.selection_auto_ask_ai),
+            .unwrap_or(defaults.selection_ask_ai_enabled),
+        selection_ask_ai_prompt_id: get_setting(conn, "selection_ask_ai_prompt_id")?
+            .unwrap_or(defaults.selection_ask_ai_prompt_id),
         vocabulary_backend_mode: get_setting(conn, "vocabulary_backend_mode")?
             .unwrap_or(defaults.vocabulary_backend_mode),
         visual_memory_scope: get_setting(conn, "visual_memory_scope")?
@@ -35,7 +37,7 @@ pub fn get_settings(conn: &Connection) -> Result<AppSettings, String> {
         inline_word_display: get_setting(conn, "inline_word_display")?
             .unwrap_or(defaults.inline_word_display),
         highlight_known_words: get_setting(conn, "highlight_known_words")?
-            .map(|value| value != "false")
+            .map(|value| value == "true")
             .unwrap_or(defaults.highlight_known_words),
         anki_auto_sync_web: get_setting(conn, "anki_auto_sync_web")?
             .map(|value| value == "true")
@@ -78,12 +80,17 @@ pub fn save_settings(conn: &Connection, settings: &AppSettings) -> Result<(), St
     )?;
     set_setting(
         conn,
-        "selection_auto_ask_ai",
-        if settings.selection_auto_ask_ai {
+        "selection_ask_ai_enabled",
+        if settings.selection_ask_ai_enabled {
             "true"
         } else {
             "false"
         },
+    )?;
+    set_setting(
+        conn,
+        "selection_ask_ai_prompt_id",
+        &settings.selection_ask_ai_prompt_id,
     )?;
     set_setting(
         conn,

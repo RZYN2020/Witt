@@ -1,4 +1,5 @@
 import { Send, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { AiChatView } from './AiChatView';
 import { type AiChatSession } from './useAiChat';
@@ -12,7 +13,23 @@ interface AiPanelProps {
 }
 
 export function AiPanel({ session, inputText, onInputChange, onSend, onClear }: AiPanelProps) {
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) {
+      return;
+    }
+    el.style.height = 'auto';
+    const maxH = 160;
+    el.style.height = `${Math.min(el.scrollHeight, maxH)}px`;
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [inputText, autoResize]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSend();
@@ -20,7 +37,7 @@ export function AiPanel({ session, inputText, onInputChange, onSend, onClear }: 
   };
 
   return (
-    <aside className="flex h-full flex-col border-l border-border bg-background text-foreground">
+    <aside className="flex h-full flex-col bg-background text-foreground">
       <div className="border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
@@ -44,9 +61,12 @@ export function AiPanel({ session, inputText, onInputChange, onSend, onClear }: 
       </div>
 
       <div className="border-t border-border p-3">
-        <div className="flex gap-2">
-          <input
-            className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            className="min-w-0 flex-1 resize-none rounded-md border border-input bg-background px-3 py-2 text-sm leading-6"
+            style={{ maxHeight: 160 }}
             placeholder="Ask about this book..."
             value={inputText}
             onChange={(e) => onInputChange(e.target.value)}

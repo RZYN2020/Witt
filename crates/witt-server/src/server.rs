@@ -182,6 +182,7 @@ fn api_router(state: AppState) -> Router {
         .route("/health", get(health))
         .route("/settings", get(get_settings).put(save_settings))
         .route("/config", get(get_app_config).put(save_app_config))
+        .route("/config/toml", get(get_app_config_toml).put(save_app_config_toml))
         .route("/config/reload", post(reload_app_config))
         .route("/prompts", get(list_prompt_profiles))
         .route(
@@ -301,6 +302,25 @@ async fn reload_app_config(State(state): State<AppState>) -> ApiResult<Json<AppS
     let conn = state.conn.lock().await;
     db::save_settings(&conn, &settings)?;
     Ok(Json(settings))
+}
+
+async fn get_app_config_toml(State(state): State<AppState>) -> ApiResult<String> {
+    let raw =
+        std::fs::read_to_string(&state.config_path).map_err(|e| ApiError::internal(e.to_string()))?;
+    let mut config: AppConfig =
+        toml::from_str(&raw).map_err(|e| ApiError::bad_request(e.to_string()))?;
+    witt_core::app_config::normalize_config(&mut config);
+    toml::to_string_pretty(&config).map_err(|e| ApiError::internal(e.to_string()))
+}
+
+async fn save_app_config_toml(
+    State(state): State<AppState>,
+    body: String,
+) -> ApiResult<StatusCode> {
+    let config: AppConfig =
+        toml::from_str(&body).map_err(|e| ApiError::bad_request(e.to_string()))?;
+    write_app_config(&state, &config)?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn list_prompt_profiles(
@@ -888,7 +908,7 @@ async fn ask_llm_chat(
         .prompts
         .get(&settings.llm_prompt_id)
         .map(|p| p.prompt.as_str())
-        .unwrap_or("You are a concise reading and language-learning assistant.");
+        .unwrap_or(witt_core::llm::DEFAULT_CHAT_PROMPT);
     let content = witt_core::llm::ask_chat(&settings, api_key, &request, prompt).await?;
     Ok(Json(ChatResponse { content }))
 }

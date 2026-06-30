@@ -165,8 +165,10 @@ pub struct AppSettings {
     pub anki_preprocess_template: String,
     #[serde(default = "default_anki_preprocess_prompt_string")]
     pub anki_preprocess_prompt: String,
-    #[serde(default)]
-    pub selection_auto_ask_ai: bool,
+    #[serde(default = "default_true")]
+    pub selection_ask_ai_enabled: bool,
+    #[serde(default = "default_llm_prompt_id")]
+    pub selection_ask_ai_prompt_id: String,
     #[serde(default = "default_vocabulary_backend_mode")]
     pub vocabulary_backend_mode: String,
     #[serde(default = "default_visual_memory_scope")]
@@ -196,12 +198,13 @@ impl Default for AppSettings {
             anki_pipeline_id: default_anki_pipeline_id(),
             anki_preprocess_template: default_preprocess_template(),
             anki_preprocess_prompt: default_anki_preprocess_prompt_string(),
-            selection_auto_ask_ai: false,
             vocabulary_backend_mode: default_vocabulary_backend_mode(),
             visual_memory_scope: default_visual_memory_scope(),
             inline_word_display: default_inline_word_display(),
             highlight_known_words: true,
             anki_auto_sync_web: default_anki_auto_sync_web(),
+            selection_ask_ai_enabled: true,
+            selection_ask_ai_prompt_id: default_llm_prompt_id(),
         }
     }
 }
@@ -218,6 +221,10 @@ pub struct ChatRequest {
     pub book_title: String,
     pub book_author: String,
     pub chapter_title: Option<String>,
+    #[serde(default)]
+    pub page_number: Option<u32>,
+    #[serde(default)]
+    pub total_pages: Option<u32>,
     pub messages: Vec<ChatMessage>,
 }
 
@@ -298,8 +305,10 @@ pub struct ConfigSettings {
     pub llm_prompt_id: String,
     #[serde(default = "default_anki_pipeline_id")]
     pub anki_pipeline_id: String,
-    #[serde(default)]
-    pub selection_auto_ask_ai: bool,
+    #[serde(default = "default_true")]
+    pub selection_ask_ai_enabled: bool,
+    #[serde(default = "default_llm_prompt_id")]
+    pub selection_ask_ai_prompt_id: String,
     #[serde(default = "default_vocabulary_backend_mode")]
     pub vocabulary_backend_mode: String,
     #[serde(default = "default_visual_memory_scope")]
@@ -317,12 +326,13 @@ impl Default for ConfigSettings {
         Self {
             llm_prompt_id: default_llm_prompt_id(),
             anki_pipeline_id: default_anki_pipeline_id(),
-            selection_auto_ask_ai: false,
             vocabulary_backend_mode: default_vocabulary_backend_mode(),
             visual_memory_scope: default_visual_memory_scope(),
             inline_word_display: default_inline_word_display(),
             highlight_known_words: true,
             anki_auto_sync_web: default_anki_auto_sync_web(),
+            selection_ask_ai_enabled: true,
+            selection_ask_ai_prompt_id: default_llm_prompt_id(),
         }
     }
 }

@@ -260,6 +260,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     deleteQueued,
     editPipeline,
     exportQueued,
+    flashStatus,
     loadPipeline,
     pushAnkiWeb,
     refreshDeck,

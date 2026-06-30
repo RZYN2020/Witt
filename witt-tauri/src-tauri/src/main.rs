@@ -67,6 +67,7 @@ fn main() {
             commands::save_dictionary_cache,
             commands::ask_llm_about_selection,
             commands::ask_llm_chat,
+            commands::ask_llm_chat_stream,
             commands::list_prompt_profiles,
             commands::list_pipeline_profiles,
             commands::open_prompt_profile,
@@ -84,6 +85,8 @@ fn main() {
             commands::reload_app_config,
             commands::get_app_config,
             commands::save_app_config,
+            commands::read_app_config_toml,
+            commands::save_app_config_toml,
         ])
         .run(tauri::generate_context!())
         .expect("error while running witt-tauri");

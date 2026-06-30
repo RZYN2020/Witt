@@ -5,11 +5,18 @@ import { Button } from '@/components/ui/Button';
 interface ProfileEditorProps {
   title: string;
   initialContent: string;
+  language?: 'json' | 'toml';
   onSave: (content: string) => Promise<void>;
   onClose: () => void;
 }
 
-export function ProfileEditor({ title, initialContent, onSave, onClose }: ProfileEditorProps) {
+export function ProfileEditor({
+  title,
+  initialContent,
+  language = 'json',
+  onSave,
+  onClose,
+}: ProfileEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -26,6 +33,9 @@ export function ProfileEditor({ title, initialContent, onSave, onClose }: Profil
   }, [onClose]);
 
   const format = () => {
+    if (language !== 'json') {
+      return;
+    }
     try {
       const parsed: unknown = JSON.parse(content);
       setContent(JSON.stringify(parsed, null, 2));
@@ -36,11 +46,13 @@ export function ProfileEditor({ title, initialContent, onSave, onClose }: Profil
   };
 
   const save = async () => {
-    try {
-      JSON.parse(content);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid JSON');
-      return;
+    if (language === 'json') {
+      try {
+        JSON.parse(content);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Invalid JSON');
+        return;
+      }
     }
     setSaving(true);
     setError('');
@@ -93,9 +105,11 @@ export function ProfileEditor({ title, initialContent, onSave, onClose }: Profil
 
         <div className="flex items-center justify-between border-t border-border px-5 py-3">
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={format}>
-              Format
-            </Button>
+            {language === 'json' && (
+              <Button size="sm" variant="outline" onClick={format}>
+                Format
+              </Button>
+            )}
             {status && <span className="text-xs text-muted-foreground">{status}</span>}
           </div>
           <div className="flex items-center gap-2">

@@ -9,9 +9,11 @@ import {
   Wifi,
   WifiOff,
 } from 'lucide-react';
-import { type ReactNode } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SelectInput, StatusText } from '@/components/ui/Form';
+import { ProfileEditor } from '@/components/ui/ProfileEditor';
+import { readPipelineProfile, savePipelineProfile } from '@/lib/commands';
 import { AnkiNoteList } from './AnkiNoteList';
 import { AnkiSyncSettings } from './AnkiSyncSettings';
 import { DEFAULT_MODEL, useAnkiPanel } from './useAnkiPanel';
@@ -20,75 +22,88 @@ interface AnkiPanelProps {
   onKnownWordsChange: (words: string[]) => void;
 }
 
-function PanelSection({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rounded-md border border-border bg-card p-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </p>
-      {children}
-    </section>
-  );
-}
-
 export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
   const anki = useAnkiPanel({ onKnownWordsChange });
+  const [editingPipelineId, setEditingPipelineId] = useState<string | null>(null);
+  const [editingPipelineContent, setEditingPipelineContent] = useState('');
+  const [editingPipelineName, setEditingPipelineName] = useState('');
+
+  const editPipelineInline = async () => {
+    const pipelineId = anki.settings.anki_pipeline_id;
+    try {
+      const content = await readPipelineProfile(pipelineId);
+      setEditingPipelineId(pipelineId);
+      setEditingPipelineContent(content);
+      setEditingPipelineName(anki.pipelines.find((p) => p.id === pipelineId)?.name ?? pipelineId);
+    } catch (err) {
+      anki.flashStatus(err instanceof Error ? err.message : 'Failed to read pipeline');
+    }
+  };
+
+  const savePipelineInline = async (content: string) => {
+    if (!editingPipelineId) {
+      return;
+    }
+    await savePipelineProfile(editingPipelineId, content);
+    await anki.loadPipeline(editingPipelineId);
+  };
 
   return (
     <aside className="flex h-full flex-col border-l border-border bg-background text-foreground">
-      <div className="space-y-4 border-b border-border p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">Anki</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {anki.online ? 'Connected through AnkiConnect' : 'Offline cache view'}
-            </p>
-          </div>
-          <div className="rounded-md border border-border bg-card p-2">
-            {anki.online ? (
-              <Wifi className="text-emerald-600 dark:text-emerald-400" size={18} />
-            ) : (
-              <WifiOff className="text-muted-foreground" size={18} />
-            )}
-          </div>
+      <div className="shrink-0 space-y-3 border-b border-border p-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold">Anki</h2>
+          {anki.online ? (
+            <Wifi size={14} className="text-emerald-500" />
+          ) : (
+            <WifiOff size={14} className="text-muted-foreground" />
+          )}
+          <span className="text-xs text-muted-foreground">
+            {anki.online ? 'AnkiConnect' : 'Offline'}
+          </span>
         </div>
 
-        <PanelSection title="Vocabulary source">
-          <SelectInput
-            className="px-3 py-2"
-            value={anki.selectedDeck}
-            onChange={(event) => void anki.chooseDeck(event.target.value)}
-            aria-label="Anki deck"
-          >
-            <option value="">Select deck</option>
-            {anki.decks.map((deck) => (
-              <option key={deck.name} value={deck.name}>
-                {deck.name}
-              </option>
-            ))}
-          </SelectInput>
+        <SelectInput
+          value={anki.selectedDeck}
+          onChange={(event) => void anki.chooseDeck(event.target.value)}
+          aria-label="Anki deck"
+        >
+          <option value="">Select deck</option>
+          {anki.decks.map((deck) => (
+            <option key={deck.name} value={deck.name}>
+              {deck.name}
+            </option>
+          ))}
+        </SelectInput>
 
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <Button size="sm" onClick={() => void anki.refreshDeck()}>
-              <RefreshCcw size={15} />
-              Refresh
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => void anki.syncQueued()}>
-              <Send size={15} />
-              Sync {anki.queuedCount || ''}
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => void anki.exportQueued()}>
-              <Download size={15} />
-              Export
-            </Button>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <Button size="sm" variant="outline" onClick={() => void anki.pushAnkiWeb()}>
-              <Upload size={15} />
-              AnkiWeb
-            </Button>
-          </div>
-        </PanelSection>
+        <div className="grid grid-cols-2 gap-1.5">
+          <Button size="sm" variant="outline" onClick={() => void anki.refreshDeck()}>
+            <RefreshCcw size={14} />
+            Refresh
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => void anki.syncQueued()}>
+            <Send size={14} />
+            Sync{anki.queuedCount ? ` ${anki.queuedCount}` : ''}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void anki.exportQueued()}>
+            <Download size={14} />
+            Export
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void anki.pushAnkiWeb()}>
+            <Upload size={14} />
+            Web
+          </Button>
+        </div>
+
+        <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm">
+          <Search size={14} className="text-muted-foreground" />
+          <input
+            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+            placeholder="Search cards..."
+            value={anki.query}
+            onChange={(event) => anki.searchNotes(event.target.value)}
+          />
+        </label>
 
         <AnkiSyncSettings
           defaultModel={DEFAULT_MODEL}
@@ -98,41 +113,32 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
           selectedModel={anki.selectedModel}
           settings={anki.settings}
           onEditPipeline={() => void anki.editPipeline()}
+          onEditPipelineInline={() => void editPipelineInline()}
           onLoadPipeline={(pipelineId) => void anki.loadPipeline(pipelineId)}
           onSaveMapping={() => void anki.saveMapping()}
           onSettingsChange={anki.setSettings}
           onToggle={() => anki.setShowMapping((value) => !value)}
         />
 
-        <label className="flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm">
-          <Search size={15} />
-          <input
-            className="min-w-0 flex-1 bg-transparent outline-none"
-            placeholder="Search cards"
-            value={anki.query}
-            onChange={(event) => anki.searchNotes(event.target.value)}
-          />
-        </label>
-
         <StatusText>{anki.status}</StatusText>
 
         {anki.conflicts.length > 0 && (
           <section className="rounded-md border border-amber-200 bg-amber-50/70 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
-            <div className="flex items-center justify-between border-b border-amber-200 px-3 py-2 dark:border-amber-900/60">
-              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                <AlertTriangle size={14} />
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <p className="flex items-center gap-1.5 text-xs font-semibold">
+                <AlertTriangle size={13} />
                 Sync review
               </p>
               <span className="text-xs">{anki.conflicts.length}</span>
             </div>
-            <div className="max-h-36 overflow-y-auto p-1">
+            <div className="max-h-32 overflow-y-auto px-1 pb-1">
               {anki.conflicts.map((conflict) => (
                 <div
                   key={`${conflict.annotation_id}-${conflict.kind}`}
-                  className="rounded px-2 py-1.5"
+                  className="rounded px-2 py-1 text-xs"
                 >
-                  <p className="truncate text-sm font-medium">{conflict.word}</p>
-                  <p className="line-clamp-2 text-xs opacity-80">{conflict.detail}</p>
+                  <p className="truncate font-medium">{conflict.word}</p>
+                  <p className="line-clamp-1 opacity-80">{conflict.detail}</p>
                 </div>
               ))}
             </div>
@@ -141,29 +147,31 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
 
         {anki.queuedAnnotations.length > 0 && (
           <section className="rounded-md border border-border bg-card">
-            <div className="flex items-center justify-between border-b border-border px-3 py-2">
+            <div className="flex items-center justify-between px-3 py-1.5">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Pending sync
               </p>
               <span className="text-xs text-muted-foreground">{anki.queuedAnnotations.length}</span>
             </div>
-            <div className="max-h-44 overflow-y-auto p-1">
+            <div className="max-h-40 overflow-y-auto px-1 pb-1">
               {anki.queuedAnnotations.map((annotation) => (
                 <div
                   key={annotation.id}
-                  className="flex items-center justify-between gap-2 rounded px-2 py-1.5 hover:bg-accent"
+                  className="flex items-center justify-between gap-2 rounded px-2 py-1 hover:bg-accent"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{annotation.word}</p>
-                    <p className="truncate text-xs text-muted-foreground">{annotation.sentence}</p>
+                    <p className="truncate text-xs font-medium">{annotation.word}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {annotation.sentence}
+                    </p>
                   </div>
                   <button
-                    className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-background hover:text-destructive"
+                    className="shrink-0 rounded p-1 text-muted-foreground hover:bg-background hover:text-destructive"
                     title="Remove pending capture"
                     aria-label={`Remove pending capture for ${annotation.word}`}
                     onClick={() => void anki.deleteQueued(annotation.id)}
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               ))}
@@ -173,11 +181,20 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Cached cards
         </p>
         <AnkiNoteList notes={anki.notes} />
       </div>
+
+      {editingPipelineId && (
+        <ProfileEditor
+          title={`Edit Pipeline: ${editingPipelineName}`}
+          initialContent={editingPipelineContent}
+          onSave={savePipelineInline}
+          onClose={() => setEditingPipelineId(null)}
+        />
+      )}
     </aside>
   );
 }

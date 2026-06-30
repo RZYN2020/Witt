@@ -12,7 +12,10 @@ pub fn has_llm_api_key() -> bool {
     keyring::Entry::new(SERVICE, LLM_KEY)
         .and_then(|entry| entry.get_password())
         .map(|value| !value.trim().is_empty())
-        .unwrap_or(false)
+        .unwrap_or_else(|err| {
+            eprintln!("[witt] keyring read failed (has_llm_api_key): {err}");
+            false
+        })
 }
 
 pub fn get_llm_api_key() -> Result<String, String> {

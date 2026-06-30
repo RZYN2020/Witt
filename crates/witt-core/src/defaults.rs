@@ -3,7 +3,7 @@ use serde_json::json;
 pub const DEFAULT_MODEL_NAME: &str = "Witt EPUB Sentence";
 pub const DEFAULT_ANKI_ENDPOINT: &str = "http://localhost:8765";
 pub const DEFAULT_LLM_ENDPOINT: &str = "https://api.deepseek.com/chat/completions";
-pub const DEFAULT_LLM_MODEL: &str = "deepseek-v4-pro";
+pub const DEFAULT_LLM_MODEL: &str = "deepseek-v4-flash";
 
 pub fn default_preprocess_template() -> String {
     json!({

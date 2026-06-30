@@ -64,3 +64,17 @@ pub async fn save_app_config(
     db::save_settings(&conn, &settings)?;
     Ok(config)
 }
+
+#[tauri::command]
+pub async fn read_app_config_toml(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    std::fs::read_to_string(&state.config_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn save_app_config_toml(
+    state: tauri::State<'_, AppState>,
+    content: String,
+) -> Result<(), String> {
+    let config: AppConfig = toml::from_str(&content).map_err(|e| e.to_string())?;
+    app_config::write_config(&state.config_path, &config)
+}

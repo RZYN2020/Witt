@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 
 declare global {
   interface Window {
@@ -138,7 +139,8 @@ export interface AppSettings {
   anki_pipeline_id: string;
   anki_preprocess_template: string;
   anki_preprocess_prompt: string;
-  selection_auto_ask_ai: boolean;
+  selection_ask_ai_enabled: boolean;
+  selection_ask_ai_prompt_id: string;
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
   visual_memory_scope: 'library' | 'book';
   inline_word_display: 'none' | 'status' | 'meaning';
@@ -156,6 +158,8 @@ export interface ChatRequest {
   book_title: string;
   book_author: string;
   chapter_title?: string | null;
+  page_number?: number | null;
+  total_pages?: number | null;
   messages: ChatMessage[];
 }
 
@@ -197,7 +201,8 @@ export interface PipelineConfig {
 export interface ConfigSettings {
   llm_prompt_id: string;
   anki_pipeline_id: string;
-  selection_auto_ask_ai: boolean;
+  selection_ask_ai_enabled: boolean;
+  selection_ask_ai_prompt_id: string;
   vocabulary_backend_mode: 'hybrid' | 'anki_first' | 'witt_first';
   visual_memory_scope: 'library' | 'book';
   inline_word_display: 'none' | 'status' | 'meaning';
@@ -267,7 +272,7 @@ export interface ExportSummary {
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   llm_endpoint: 'https://api.deepseek.com/chat/completions',
-  llm_model: 'deepseek-v4-pro',
+  llm_model: 'deepseek-v4-flash',
   llm_prompt_id: 'explain',
   anki_endpoint: 'http://localhost:8765',
   anki_model_name: 'Witt EPUB Sentence',
@@ -281,8 +286,9 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   anki_preprocess_template:
     '{"word":"{{word}}","sentence":"{{sentence}}","book":"{{book_id}}","chapter":"{{chapter}}","meaning":""}',
   anki_preprocess_prompt:
-    'Transform the reading capture into Anki-ready fields. Return strict JSON only: {"word":"...","sentence":"...","book":"...","chapter":"...","meaning":"..."}.',
-  selection_auto_ask_ai: false,
+    'Transform the reading capture into Anki-ready fields. Return strict JSON only: {"word":"...","sentence":"...","book":"...","chapter":"...","meaning":"..."}. Keep word and sentence faithful to the input. Meaning should include a concise definition, usage note, and Chinese explanation.',
+  selection_ask_ai_enabled: true,
+  selection_ask_ai_prompt_id: 'explain',
   vocabulary_backend_mode: 'hybrid',
   visual_memory_scope: 'library',
   inline_word_display: 'none',
@@ -661,6 +667,39 @@ export function askLlmChat(request: ChatRequest): Promise<ChatResponse> {
     : api<ChatResponse>('/api/llm/chat', { method: 'POST', body: JSON.stringify(request) });
 }
 
+export function askLlmChatStream(request: ChatRequest): Promise<string> {
+  if (!hasTauriRuntime()) {
+    return Promise.reject(new Error('Streaming requires the Tauri desktop runtime'));
+  }
+  return command<string>('ask_llm_chat_stream', { request });
+}
+
+export interface ChatStreamChunk {
+  session_id: string;
+  content: string;
+}
+
+export interface ChatStreamDone {
+  session_id: string;
+}
+
+export interface ChatStreamError {
+  session_id: string;
+  error: string;
+}
+
+export function onChatStreamChunk(handler: (data: ChatStreamChunk) => void): Promise<UnlistenFn> {
+  return listen<ChatStreamChunk>('chat-stream-chunk', (event) => handler(event.payload));
+}
+
+export function onChatStreamDone(handler: (data: ChatStreamDone) => void): Promise<UnlistenFn> {
+  return listen<ChatStreamDone>('chat-stream-done', (event) => handler(event.payload));
+}
+
+export function onChatStreamError(handler: (data: ChatStreamError) => void): Promise<UnlistenFn> {
+  return listen<ChatStreamError>('chat-stream-error', (event) => handler(event.payload));
+}
+
 export function listPromptProfiles(): Promise<PromptProfile[]> {
   return hasTauriRuntime()
     ? command<PromptProfile[]>('list_prompt_profiles')
@@ -769,4 +808,19 @@ export function saveAppConfig(config: AppConfig): Promise<AppConfig> {
   return hasTauriRuntime()
     ? command<AppConfig>('save_app_config', { config })
     : api<AppConfig>('/api/config', { method: 'PUT', body: JSON.stringify(config) });
+}
+
+export function readAppConfigToml(): Promise<string> {
+  return hasTauriRuntime() ? command<string>('read_app_config_toml') : apiText('/api/config/toml');
+}
+
+export function saveAppConfigToml(content: string): Promise<void> {
+  if (hasTauriRuntime()) {
+    return command<void>('save_app_config_toml', { content });
+  }
+  return api<void>('/api/config/toml', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'text/plain' },
+    body: content,
+  });
 }

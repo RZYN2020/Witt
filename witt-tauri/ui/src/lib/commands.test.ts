@@ -13,21 +13,23 @@ describe('command transport', () => {
   });
 
   it('uses HTTP APIs outside the Tauri runtime', async () => {
-    const fetchMock = vi.spyOn(window, 'fetch').mockImplementation(async (input) => {
+    const fetchMock = vi.spyOn(window, 'fetch').mockImplementation((input) => {
       const url = String(input);
       if (url === '/api/books') {
-        return jsonResponse([]);
+        return Promise.resolve(jsonResponse([]));
       }
       if (url === '/api/anki/status') {
-        return jsonResponse({ available: true, version: 6 });
+        return Promise.resolve(jsonResponse({ available: true, version: 6 }));
       }
       if (url === '/api/settings') {
-        return jsonResponse({
-          anki_endpoint: 'http://localhost:8765',
-          anki_model_name: 'Witt EPUB Sentence',
-        });
+        return Promise.resolve(
+          jsonResponse({
+            anki_endpoint: 'http://localhost:8765',
+            anki_model_name: 'Witt EPUB Sentence',
+          })
+        );
       }
-      return jsonResponse({ error: 'not found' }, 404);
+      return Promise.resolve(jsonResponse({ error: 'not found' }, 404));
     });
 
     expect(hasTauriRuntime()).toBe(false);
@@ -40,6 +42,7 @@ describe('command transport', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/books',
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         headers: expect.any(Headers),
       })
     );
@@ -63,6 +66,7 @@ describe('command transport', () => {
       '/api/books',
       expect.objectContaining({
         method: 'POST',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         body: expect.any(FormData),
       })
     );

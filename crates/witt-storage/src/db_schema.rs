@@ -124,9 +124,13 @@ fn insert_default_settings(conn: &Connection) -> Result<(), String> {
     set_default_setting(
         conn,
         "llm_endpoint",
-        "https://api.openai.com/v1/chat/completions",
+        witt_core::defaults::DEFAULT_LLM_ENDPOINT,
     )?;
-    set_default_setting(conn, "llm_model", "gpt-4.1-mini")?;
+    set_default_setting(
+        conn,
+        "llm_model",
+        witt_core::defaults::DEFAULT_LLM_MODEL,
+    )?;
     set_default_setting(conn, "llm_prompt_id", "explain")?;
     set_default_setting(
         conn,
@@ -155,11 +159,13 @@ fn insert_default_settings(conn: &Connection) -> Result<(), String> {
         "anki_preprocess_prompt",
         witt_core::defaults::default_preprocess_prompt(),
     )?;
-    set_default_setting(conn, "selection_auto_ask_ai", "false")?;
+    set_default_setting(conn, "selection_ask_ai_enabled", "true")?;
+    set_default_setting(conn, "selection_ask_ai_prompt_id", "explain")?;
     set_default_setting(conn, "vocabulary_backend_mode", "hybrid")?;
     set_default_setting(conn, "visual_memory_scope", "library")?;
     set_default_setting(conn, "inline_word_display", "none")?;
     set_default_setting(conn, "highlight_known_words", "true")?;
+    set_default_setting(conn, "anki_auto_sync_web", "true")?;
     Ok(())
 }
 

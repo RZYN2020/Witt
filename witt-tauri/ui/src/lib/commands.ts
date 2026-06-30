@@ -723,11 +723,15 @@ export function saveSettings(settings: AppSettings): Promise<void> {
 }
 
 export function saveLlmApiKey(apiKey: string): Promise<void> {
-  return command<void>('save_llm_api_key', { apiKey });
+  return hasTauriRuntime()
+    ? command<void>('save_llm_api_key', { apiKey })
+    : api<void>('/api/llm/key', { method: 'PUT', body: JSON.stringify({ api_key: apiKey }) });
 }
 
 export function hasLlmApiKey(): Promise<boolean> {
-  return command<boolean>('has_llm_api_key', undefined, () => false);
+  return hasTauriRuntime()
+    ? command<boolean>('has_llm_api_key')
+    : api<{ configured: boolean }>('/api/llm/key').then((r) => r.configured);
 }
 
 export function openAppConfig(): Promise<string> {

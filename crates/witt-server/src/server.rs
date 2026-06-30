@@ -7,7 +7,7 @@ use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use chrono::Utc;
 use rusqlite::Connection;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::path::{Path as FsPath, PathBuf};
 use std::sync::Arc;
@@ -34,7 +34,7 @@ struct AppState {
     books_dir: PathBuf,
     config_path: PathBuf,
     token: Arc<String>,
-    llm_api_key: Option<String>,
+    llm_api_key: Arc<Mutex<Option<String>>>,
 }
 
 #[derive(Debug)]
@@ -163,7 +163,7 @@ fn init_state(config: &ServerConfig) -> Result<AppState, String> {
         books_dir: storage.books_dir,
         config_path: storage.config_path,
         token: Arc::new(config.token.clone()),
-        llm_api_key: config.llm_api_key.clone(),
+        llm_api_key: Arc::new(Mutex::new(config.llm_api_key.clone())),
     })
 }
 
@@ -228,6 +228,7 @@ fn api_router(state: AppState) -> Router {
         .route("/anki/sync", post(sync_annotations_to_anki))
         .route("/anki/sync-web", post(sync_anki_web))
         .route("/llm/selection", post(ask_llm_about_selection))
+        .route("/llm/key", get(get_llm_key).put(save_llm_key))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             require_bearer,
@@ -751,7 +752,7 @@ async fn sync_annotations_to_anki(State(state): State<AppState>) -> ApiResult<Js
         settings,
         deck_name,
         annotations,
-        llm_api_key: state.llm_api_key.clone(),
+        llm_api_key: state.llm_api_key.lock().await.clone(),
     })
     .await?;
     let now = Utc::now().to_rfc3339();
@@ -784,14 +785,38 @@ async fn ask_llm_about_selection(
     State(state): State<AppState>,
     Json(request): Json<SelectionLlmRequest>,
 ) -> ApiResult<Json<String>> {
-    let api_key = state
-        .llm_api_key
+    let api_key_guard = state.llm_api_key.lock().await;
+    let api_key = api_key_guard
         .as_deref()
         .ok_or_else(|| ApiError::bad_request("Set WITT_LLM_API_KEY before using Ask AI"))?;
     let settings = current_settings(&state).await?;
     Ok(Json(
         witt_core::llm::ask_selection(&settings, api_key, &request).await?,
     ))
+}
+
+#[derive(Deserialize)]
+struct LlmKeyPayload {
+    api_key: String,
+}
+
+#[derive(Serialize)]
+struct LlmKeyStatus {
+    configured: bool,
+}
+
+async fn get_llm_key(State(state): State<AppState>) -> ApiResult<Json<LlmKeyStatus>> {
+    let configured = state.llm_api_key.lock().await.is_some();
+    Ok(Json(LlmKeyStatus { configured }))
+}
+
+async fn save_llm_key(
+    State(state): State<AppState>,
+    Json(payload): Json<LlmKeyPayload>,
+) -> ApiResult<StatusCode> {
+    let mut key = state.llm_api_key.lock().await;
+    *key = Some(payload.api_key);
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn current_settings(state: &AppState) -> ApiResult<AppSettings> {

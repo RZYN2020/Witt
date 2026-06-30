@@ -136,6 +136,6 @@ Install AnkiConnect in Anki (add-on code `2055492159`). Enable it and leave Anki
 
 ## LLM
 
-Set endpoint, model, and API key in the Settings panel inside the app. The key is saved to the OS keyring. Endpoint/model, selected prompt/pipeline ids, Anki field mapping, behavior toggles, editor preference, prompt definitions, and Anki pipeline definitions live in one `settings.toml` file in the app data directory. Panel saves write back to that file, and Reload TOML reads external edits back into the app. Batch size is capped at 20 annotations per request.
+Set endpoint, model, and API key in the Settings panel inside the app. In Tauri mode the key is saved to the OS keyring. In web mode the key is set via `WITT_LLM_API_KEY` at server startup and can be updated at runtime through the Settings panel (stored in server memory). Endpoint/model, selected prompt/pipeline ids, Anki field mapping, behavior toggles, editor preference, prompt definitions, and Anki pipeline definitions live in one `settings.toml` file in the app data directory. Panel saves write back to that file, and Reload TOML reads external edits back into the app. Batch size is capped at 20 annotations per request.
 
 See `docs/TOML_CONFIGURATION.md` for the supported TOML shape and placeholders.

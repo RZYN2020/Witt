@@ -83,7 +83,7 @@ Important API groups:
 - Vocabulary/cache: `/api/vocabulary`, `/api/word-occurrences/:word`, `/api/meaning-groups/:word`, `/api/dictionary-cache`.
 - Anki: `/api/anki/status`, decks, models, cache refresh, notes, conflicts, sync, and AnkiWeb sync.
 - Config/profiles: `/api/settings`, `/api/config`, `/api/prompts`, `/api/pipelines`.
-- LLM: `POST /api/llm/selection`; the server reads `WITT_LLM_API_KEY`.
+- LLM: `POST /api/llm/selection`, `GET /api/llm/key`, `PUT /api/llm/key`; the server reads `WITT_LLM_API_KEY` from the environment at startup, and the key can be updated at runtime via the API.
 
 **Books:** `import_book`, `list_books`, `get_book`, `remove_book`, `get_book_file`  
 **Progress:** `save_progress`, `get_progress`  

@@ -1,10 +1,10 @@
-import { Ban, CheckCircle2, MoreHorizontal, Save, Sparkles, X } from 'lucide-react';
+import { Save, Sparkles, X } from 'lucide-react';
 import { type ButtonHTMLAttributes } from 'react';
 import { type PromptProfile } from '@/lib/commands';
 import { cn } from '@/lib/utils';
 import { type SelectionPopupModel } from '@/components/reader/readerEpub';
 
-export type SelectionPopupMode = 'toolbar' | 'ai' | 'more';
+export type SelectionPopupMode = 'toolbar' | 'ai';
 
 interface SelectionPopupProps {
   popup: SelectionPopupModel;
@@ -26,8 +26,6 @@ interface SelectionPopupProps {
   onPromptChange: (promptId: string) => void;
   onEditPrompt: () => void;
   onToggleAutoAskAi: () => void;
-  onMarkKnown: () => void;
-  onIgnore: () => void;
 }
 
 function PopupAction({
@@ -80,15 +78,12 @@ export function SelectionPopup({
   onPromptChange,
   onEditPrompt,
   onToggleAutoAskAi,
-  onMarkKnown,
-  onIgnore,
 }: SelectionPopupProps) {
   const showAi = mode === 'ai';
-  const showMore = mode === 'more';
   const explanationLabel = explanationState === 'cached' ? 'Cached explanation' : 'AI explanation';
   const width = 360;
   const margin = 12;
-  const estimatedHeight = showMore ? 420 : 280;
+  const estimatedHeight = showAi ? 420 : 220;
   const left = clamp(popup.x - width / 2, margin, window.innerWidth - width - margin);
   const top = clamp(popup.y, margin, window.innerHeight - estimatedHeight - margin);
   const maxHeight = Math.max(160, window.innerHeight - top - margin);
@@ -152,46 +147,8 @@ export function SelectionPopup({
           )}
         </div>
 
-        <div className="flex items-center gap-1 border-t border-border px-2 py-1.5">
-          <PopupAction disabled={saving || Boolean(savedWord)} onClick={onSave}>
-            <Save size={13} />
-            {saving ? 'Saving...' : savedWord ? 'Saved' : 'Save'}
-          </PopupAction>
-          <PopupAction
-            active={showAi}
-            disabled={askingAi}
-            onClick={() => {
-              if (showAi) {
-                onModeChange('toolbar');
-                return;
-              }
-              onModeChange('ai');
-              onAskAi();
-            }}
-          >
-            <Sparkles size={13} />
-            {askingAi ? 'Asking...' : 'Ask AI'}
-          </PopupAction>
-          <PopupAction
-            active={showMore}
-            aria-label="More selection actions"
-            onClick={() => onModeChange(showMore ? 'toolbar' : 'more')}
-          >
-            <MoreHorizontal size={13} />
-            More
-          </PopupAction>
-          <div className="ml-auto flex items-center gap-0.5">
-            <PopupAction title={`Mark "${popup.word}" as known`} aria-label={`Mark ${popup.word} as known`} onClick={onMarkKnown}>
-              <CheckCircle2 size={14} />
-            </PopupAction>
-            <PopupAction title={`Ignore "${popup.word}"`} aria-label={`Ignore ${popup.word}`} onClick={onIgnore}>
-              <Ban size={14} />
-            </PopupAction>
-          </div>
-        </div>
-
-        {showMore && (
-          <div className="max-h-[min(20rem,calc(100vh-8rem))] space-y-2 overflow-y-auto border-t border-border px-3 py-2">
+        {showAi && (
+          <div className="space-y-2 border-t border-border px-3 py-2">
             <div className="flex gap-1.5">
               <select
                 className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
@@ -218,22 +175,34 @@ export function SelectionPopup({
             </label>
             <input
               className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground"
-              placeholder="Question..."
+              placeholder="Custom question (optional)"
               value={aiQuestion}
               onChange={(e) => onQuestionChange(e.target.value)}
             />
-            <div className="flex justify-end">
-              <button
-                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:opacity-50"
-                disabled={askingAi}
-                onClick={onAskAi}
-              >
-                <Sparkles size={13} />
-                {askingAi ? 'Asking...' : 'Ask'}
-              </button>
-            </div>
           </div>
         )}
+
+        <div className="flex items-center gap-1 border-t border-border px-2 py-1.5">
+          <PopupAction disabled={saving || Boolean(savedWord)} onClick={onSave}>
+            <Save size={13} />
+            {saving ? 'Saving...' : savedWord ? 'Saved' : 'Save'}
+          </PopupAction>
+          <PopupAction
+            active={showAi}
+            disabled={askingAi}
+            onClick={() => {
+              if (showAi) {
+                onModeChange('toolbar');
+                return;
+              }
+              onModeChange('ai');
+              onAskAi();
+            }}
+          >
+            <Sparkles size={13} />
+            {askingAi ? 'Asking...' : 'Ask AI'}
+          </PopupAction>
+        </div>
       </div>
     </div>
   );

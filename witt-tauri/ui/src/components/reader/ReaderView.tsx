@@ -91,7 +91,6 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
     savePrompt,
     savedWord,
     selectedPromptId,
-    setVocabularyStatus,
     setAiAnswer,
     setAiQuestion,
     setPopup,
@@ -450,8 +449,6 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
           onPromptChange={setSelectedPromptId}
           onEditPrompt={() => void editPrompt()}
           onToggleAutoAskAi={() => void toggleAutoAskAi()}
-          onMarkKnown={() => void setVocabularyStatus('known')}
-          onIgnore={() => void setVocabularyStatus('ignored')}
         />
       )}
 

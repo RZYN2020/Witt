@@ -286,9 +286,7 @@ export function useEpubRendition({
               }
               if (x >= frameRect.width - PAGE_TURN_EDGE_W) {
                 nextPage();
-                return;
               }
-              onOpenToc();
             },
             true
           );

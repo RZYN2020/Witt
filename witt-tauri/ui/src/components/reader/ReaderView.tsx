@@ -231,6 +231,34 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         e.preventDefault();
         nextPage();
       }
+      if (e.key === 't') {
+        e.preventDefault();
+        setShowUI(true);
+        setShowToc((v) => !v);
+      }
+      if (e.key === 's') {
+        e.preventDefault();
+        setShowSettings((v) => !v);
+      }
+      if (e.key === 'a') {
+        e.preventDefault();
+        setShowAnki((v) => !v);
+      }
+      if (e.key === 'i') {
+        e.preventDefault();
+        setImmersive((v) => {
+          setShowUI(v);
+          return !v;
+        });
+      }
+      if (e.key === 'f') {
+        e.preventDefault();
+        if (document.fullscreenElement) {
+          void document.exitFullscreen();
+        } else {
+          void document.documentElement.requestFullscreen();
+        }
+      }
       if (e.key === 'Escape') {
         if (popup) {
           setPopup(null);
@@ -349,8 +377,10 @@ export function ReaderView({ book, onBack }: ReaderViewProps) {
         onShowSettings={() => setShowSettings(true)}
         onToggleAnki={() => setShowAnki((value) => !value)}
         onToggleImmersive={() => {
-          setImmersive((value) => !value);
-          setShowUI(immersive);
+          setImmersive((v) => {
+            setShowUI(v);
+            return !v;
+          });
         }}
         onTogglePageMode={() => {
           handleDisplayChange({

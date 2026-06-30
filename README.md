@@ -11,6 +11,19 @@ EPUB reader for language learning. Select a word while reading, build sentence-b
 5. Sync annotations to Anki through AnkiConnect.
 6. Pull your Anki deck back into Witt. Deck words are indexed locally, shown in Vocabulary, and highlighted while you read.
 
+### Reader Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `←` / `→` | Previous / next page |
+| `Space` | Next page |
+| `t` | Toggle table of contents |
+| `s` | Toggle settings |
+| `a` | Toggle Anki panel |
+| `i` | Toggle immersive mode |
+| `f` | Toggle browser fullscreen |
+| `Escape` | Close panels, exit immersive, exit fullscreen |
+
 Human-maintained configuration lives in one `settings.toml` file in the app data directory: endpoints, selected profiles, Anki field mapping, behavior toggles, editor preference, prompts, and Anki pipelines. Open or reload it from Advanced configuration in Settings. API keys stay in the OS keyring rather than TOML. See [TOML Configuration](docs/TOML_CONFIGURATION.md).
 
 Witt can run either as a Tauri desktop app or as a local/LAN web app. In web mode, the browser talks to `witt-server`; the server stores EPUBs and SQLite data, then talks to AnkiConnect on the server machine.

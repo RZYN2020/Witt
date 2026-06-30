@@ -72,6 +72,8 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 The EPUB reader is iframe-based because epub.js renders each spine document into its own document context. Keep iframe-specific code in `components/reader/readerEpub.ts` or the `rendition.hooks.content` block in `ReaderView.tsx`.
 
+Keyboard shortcuts are defined in `ReaderView.tsx` via a capture-phase `keydown` listener. They are suppressed when focus is in a form control. The TOC opens only via its header button or the `t` shortcut, not on blank-area clicks.
+
 When changing selection behavior:
 
 - Prefer epub.js `rendition.on('selected')` for completed selections.

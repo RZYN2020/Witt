@@ -179,7 +179,7 @@ The reader is intentionally split so the EPUB lifecycle, chrome, selection UI, a
 
 | Module                         | Responsibility                                                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `ReaderView.tsx`               | Coordinates book loading, epub.js rendition lifecycle, high-level panel state, and data flow between modules                   |
+| `ReaderView.tsx`               | Coordinates book loading, epub.js rendition lifecycle, high-level panel state, keyboard shortcuts, and data flow between modules |
 | `useEpubRendition.ts`          | epub.js book loading, rendition setup, iframe event wiring, progress persistence, pagination, and typography updates           |
 | `ReaderChrome.tsx`             | Header, footer, page-turn edge zones, reader status, and page counters                                                         |
 | `ReaderToc.tsx`                | Recursive table-of-contents display and chapter navigation                                                                     |

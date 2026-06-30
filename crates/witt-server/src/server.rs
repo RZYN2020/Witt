@@ -228,6 +228,7 @@ fn api_router(state: AppState) -> Router {
         .route("/anki/conflicts", get(list_anki_sync_conflicts))
         .route("/anki/sync", post(sync_annotations_to_anki))
         .route("/anki/sync-web", post(sync_anki_web))
+        .route("/anki/download", post(download_from_anki_web))
         .route("/anki/export.tsv", get(export_annotations_tsv))
         .route("/llm/selection", post(ask_llm_about_selection))
         .route("/llm/chat", post(ask_llm_chat))
@@ -693,6 +694,26 @@ async fn refresh_anki_cache(
     Json(payload): Json<RefreshCachePayload>,
 ) -> ApiResult<Json<Vec<AnkiNote>>> {
     let settings = current_settings(&state).await?;
+    let notes =
+        witt_core::anki_connect::fetch_notes(&settings.anki_endpoint, &payload.deck_name).await?;
+    let synced_at = Utc::now().to_rfc3339();
+    let mut conn = state.conn.lock().await;
+    db::replace_anki_notes(
+        &mut conn,
+        &payload.deck_name,
+        &settings.anki_model_name,
+        &notes,
+        &synced_at,
+    )?;
+    Ok(Json(notes))
+}
+
+async fn download_from_anki_web(
+    State(state): State<AppState>,
+    Json(payload): Json<RefreshCachePayload>,
+) -> ApiResult<Json<Vec<AnkiNote>>> {
+    let settings = current_settings(&state).await?;
+    witt_core::anki_connect::sync_anki_web(&settings.anki_endpoint).await?;
     let notes =
         witt_core::anki_connect::fetch_notes(&settings.anki_endpoint, &payload.deck_name).await?;
     let synced_at = Utc::now().to_rfc3339();

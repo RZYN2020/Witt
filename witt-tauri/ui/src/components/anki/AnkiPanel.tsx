@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Download,
+  DownloadCloud,
   RefreshCcw,
   Search,
   Send,
@@ -76,7 +77,7 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
           ))}
         </SelectInput>
 
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           <Button size="sm" variant="outline" onClick={() => void anki.refreshDeck()}>
             <RefreshCcw size={14} />
             Refresh
@@ -89,9 +90,15 @@ export function AnkiPanel({ onKnownWordsChange }: AnkiPanelProps) {
             <Download size={14} />
             Export
           </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
           <Button size="sm" variant="outline" onClick={() => void anki.pushAnkiWeb()}>
             <Upload size={14} />
             Web
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void anki.pullFromAnkiWeb()}>
+            <DownloadCloud size={14} />
+            Pull
           </Button>
         </div>
 

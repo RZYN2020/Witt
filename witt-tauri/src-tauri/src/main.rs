@@ -57,6 +57,7 @@ fn main() {
             commands::list_anki_models,
             commands::select_anki_deck,
             commands::refresh_anki_cache,
+            commands::download_from_anki_web,
             commands::search_anki_notes,
             commands::get_anki_note,
             commands::list_vocabulary,

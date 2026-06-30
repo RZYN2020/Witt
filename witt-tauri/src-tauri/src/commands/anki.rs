@@ -228,6 +228,26 @@ pub async fn refresh_anki_cache(
 }
 
 #[tauri::command]
+pub async fn download_from_anki_web(
+    state: tauri::State<'_, AppState>,
+    deck_name: String,
+) -> Result<Vec<AnkiNote>, String> {
+    let (endpoint, model_name) = {
+        let conn = state.conn.lock().await;
+        let settings =
+            app_config::settings_from_config(&app_config::read_config(&state.config_path)?);
+        db::save_settings(&conn, &settings)?;
+        (settings.anki_endpoint, settings.anki_model_name)
+    };
+    anki_service::sync_anki_web(&endpoint).await?;
+    let notes = anki_service::fetch_notes(&endpoint, &deck_name).await?;
+    let synced_at = Utc::now().to_rfc3339();
+    let mut conn = state.conn.lock().await;
+    db::replace_anki_notes(&mut conn, &deck_name, &model_name, &notes, &synced_at)?;
+    Ok(notes)
+}
+
+#[tauri::command]
 pub async fn search_anki_notes(
     state: tauri::State<'_, AppState>,
     deck_name: Option<String>,

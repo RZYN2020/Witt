@@ -500,6 +500,15 @@ export function syncAnkiWeb(): Promise<SyncSummary> {
     : api<SyncSummary>('/api/anki/sync-web', { method: 'POST' });
 }
 
+export function downloadFromAnkiWeb(deckName: string): Promise<AnkiNote[]> {
+  return hasTauriRuntime()
+    ? command<AnkiNote[]>('download_from_anki_web', { deckName })
+    : api<AnkiNote[]>('/api/anki/download', {
+        method: 'POST',
+        body: JSON.stringify({ deck_name: deckName }),
+      });
+}
+
 export function listAnkiSyncConflicts(): Promise<AnkiSyncConflict[]> {
   return hasTauriRuntime()
     ? command<AnkiSyncConflict[]>('list_anki_sync_conflicts')

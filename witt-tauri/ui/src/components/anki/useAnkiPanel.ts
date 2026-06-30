@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   checkAnki,
   deleteQueuedAnnotation,
+  downloadFromAnkiWeb,
   exportQueuedAnnotationsTsv,
   getSettings,
   listAnkiSyncConflicts,
@@ -241,6 +242,23 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     }
   };
 
+  const pullFromAnkiWeb = async () => {
+    if (!selectedDeck) {
+      setStatus('Select a deck first');
+      return;
+    }
+    setStatus('Downloading from AnkiWeb...');
+    try {
+      const nextNotes = await downloadFromAnkiWeb(selectedDeck);
+      setNotes(nextNotes);
+      setConflicts(await listAnkiSyncConflicts());
+      publishKnownWords(nextNotes, annotations);
+      flashStatus(`Downloaded ${nextNotes.length} cards from AnkiWeb`);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'AnkiWeb download failed');
+    }
+  };
+
   return {
     online,
     decks,
@@ -263,6 +281,7 @@ export function useAnkiPanel({ onKnownWordsChange }: UseAnkiPanelArgs) {
     flashStatus,
     loadPipeline,
     pushAnkiWeb,
+    pullFromAnkiWeb,
     refreshDeck,
     saveMapping,
     searchNotes,

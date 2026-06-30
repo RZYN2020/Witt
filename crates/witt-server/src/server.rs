@@ -227,6 +227,7 @@ fn api_router(state: AppState) -> Router {
         .route("/anki/conflicts", get(list_anki_sync_conflicts))
         .route("/anki/sync", post(sync_annotations_to_anki))
         .route("/anki/sync-web", post(sync_anki_web))
+        .route("/anki/export.tsv", get(export_annotations_tsv))
         .route("/llm/selection", post(ask_llm_about_selection))
         .route("/llm/key", get(get_llm_key).put(save_llm_key))
         .route_layer(middleware::from_fn_with_state(
@@ -779,6 +780,53 @@ async fn sync_anki_web(State(state): State<AppState>) -> ApiResult<Json<SyncSumm
         }
     }
     Ok(Json(summary))
+}
+
+async fn export_annotations_tsv(State(state): State<AppState>) -> ApiResult<Response> {
+    let (settings, annotations) = {
+        let conn = state.conn.lock().await;
+        let settings = db::get_settings(&conn)?;
+        let annotations = db::list_annotations(&conn, None)?
+            .into_iter()
+            .filter(|a| a.status != "synced")
+            .collect::<Vec<_>>();
+        (settings, annotations)
+    };
+    let fields: Vec<&str> = [
+        settings.anki_word_field.as_str(),
+        settings.anki_sentence_field.as_str(),
+        settings.anki_book_field.as_str(),
+        settings.anki_chapter_field.as_str(),
+        settings.anki_meaning_field.as_str(),
+    ]
+    .into_iter()
+    .filter(|f| !f.trim().is_empty())
+    .collect();
+    let mut tsv = String::from(fields.join("\t"));
+    tsv.push('\n');
+    for annotation in &annotations {
+        let values = witt_core::anki_notes::export_fields(&settings, annotation);
+        let row: Vec<String> = fields
+            .iter()
+            .map(|f| {
+                let v = values.get(*f).map(String::as_str).unwrap_or_default();
+                v.replace(['\t', '\r'], " ").replace('\n', "<br>")
+            })
+            .collect();
+        tsv.push_str(&row.join("\t"));
+        tsv.push('\n');
+    }
+    Ok(Response::builder()
+        .header("Content-Type", "text/tab-separated-values; charset=utf-8")
+        .header(
+            "Content-Disposition",
+            format!(
+                "attachment; filename=\"witt-anki-export-{}.tsv\"",
+                Utc::now().format("%Y%m%d-%H%M%S")
+            ),
+        )
+        .body(Body::from(tsv))
+        .unwrap())
 }
 
 async fn ask_llm_about_selection(

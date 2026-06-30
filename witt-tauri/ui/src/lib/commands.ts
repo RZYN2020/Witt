@@ -513,7 +513,18 @@ export function listAnkiSyncConflicts(): Promise<AnkiSyncConflict[]> {
 }
 
 export function exportQueuedAnnotationsTsv(): Promise<ExportSummary> {
-  return command<ExportSummary>('export_queued_annotations_tsv');
+  return hasTauriRuntime()
+    ? command<ExportSummary>('export_queued_annotations_tsv')
+    : apiText('/api/anki/export.tsv').then((tsv) => {
+        const blob = new Blob([tsv], { type: 'text/tab-separated-values' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `witt-anki-export-${new Date().toISOString().slice(0, 10)}.tsv`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        return { path: anchor.download, exported: 0 } satisfies ExportSummary;
+      });
 }
 
 export function checkAnki(): Promise<AnkiStatus> {

@@ -180,14 +180,12 @@ export function SelectionPopup({
             <MoreHorizontal size={13} />
             More
           </PopupAction>
-          <div className="ml-auto flex items-center gap-1">
-            <PopupAction aria-label={`Mark ${popup.word} as known`} onClick={onMarkKnown}>
-              <CheckCircle2 size={13} />
-              Known
+          <div className="ml-auto flex items-center gap-0.5">
+            <PopupAction title={`Mark "${popup.word}" as known`} aria-label={`Mark ${popup.word} as known`} onClick={onMarkKnown}>
+              <CheckCircle2 size={14} />
             </PopupAction>
-            <PopupAction aria-label={`Ignore ${popup.word}`} onClick={onIgnore}>
-              <Ban size={13} />
-              Ignore
+            <PopupAction title={`Ignore "${popup.word}"`} aria-label={`Ignore ${popup.word}`} onClick={onIgnore}>
+              <Ban size={14} />
             </PopupAction>
           </div>
         </div>
